@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login | Heritage Foods</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap'); body { font-family: 'Open Sans', sans-serif; }</style>
+</head>
+<body class="bg-white h-screen flex overflow-hidden">
+
+    <div class="hidden lg:flex w-1/2 bg-green-800 relative justify-center items-center overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-full opacity-20">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#FFFFFF" d="M44.7,-76.4C58.9,-69.2,71.8,-59.1,81.6,-46.6C91.4,-34.1,98.2,-19.2,95.8,-5.3C93.5,8.6,82.1,21.5,70.6,32.3C59.1,43.1,47.5,51.8,35.4,58.7C23.3,65.6,10.7,70.7,-1.5,73.3C-13.7,75.9,-25.9,76,-37.2,70.1C-48.5,64.2,-58.9,52.3,-67.6,39.3C-76.3,26.3,-83.3,12.2,-81.8,-1.2C-80.3,-14.6,-70.3,-27.3,-60.1,-38.5C-49.9,-49.7,-39.5,-59.4,-27.8,-68.2C-16.1,-77,-3.1,-84.9,9.4,-83.4C21.9,-81.9,43.8,-71,44.7,-76.4Z" transform="translate(100 100)" />
+            </svg>
+        </div>
+        
+        <div class="relative z-10 text-center text-white px-12">
+            <div class="bg-white p-4 rounded-xl flex items-center justify-center mx-auto mb-6 shadow-lg w-fit">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Heritage Foods" class="h-16 w-auto">
+    </div>
+            <h1 class="text-4xl font-bold mb-4 tracking-tight">Heritage Foods</h1>
+            <p class="text-green-100 text-lg">Vendor Lifecycle Management System</p>
+            <div class="mt-8 h-1 w-24 bg-orange-400 mx-auto rounded"></div>
+        </div>
+    </div>
+
+    <div class="w-full lg:w-1/2 flex flex-col justify-center px-12 lg:px-24 bg-gray-50">
+        
+        <div class="max-w-md w-full mx-auto bg-white p-10 rounded-2xl shadow-xl border border-gray-100">
+            <div class="mb-10 text-center">
+                <h2 class="text-2xl font-bold text-gray-800">Internal Login</h2>
+                <p class="text-gray-500 text-sm mt-2">Access the procurement dashboard</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-6 text-sm text-center p-3 rounded-lg {{ 'bg-red-50 text-red-600' if category == 'error' else 'bg-green-50 text-green-600' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+                    <input type="email" name="email" required class="w-full border-gray-300 rounded-lg p-3 border focus:ring-green-500 focus:border-green-500 transition shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Password</label>
+                    <input type="password" name="password" required class="w-full border-gray-300 rounded-lg p-3 border focus:ring-green-500 focus:border-green-500 transition shadow-sm">
+                </div>
+                <button type="submit" class="w-full bg-green-700 text-white font-bold py-3 rounded-lg hover:bg-green-800 shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5">
+                    Secure Sign In
+                </button>
+            </form>
+
+            <div class="mt-8 text-center border-t border-gray-100 pt-6">
+                <p class="text-xs text-gray-400">
+                    Restricted Access. Authorized Heritage Foods personnel only.
+                </p>
+                <div class="mt-4 text-xs text-gray-300">
+                    <span class="block">Demo Admin: admin@heritage.com / pass123</span>
+                    <span class="block">Demo Initiator: initiator@heritage.com / pass123</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

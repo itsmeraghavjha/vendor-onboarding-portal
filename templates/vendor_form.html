@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vendor Registration | Heritage Foods</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen py-10">
+
+    <div class="max-w-3xl mx-auto px-4" x-data="vendorForm()">
+        
+        <div class="text-center mb-10">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Heritage Foods" class="h-16 mx-auto mb-4">
+            <h1 class="text-3xl font-bold text-green-900">Vendor Registration</h1>
+        
+            <p class="text-gray-500 mt-2">ID: {{ req.request_id }}</p>
+        </div>
+
+        <div class="mb-8 flex justify-between items-center px-10">
+             <div class="flex flex-col items-center">
+                 <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white transition-colors duration-300" :class="step >= 1 ? 'bg-green-600' : 'bg-gray-300'">1</div>
+                 <span class="text-xs mt-1">Entity</span>
+             </div>
+             <div class="h-1 w-full mx-4 bg-gray-200"><div class="h-full bg-green-600 transition-all duration-300" :style="'width: ' + ((step-1)*50) + '%'"></div></div>
+             <div class="flex flex-col items-center">
+                 <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white transition-colors duration-300" :class="step >= 2 ? 'bg-green-600' : 'bg-gray-300'">2</div>
+                 <span class="text-xs mt-1">Compliance</span>
+             </div>
+             <div class="h-1 w-full mx-4 bg-gray-200"><div class="h-full bg-green-600 transition-all duration-300" :style="'width: ' + (step === 3 ? '100%' : '0%')"></div></div>
+             <div class="flex flex-col items-center">
+                 <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white transition-colors duration-300" :class="step >= 3 ? 'bg-green-600' : 'bg-gray-300'">3</div>
+                 <span class="text-xs mt-1">Banking</span>
+             </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden relative p-8">
+            
+            <form method="POST" enctype="multipart/form-data" @submit.prevent="submitForm($el)">
+                
+                <div x-show="step === 1" x-transition>
+                    <h2 class="text-xl font-bold text-gray-800 mb-6">Entity Details</h2>
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Legal Entity Name</label>
+                            <input type="text" name="vendor_name_basic" value="{{ req.vendor_name_basic }}" class="w-full border p-2.5 rounded border-gray-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Constitution</label>
+                            <select name="structure_type" x-model="structure" class="w-full border p-2.5 rounded border-gray-300">
+                                <option value="" disabled selected>Select Type</option>
+                                <option value="Company">Company</option>
+                                <option value="Partnership">Partnership</option>
+                                <option value="Proprietorship">Proprietorship</option>
+                            </select>
+                        </div>
+                        <div x-show="structure === 'Company'" class="bg-blue-50 p-4 rounded border border-blue-100">
+                            <label class="block text-sm font-medium text-blue-900 mb-1">CIN Number</label>
+                            <input type="text" name="cin_number" class="w-full border p-2 rounded border-blue-200">
+                        </div>
+                    </div>
+                </div>
+
+                <div x-show="step === 2" x-transition style="display: none;">
+                    <h2 class="text-xl font-bold text-gray-800 mb-6">Tax & Statutory</h2>
+                    <div class="space-y-6">
+                        
+                        <div class="p-4 border rounded-lg bg-gray-50">
+                            <label class="block text-sm font-bold text-gray-700 mb-1">GST Number</label>
+                            <input type="text" name="gst_number" class="w-full border p-2 rounded mb-2 border-gray-300 uppercase">
+                            
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Upload GST Certificate (PDF/JPG)</label>
+                            <input type="file" name="file_gst" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                        </div>
+
+                        <div class="p-4 border rounded-lg bg-gray-50">
+                            <label class="block text-sm font-bold text-gray-700 mb-1">PAN Number</label>
+                            <input type="text" name="pan_number" class="w-full border p-2 rounded mb-2 border-gray-300 uppercase">
+                            
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Upload PAN Card Copy</label>
+                            <input type="file" name="file_pan" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                        </div>
+
+                        <div class="flex items-center space-x-4 pt-2">
+                            <label class="text-sm font-medium text-gray-700">MSME Registered?</label>
+                            <label class="flex items-center"><input type="radio" name="msme_registered" value="yes" x-model="isMsme" class="mr-2"> Yes</label>
+                            <label class="flex items-center"><input type="radio" name="msme_registered" value="no" x-model="isMsme" class="mr-2"> No</label>
+                        </div>
+                        <div x-show="isMsme === 'yes'" class="bg-green-50 p-4 rounded border border-green-100">
+                            <label class="block text-sm font-medium text-green-900 mb-1">Udyam Aadhar</label>
+                            <input type="text" name="msme_aadhar" class="w-full border p-2 rounded border-green-200">
+                        </div>
+                    </div>
+                </div>
+
+                <div x-show="step === 3" x-transition style="display: none;">
+                    <h2 class="text-xl font-bold text-gray-800 mb-6">Banking Details</h2>
+                    <div class="space-y-5">
+                        <input type="text" name="bank_name" placeholder="Bank Name" class="w-full border p-2.5 rounded border-gray-300">
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="text" name="account_number" placeholder="Account Number" class="w-full border p-2.5 rounded border-gray-300">
+                            <input type="text" name="ifsc_code" placeholder="IFSC Code" class="w-full border p-2.5 rounded border-gray-300 uppercase">
+                        </div>
+                        
+                        <div class="p-4 border border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">
+                            <p class="text-sm font-medium text-gray-700 mb-2">Upload Cancelled Cheque / Passbook</p>
+                            <input type="file" name="file_cheque" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-between border-t pt-4">
+                    <button type="button" x-show="step > 1" @click="step--" class="text-gray-600 px-4 py-2 font-medium">Back</button>
+                    <div class="ml-auto">
+                        <button type="button" x-show="step < 3" @click="step++" class="bg-gray-900 text-white px-6 py-2 rounded font-medium">Next</button>
+                        <button type="submit" x-show="step === 3" class="bg-green-600 text-white px-6 py-2 rounded font-bold shadow-lg">Verify & Submit</button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function vendorForm() {
+            return {
+                step: 1,
+                structure: '',
+                isMsme: 'no',
+                submitForm(el) { el.submit(); }
+            }
+        }
+    </script>
+</body>
+</html>
