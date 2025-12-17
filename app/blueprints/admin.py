@@ -1,4 +1,6 @@
 import json
+import csv
+import io
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func
@@ -28,6 +30,7 @@ def reorder_steps():
 def admin_workflow():
     if current_user.role != 'admin': return "Access Denied", 403
     
+    # CORRECT VARIABLE DEFINITION (snake_case)
     active_tab = request.form.get('active_tab', request.args.get('active_tab', 'dashboard'))
     
     # --- 1. Master Data Setup ---
@@ -82,8 +85,39 @@ def admin_workflow():
 
     # --- POST HANDLING ---
     if request.method == 'POST':
-        # A. UPDATE EMAIL (The Pencil Icon Action)
-        if 'update_logic_type' in request.form:
+        
+        # --- BULK IMPORT MASTERS ---
+        if 'master_import_file' in request.files:
+            file = request.files['master_import_file']
+            if file and file.filename.endswith('.csv'):
+                try:
+                    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+                    csv_input = csv.DictReader(stream)
+                    count = 0
+                    for row in csv_input:
+                        row_clean = {k.strip().lower(): v for k, v in row.items()}
+                        cat = row_clean.get('category', '').strip().upper()
+                        code = row_clean.get('code', '').strip()
+                        label = row_clean.get('label', '').strip()
+                        
+                        if cat and code and label:
+                            exists = MasterData.query.filter_by(category=cat, code=code).first()
+                            if not exists:
+                                db.session.add(MasterData(category=cat, code=code, label=label))
+                                count += 1
+                    db.session.commit()
+                    flash(f"Successfully imported {count} items.", "success")
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f"Import Error: {str(e)}", "error")
+            else:
+                flash("Please upload a valid CSV file.", "error")
+            
+            active_tab = 'masters'
+            selected_master_cat = None 
+
+        # A. UPDATE EMAIL
+        elif 'update_logic_type' in request.form:
             l_type = request.form['update_logic_type']
             r_id = request.form['rule_id']
             new_email = request.form['new_email']
@@ -180,7 +214,5 @@ def admin_workflow():
         'req_by_dept': {r[0]: r[1] for r in db.session.query(VendorRequest.initiator_dept, func.count(VendorRequest.id)).group_by(VendorRequest.initiator_dept).all()}
     }
 
+    # CORRECT RETURN STATEMENT
     return render_template('admin_workflow.html', departments=departments, stats=stats, activeTab=active_tab, master_categories=master_categories, selected_master_cat=selected_master_cat, master_items=master_items, logic_view=logic_view, dept_rule_counts=dept_rule_counts, dept_rules=dept_rules, dept_steps=dept_steps, dept_it_routes=dept_it_routes, finance_users=finance_users, user_dept_view=user_dept_view, dept_user_stats=dept_user_stats, dept_initiators=dept_initiators, dept_approvers=dept_approvers, json=json)
-
-@admin_bp.route('/nuke-and-reset')
-def nuke_and_reset(): return "Manual."

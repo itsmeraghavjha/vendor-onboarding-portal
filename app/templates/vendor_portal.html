@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Onboarding - Heritage Foods</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .step-section { transition: all 0.3s ease-in-out; }
+        .hidden-step { display: none; }
+        .error-border { border: 2px solid #ef4444 !important; background-color: #fef2f2; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <div class="max-w-4xl mx-auto py-10 px-4">
+        
+        <div class="bg-white shadow-sm border-b-4 border-orange-500 rounded-t-lg p-6 mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Vendor Registration</h1>
+                <p class="text-xs text-gray-500 font-mono mt-1">Ref: {{ req.request_id }}</p>
+            </div>
+            <div class="text-right">
+                <div class="font-bold text-orange-600">Heritage Foods</div>
+                <div class="text-[10px] text-gray-400">Vendor Portal</div>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <div class="flex justify-between items-center text-xs font-bold text-gray-500 uppercase tracking-widest px-2">
+                <span id="label_1" class="text-orange-600">1. General Info</span>
+                <span id="label_2">2. Tax & Compliance</span>
+                <span id="label_3">3. Bank Details</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                <div id="progress_bar" class="bg-orange-600 h-2.5 rounded-full transition-all duration-500" style="width: 33%"></div>
+            </div>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" id="vendorForm" class="bg-white p-8 rounded-lg shadow-sm border border-gray-200" novalidate>
+
+            <div id="step_1" class="step-section">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 pb-2 border-b">General Information</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Title <span class="text-red-500">*</span></label>
+                        <select name="title" required class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                            <option value="">--</option>
+                            {% for t in titles %}<option value="{{ t }}" {% if req.title == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Legal Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="legal_name" value="{{ req.vendor_name_basic or 'Missing Name' }}" required class="input-field w-full border border-gray-300 rounded p-2 text-sm bg-gray-50" readonly>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Trade Name</label>
+                        <input type="text" name="trade_name" value="{{ req.trade_name or '' }}" class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Constitution <span class="text-red-500">*</span></label>
+                        <select name="constitution" id="constitutionSelect" onchange="toggleCin()" required class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                            <option value="">Select Type</option>
+                            {% for c in constitutions %}
+                            <option value="{{ c }}" {% if req.constitution == c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div id="cin_section" class="hidden mb-6 bg-blue-50 p-4 rounded border border-blue-100">
+                    <label class="block text-xs font-bold text-blue-700 uppercase mb-1">CIN Number <span class="text-red-500">*</span></label>
+                    <input type="text" name="cin_no" id="cinInput" value="{{ req.cin_number or '' }}" class="w-full border border-blue-300 rounded p-2 text-sm uppercase font-mono">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Contact Person <span class="text-red-500">*</span></label>
+                        <input type="text" name="contact_name" value="{{ req.contact_person_name or '' }}" required class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Designation <span class="text-red-500">*</span></label>
+                        <input type="text" name="designation" value="{{ req.contact_person_designation or '' }}" required class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Mobile 1 <span class="text-red-500">*</span></label><input type="text" name="mobile_1" value="{{ req.mobile_number or '' }}" required pattern="[0-9]{10}" class="input-field w-full border border-gray-300 rounded p-2 text-sm"></div>
+                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Mobile 2</label><input type="text" name="mobile_2" value="{{ req.mobile_number_2 or '' }}" class="input-field w-full border border-gray-300 rounded p-2 text-sm"></div>
+                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Landline</label><input type="text" name="landline" value="{{ req.landline_number or '' }}" class="input-field w-full border border-gray-300 rounded p-2 text-sm"></div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Product/Service Description <span class="text-red-500">*</span></label>
+                    <textarea name="product_desc" required rows="4" placeholder="Describe the goods or services you provide..." class="input-field w-full border border-gray-300 rounded p-2 text-sm">{{ req.product_service_description or '' }}</textarea>
+                </div>
+
+                <h3 class="text-xs font-bold text-gray-400 uppercase mb-2 border-b pb-1">Address Details</h3>
+                <div class="space-y-3">
+                    <input type="text" name="street_1" value="{{ req.street or '' }}" placeholder="Street 1" required class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="street_2" value="{{ req.street_2 or '' }}" placeholder="Street 2" class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                        <input type="text" name="street_3" value="{{ req.street_3 or '' }}" placeholder="Street 3" class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <input type="text" name="city" value="{{ req.city or '' }}" placeholder="City" required class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                        <input type="text" name="pincode" value="{{ req.postal_code or '' }}" placeholder="Pincode" required pattern="[0-9]{6}" class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                        
+                        <div>
+                            <select name="state" id="stateSelect" required class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                                <option value="">Select State</option>
+                                {% for r in states %}
+                                <option value="{{ r.code }}" {% if req.region_code == r.code or req.state == r.code %}selected{% endif %}>{{ r.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end mt-8">
+                    <button type="button" onclick="forceNext(2)" class="px-4 py-2 bg-gray-100 text-gray-400 rounded text-xs font-bold hover:bg-gray-200 mr-2">Skip (Debug)</button>
+                    <button type="button" onclick="nextStep(2)" class="px-6 py-2 bg-orange-600 text-white rounded font-bold hover:bg-orange-700 shadow-md">Next &rarr;</button>
+                </div>
+            </div>
+
+            <div id="step_2" class="step-section hidden-step">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 pb-2 border-b">Tax & Compliance</h2>
+
+                <div class="mb-6 border-b pb-4 border-gray-100">
+                    <div class="flex items-center gap-6 mb-4">
+                        <label class="text-sm font-bold text-gray-700">GST Registered? <span class="text-red-500">*</span></label>
+                        <div class="flex gap-4">
+                            <label><input type="radio" name="gst_reg" value="YES" {% if req.gst_registered == 'YES' %}checked{% endif %} required onclick="toggleGst(true)"> Yes</label>
+                            <label><input type="radio" name="gst_reg" value="NO" {% if req.gst_registered == 'NO' %}checked{% endif %} onclick="toggleGst(false)"> No</label>
+                        </div>
+                    </div>
+                    <div id="gst_panel" class="hidden grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded border">
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase">GST No</label><input type="text" name="gst_no" id="gstInput" value="{{ req.gst_number or '' }}" class="w-full border p-2 rounded text-sm uppercase"></div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase">Upload File</label>
+                            <input type="file" name="gst_file" id="gstFile" class="text-sm" {% if not req.gst_file_path %}required{% endif %}>
+                            {% if req.gst_file_path %}<p class="text-xs text-green-600 mt-1">✓ File uploaded previously</p>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6 border-b pb-4 border-gray-100">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase">PAN Number <span class="text-red-500">*</span></label><input type="text" name="pan_no" value="{{ req.pan_number or '' }}" required placeholder="ABCDE1234F" class="input-field w-full border p-2 rounded text-sm uppercase"></div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase">Upload PAN <span class="text-red-500">*</span></label>
+                            <input type="file" name="pan_file" class="input-field text-sm" {% if not req.pan_file_path %}required{% endif %}>
+                            {% if req.pan_file_path %}<p class="text-xs text-green-600 mt-1">✓ File uploaded previously</p>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6 border-b pb-4 border-gray-100">
+                    <div class="flex items-center gap-6 mb-4">
+                        <label class="text-sm font-bold text-gray-700">MSME Registered? <span class="text-red-500">*</span></label>
+                        <div class="flex gap-4">
+                            <label><input type="radio" name="msme_reg" value="YES" {% if req.msme_registered == 'YES' %}checked{% endif %} required onclick="toggleMsme(true)"> Yes</label>
+                            <label><input type="radio" name="msme_reg" value="NO" {% if req.msme_registered == 'NO' %}checked{% endif %} onclick="toggleMsme(false)"> No</label>
+                        </div>
+                    </div>
+                    <div id="msme_panel" class="hidden bg-gray-50 p-4 rounded border">
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div><label class="block text-xs font-bold text-gray-500 uppercase">Udyam No</label><input type="text" name="udyam_no" id="udyamInput" value="{{ req.msme_number or '' }}" class="w-full border p-2 rounded text-sm"></div>
+                            <div><label class="block text-xs font-bold text-gray-500 uppercase">Type</label><select name="msme_type" id="msmeSelect" class="w-full border p-2 rounded text-sm"><option value="">--</option>{% for m in msme_types %}<option value="{{ m }}" {% if req.msme_type == m %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase">Upload Cert</label>
+                            <input type="file" name="msme_file" id="msmeFile" class="text-sm" {% if not req.msme_file_path %}required{% endif %}>
+                            {% if req.msme_file_path %}<p class="text-xs text-green-600 mt-1">✓ File uploaded previously</p>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase mb-2">TDS Exemption (Optional)</h3>
+                    <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded border">
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase">Cert No</label><input type="text" name="tds_cert_no" value="{{ req.tds_exemption_number or '' }}" class="w-full border p-2 rounded text-sm"></div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase">Upload File</label>
+                            <input type="file" name="tds_file" class="text-sm">
+                            {% if req.tds_exemption_file_path %}<p class="text-xs text-green-600 mt-1">✓ File uploaded previously</p>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between mt-8">
+                    <button type="button" onclick="prevStep(1)" class="px-6 py-2 bg-gray-200 text-gray-700 rounded font-bold hover:bg-gray-300">&larr; Back</button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="forceNext(3)" class="px-4 py-2 bg-gray-100 text-gray-400 rounded text-xs font-bold hover:bg-gray-200">Skip</button>
+                        <button type="button" onclick="nextStep(3)" class="px-6 py-2 bg-orange-600 text-white rounded font-bold hover:bg-orange-700 shadow-md">Next &rarr;</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step_3" class="step-section hidden-step">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 pb-2 border-b">Bank Information</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Bank Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="bank_name" value="{{ req.bank_name or '' }}" required placeholder="e.g. HDFC Bank, Gachibowli Branch" class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Account Holder Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="holder_name" value="{{ req.bank_account_holder_name or '' }}" required class="input-field w-full border border-gray-300 rounded p-2 text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Account Number <span class="text-red-500">*</span></label>
+                        <input type="password" name="acc_no" value="{{ req.bank_account_no or '' }}" required class="input-field w-full border border-gray-300 rounded p-2 text-sm mb-2" placeholder="Enter Account No">
+                        <input type="text" name="acc_no_confirm" value="{{ req.bank_account_no or '' }}" required class="input-field w-full border border-gray-300 rounded p-2 text-sm" placeholder="Confirm Account No">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">IFSC Code <span class="text-red-500">*</span></label>
+                        <input type="text" name="ifsc" value="{{ req.bank_ifsc or '' }}" required class="input-field w-full border border-gray-300 rounded p-2 text-sm uppercase">
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Cancelled Cheque / Passbook <span class="text-red-500">*</span></label>
+                    <input type="file" name="bank_file" {% if not req.bank_proof_file_path %}required{% endif %} class="input-field w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
+                    {% if req.bank_proof_file_path %}<p class="text-xs text-green-600 mt-1">✓ File uploaded previously</p>{% endif %}
+                </div>
+
+                <div class="flex justify-between mt-8">
+                    <button type="button" onclick="prevStep(2)" class="px-6 py-2 bg-gray-200 text-gray-700 rounded font-bold hover:bg-gray-300">&larr; Back</button>
+                    <button type="submit" class="px-8 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 shadow-lg">Submit Application</button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+
+    <script>
+        let currentStep = 1;
+
+        function showStep(step) {
+            document.querySelectorAll('.step-section').forEach(el => el.classList.add('hidden-step'));
+            document.getElementById(`step_${step}`).classList.remove('hidden-step');
+            const width = step === 1 ? '33%' : step === 2 ? '66%' : '100%';
+            document.getElementById('progress_bar').style.width = width;
+            ['label_1', 'label_2', 'label_3'].forEach((id, idx) => {
+                document.getElementById(id).className = (idx + 1) <= step ? 'text-orange-600' : 'text-gray-500';
+            });
+            window.scrollTo(0, 0);
+        }
+
+        function forceNext(target) {
+            console.warn("Forcing next step without validation.");
+            currentStep = target;
+            showStep(target);
+        }
+
+        function nextStep(target) {
+            const currentDiv = document.getElementById(`step_${currentStep}`);
+            const inputs = currentDiv.querySelectorAll('input, select, textarea');
+            let missing = [];
+
+            inputs.forEach(input => {
+                if (input.offsetParent === null) return; // Skip Hidden
+                if (!input.hasAttribute('required')) return; // Skip Optional
+
+                let isValid = true;
+                if (input.type === 'radio') {
+                    const group = document.getElementsByName(input.name);
+                    let checked = false;
+                    group.forEach(r => { if(r.checked) checked = true; });
+                    if (!checked) isValid = false;
+                } else {
+                    if (!input.value || input.value.trim() === '') isValid = false;
+                }
+
+                if (!isValid) {
+                    input.classList.add('error-border');
+                    let label = input.name;
+                    if (input.previousElementSibling) label = input.previousElementSibling.innerText;
+                    else if (input.parentElement && input.parentElement.previousElementSibling) label = input.parentElement.previousElementSibling.innerText;
+                    
+                    missing.push(label.replace('*','').trim());
+                    input.addEventListener('input', () => input.classList.remove('error-border'));
+                } else {
+                    input.classList.remove('error-border');
+                }
+            });
+
+            if (missing.length > 0) {
+                alert("DEBUG: Missing Fields:\n\n• " + missing.join("\n• "));
+            } else {
+                currentStep = target;
+                showStep(target);
+            }
+        }
+
+        function prevStep(target) {
+            currentStep = target;
+            showStep(target);
+        }
+
+        // --- DYNAMIC LOGIC ---
+        function toggleCin() {
+            const val = document.getElementById('constitutionSelect').value;
+            const cinSection = document.getElementById('cin_section');
+            const cinInput = document.getElementById('cinInput');
+            if (val && val.toLowerCase().includes('company')) {
+                cinSection.classList.remove('hidden');
+                cinInput.required = true;
+            } else {
+                cinSection.classList.add('hidden');
+                cinInput.required = false;
+                cinInput.value = "";
+                cinInput.classList.remove('error-border');
+            }
+        }
+
+        function toggleGst(show) {
+            const p = document.getElementById('gst_panel');
+            const inputs = p.querySelectorAll('input');
+            if(show) {
+                p.classList.remove('hidden');
+                inputs.forEach(i => {
+                    if (i.type === 'file' && !i.hasAttribute('required')) return; 
+                    if (i.type === 'file' && '{{ req.gst_file_path }}') return; 
+                    i.required = true; 
+                });
+            } else {
+                p.classList.add('hidden');
+                inputs.forEach(i => { i.required = false; i.value = ''; i.classList.remove('error-border'); });
+            }
+        }
+
+        function toggleMsme(show) {
+            const p = document.getElementById('msme_panel');
+            const inputs = p.querySelectorAll('input, select');
+            if(show) {
+                p.classList.remove('hidden');
+                inputs.forEach(i => {
+                    if (i.type === 'file' && '{{ req.msme_file_path }}') return;
+                    i.required = true;
+                });
+            } else {
+                p.classList.add('hidden');
+                inputs.forEach(i => { i.required = false; i.value = ''; i.classList.remove('error-border'); });
+            }
+        }
+        
+        window.addEventListener('load', () => { 
+            toggleCin();
+            const stateSelect = document.getElementById('stateSelect');
+            if (stateSelect.options.length <= 1) {
+                const opt = document.createElement('option');
+                opt.value = "00";
+                opt.text = "Other / Manual (Data Missing)";
+                stateSelect.add(opt);
+            }
+            const gstYes = document.querySelector('input[name="gst_reg"][value="YES"]');
+            if(gstYes && gstYes.checked) toggleGst(true);
+            const msmeYes = document.querySelector('input[name="msme_reg"][value="YES"]');
+            if(msmeYes && msmeYes.checked) toggleMsme(true);
+        });
+    </script>
+</body>
+</html>

@@ -1,119 +1,316 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-7xl mx-auto">
+<div class="max-w-6xl mx-auto py-8 px-4">
     
-    <div class="flex justify-between items-center mb-8">
+    <div class="bg-white p-6 rounded-t-xl shadow-sm border-b-4 border-blue-600 mb-6 flex justify-between items-start">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Review Application</h1>
-            <p class="text-gray-500 mt-1">Request ID: <span class="font-mono font-bold">{{ req.request_id }}</span></p>
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold text-gray-900">{{ req.vendor_name_basic }}</h1>
+                <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">{{ req.status }}</span>
+            </div>
+            <p class="text-gray-500 mt-1">Ref: {{ req.request_id }} &bull; Type: {{ req.vendor_type }}</p>
         </div>
         <div class="text-right">
-            <span class="block text-xs font-bold text-gray-400 uppercase tracking-wider">Current Status</span>
-            <div class="flex items-center gap-2 mt-1">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
-                    {{ req.current_dept_flow.replace('_', ' ') }}
-                </span>
-            </div>
+             <div class="text-xs text-gray-400 uppercase font-bold">Current Stage</div>
+             <div class="text-lg font-bold text-orange-600">{{ stage_name if stage_name else 'Waiting...' }}</div>
+             <div class="text-xs text-gray-500">{{ pending_email }}</div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <form method="POST">
         
-        <div class="lg:col-span-2 space-y-8">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Vendor Profile</h3>
-                <dl class="grid grid-cols-2 gap-x-4 gap-y-6 text-sm">
-                    <div><dt class="text-xs font-bold text-gray-500 uppercase">Vendor Name</dt><dd>{{ req.vendor_name_basic }}</dd></div>
-                    <div><dt class="text-xs font-bold text-gray-500 uppercase">Email</dt><dd>{{ req.vendor_email }}</dd></div>
-                    <div><dt class="text-xs font-bold text-gray-500 uppercase">Address</dt>
-                        <dd>{{ req.address_line1 }}, {{ req.address_city }} - {{ req.address_pincode }}</dd>
-                    </div>
-                    <div><dt class="text-xs font-bold text-gray-500 uppercase">Contact</dt>
-                        <dd>{{ req.contact_name }} ({{ req.contact_number }})</dd>
-                    </div>
-                </dl>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 p-6">
+            <h3 class="text-gray-900 font-bold border-b pb-2 mb-4">Vendor Details</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+                <div><label class="block text-gray-400 text-xs uppercase">Title</label><div class="font-medium">{{ req.title }}</div></div>
+                <div><label class="block text-gray-400 text-xs uppercase">Legal Name</label><div class="font-medium">{{ req.vendor_name_basic }}</div></div>
+                <div><label class="block text-gray-400 text-xs uppercase">Constitution</label><div class="font-medium">{{ req.constitution }}</div></div>
+                <div><label class="block text-gray-400 text-xs uppercase">CIN</label><div class="font-medium font-mono">{{ req.cin_number or 'N/A' }}</div></div>
+                
+                <div><label class="block text-gray-400 text-xs uppercase">GST</label><div class="font-medium">{{ req.gst_number or 'N/A' }}</div></div>
+                <div><label class="block text-gray-400 text-xs uppercase">PAN</label><div class="font-medium">{{ req.pan_number }}</div></div>
+                <div><label class="block text-gray-400 text-xs uppercase">Bank</label><div class="font-medium">{{ req.bank_name }}</div></div>
+                <div><label class="block text-gray-400 text-xs uppercase">Product</label><div class="font-medium truncate">{{ req.product_service_description }}</div></div>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-100 flex gap-4">
+                {% if req.gst_file_path %}<a href="#" class="text-blue-600 text-xs hover:underline">📄 GST Cert</a>{% endif %}
+                {% if req.pan_file_path %}<a href="#" class="text-blue-600 text-xs hover:underline">📄 PAN Card</a>{% endif %}
+                {% if req.bank_proof_file_path %}<a href="#" class="text-blue-600 text-xs hover:underline">📄 Bank Proof</a>{% endif %}
+            </div>
+        </div>
+
+        {% if is_my_turn and req.current_dept_flow == 'INITIATOR_REVIEW' %}
+        <div class="bg-blue-50 rounded-lg shadow-sm border border-blue-200 mb-6 p-6">
+            <h3 class="text-blue-900 font-bold border-b border-blue-200 pb-2 mb-4">⚡ Buyer Approval: Commercial Terms</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Account Group</label>
+                    <select name="account_group" class="w-full border border-gray-300 rounded p-2 text-sm bg-white">
+                        {% for item in acc_groups %}<option value="{{ item.code }}" {% if req.account_group == item.code %}selected{% endif %}>{{ item.code }} - {{ item.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Purchase Org <span class="text-red-500">*</span></label>
+                    <select name="purchase_org" required class="w-full border border-gray-300 rounded p-2 text-sm bg-white">
+                        <option value="">Select...</option>
+                        {% for item in purch_orgs %}<option value="{{ item.code }}" {% if req.purchase_org == item.code %}selected{% endif %}>{{ item.label }} ({{ item.code }})</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Payment Terms <span class="text-red-500">*</span></label>
+                    <select name="payment_terms" required class="w-full border border-gray-300 rounded p-2 text-sm bg-white">
+                        <option value="">Select...</option>
+                        {% for item in pay_terms %}<option value="{{ item.code }}" {% if req.payment_terms == item.code %}selected{% endif %}>{{ item.code }} - {{ item.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Incoterms <span class="text-red-500">*</span></label>
+                    <select name="incoterms" required class="w-full border border-gray-300 rounded p-2 text-sm bg-white">
+                        <option value="">Select...</option>
+                        {% for item in incoterms %}<option value="{{ item.code }}" {% if req.incoterms == item.code %}selected{% endif %}>{{ item.code }} - {{ item.label }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if is_my_turn and req.finance_stage == 'BILL_PASSING' %}
+        <div class="bg-indigo-50 rounded-lg shadow-sm border border-indigo-200 mb-6 p-6">
+            <h3 class="text-indigo-900 font-bold border-b border-indigo-200 pb-2 mb-4">💰 Bill Passing: Assign GL</h3>
+            <div>
+                <label class="block text-xs font-bold text-indigo-700 uppercase mb-1">General Ledger (GL) Account <span class="text-red-500">*</span></label>
+                <select name="gl_account" required class="w-full border border-indigo-300 rounded p-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500">
+                    <option value="">Select Vendor GL...</option>
+                    {% for item in gl_list %}<option value="{{ item.code }}" {% if req.gl_account == item.code %}selected{% endif %}>{{ item.code }} - {{ item.label }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if is_my_turn and req.finance_stage == 'TREASURY' %}
+        <div class="bg-emerald-50 rounded-lg shadow-sm border border-emerald-200 mb-6 p-6">
+            <h3 class="text-emerald-900 font-bold border-b border-emerald-200 pb-2 mb-4">🏦 Treasury: Assign House Bank</h3>
+            <div>
+                <label class="block text-xs font-bold text-emerald-700 uppercase mb-1">House Bank <span class="text-red-500">*</span></label>
+                <select name="house_bank" required class="w-full border border-emerald-300 rounded p-2 text-sm bg-white focus:ring-2 focus:ring-emerald-500">
+                    <option value="">Select House Bank...</option>
+                    {% for item in house_banks %}<option value="{{ item.code }}" {% if req.house_bank == item.code %}selected{% endif %}>{{ item.label }} ({{ item.code }})</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if is_my_turn and req.finance_stage == 'TAX' %}
+        <div class="bg-yellow-50 rounded-lg shadow-sm border border-yellow-200 mb-6 p-6 overflow-x-auto">
+            <h3 class="text-yellow-900 font-bold border-b border-yellow-200 pb-2 mb-4">🧾 Tax Team Review</h3>
+            
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-sm font-bold text-gray-700">1. Withholding Tax Details</h4>
+                    <button type="button" onclick="addTax1Row()" class="text-xs bg-green-600 text-white px-2 py-1 rounded font-bold hover:bg-green-700">+ Add Row</button>
+                </div>
+                <table class="w-full text-xs text-left text-gray-500 border border-gray-200" id="tax1_table">
+                    <thead class="bg-gray-100 uppercase text-gray-700">
+                        <tr>
+                            <th class="px-2 py-2 border">W/Tax Type</th>
+                            <th class="px-2 py-2 border">W/Tax Code</th>
+                            <th class="px-2 py-2 border text-center">Subj to W/Tax</th>
+                            <th class="px-2 py-2 border">Recipient Type</th>
+                            <th class="px-2 py-2 border">Exemp. Reason</th>
+                            <th class="px-2 py-2 border">Cert No.</th>
+                            <th class="px-2 py-2 border">Rate %</th>
+                            <th class="px-2 py-2 border">Start</th>
+                            <th class="px-2 py-2 border">End</th>
+                            <th class="px-1 py-1 border text-center">X</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tax1_body"></tbody>
+                </table>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Documents</h3>
-                <div class="space-y-3">
-                    {% set docs = [(req.doc_gst, 'GST Cert'), (req.doc_pan, 'PAN Card'), (req.doc_cheque, 'Cheque'), (req.doc_msme, 'MSME Cert')] %}
-                    {% for path, label in docs %}
-                        {% if path %}
-                        <div class="flex justify-between p-3 bg-gray-50 rounded border">
-                            <span>📄 {{ label }}</span>
-                            <a href="{{ url_for('static', filename='uploads/' + path) }}" target="_blank" class="text-blue-600 font-bold text-xs">View ↗</a>
-                        </div>
-                        {% endif %}
-                    {% endfor %}
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-sm font-bold text-gray-700">2. 194Q & Section Details</h4>
+                    <button type="button" onclick="addTax2Row()" class="text-xs bg-green-600 text-white px-2 py-1 rounded font-bold hover:bg-green-700">+ Add Row</button>
+                </div>
+                <table class="w-full text-xs text-left text-gray-500 border border-gray-200" id="tax2_table">
+                    <thead class="bg-gray-100 uppercase text-gray-700">
+                        <tr>
+                            <th class="px-2 py-2 border">Section Code</th>
+                            <th class="px-2 py-2 border">Cert No.</th>
+                            <th class="px-2 py-2 border">Rate %</th>
+                            <th class="px-2 py-2 border">Start</th>
+                            <th class="px-2 py-2 border">End</th>
+                            <th class="px-2 py-2 border bg-gray-50">Exemp Reason</th>
+                            <th class="px-2 py-2 border">W/Tax Type</th>
+                            <th class="px-2 py-2 border">W/Tax Code</th>
+                            <th class="px-2 py-2 border">Threshold</th>
+                            <th class="px-2 py-2 border bg-gray-50">Curr</th>
+                            <th class="px-1 py-1 border text-center">X</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tax2_body"></tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if is_my_turn and req.current_dept_flow == 'IT' %}
+        <div class="bg-purple-50 rounded-lg shadow-sm border border-purple-200 mb-6 p-6">
+             <h3 class="text-purple-900 font-bold border-b border-purple-200 pb-2 mb-4">🖥️ IT Team: SAP Creation</h3>
+             
+             <div class="bg-white p-4 rounded border border-purple-100 mb-6">
+                 <div class="flex justify-between items-center mb-4">
+                     <div>
+                         <h4 class="font-bold text-gray-800">Master Data Summary</h4>
+                         <p class="text-xs text-gray-500">Review all collected data before SAP creation.</p>
+                     </div>
+                     <a href="{{ url_for('main.download_sap_report', req_id=req.id) }}" class="bg-green-600 text-white px-4 py-2 rounded font-bold text-sm shadow hover:bg-green-700 flex items-center gap-2">
+                        📥 Download SAP Upload File
+                     </a>
+                 </div>
+                 
+                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-gray-600">
+                     <div class="p-2 bg-gray-50 rounded border">
+                         <span class="block font-bold text-gray-400">Account Group</span>
+                         <span class="text-gray-900 font-mono">{{ req.account_group }}</span>
+                     </div>
+                     <div class="p-2 bg-gray-50 rounded border">
+                         <span class="block font-bold text-gray-400">GL Account</span>
+                         <span class="text-gray-900 font-mono">{{ req.gl_account }}</span>
+                     </div>
+                     <div class="p-2 bg-gray-50 rounded border">
+                         <span class="block font-bold text-gray-400">House Bank</span>
+                         <span class="text-gray-900 font-mono">{{ req.house_bank }}</span>
+                     </div>
+                     <div class="p-2 bg-gray-50 rounded border">
+                         <span class="block font-bold text-gray-400">Purch Org</span>
+                         <span class="text-gray-900 font-mono">{{ req.purchase_org }}</span>
+                     </div>
+                 </div>
+             </div>
+
+             <div class="bg-white p-4 rounded border border-purple-200">
+                 <label class="block text-sm font-bold text-purple-700 uppercase mb-2">Final Step: Assign SAP Vendor Code <span class="text-red-500">*</span></label>
+                 <div class="flex gap-4">
+                     <input type="text" name="sap_id" required placeholder="e.g. 30001234" class="flex-1 border border-gray-300 rounded p-2 text-lg font-mono tracking-wider">
+                     <button type="submit" name="action" value="approve" class="px-8 py-2 bg-purple-600 text-white font-bold rounded shadow-sm hover:bg-purple-700">
+                        ✅ Complete
+                     </button>
+                 </div>
+             </div>
+        </div>
+        {% endif %}
+
+        {% if is_my_turn and req.current_dept_flow != 'IT' %}
+        <div class="flex justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-200 sticky bottom-4 shadow-lg">
+            <div class="flex gap-2">
+                <button type="button" onclick="document.getElementById('queryModal').classList.remove('hidden')" class="px-4 py-2 bg-white border border-yellow-500 text-yellow-700 font-bold rounded shadow-sm">❓ Query</button>
+                <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')" class="px-4 py-2 bg-white border border-red-500 text-red-700 font-bold rounded shadow-sm">🚫 Reject</button>
+            </div>
+            <button type="submit" name="action" value="approve" class="px-8 py-2 bg-green-600 text-white font-bold rounded shadow-sm">✅ Approve & Next</button>
+        </div>
+        {% endif %}
+
+        <div id="queryModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div class="bg-white rounded-xl p-6 w-96 shadow-2xl">
+                <h3 class="font-bold text-lg mb-2 text-gray-900">Query to Vendor</h3>
+                <textarea name="comments" class="w-full border p-2 rounded mb-4 h-24 text-sm" placeholder="Clarification needed..."></textarea>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('queryModal').classList.add('hidden')" class="text-gray-500 px-3">Cancel</button>
+                    <button type="submit" name="action" value="send_back" class="bg-yellow-500 text-white px-4 py-2 rounded font-bold">Send Back</button>
                 </div>
             </div>
         </div>
 
-        <div class="col-span-1">
-            {% if is_my_turn %}
-                <div class="bg-white rounded-xl shadow-lg border-t-4 border-green-600 p-6 sticky top-24">
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Take Action</h3>
-                    <form method="POST" class="space-y-4">
-                        
-                        {% if req.current_dept_flow == 'INITIATOR_REVIEW' or req.finance_stage == 'TAX' %}
-                        <div class="bg-blue-50 p-3 rounded border border-blue-100">
-                            <label class="block text-xs font-bold text-blue-800 uppercase mb-1">Account Group</label>
-                            <select name="account_group" class="w-full border p-2 rounded text-sm">
-                                <option value="ZDOM" {% if req.account_group == 'ZDOM' %}selected{% endif %}>ZDOM (Domestic)</option>
-                                <option value="ZIMP" {% if req.account_group == 'ZIMP' %}selected{% endif %}>ZIMP (Import)</option>
-                            </select>
-                        </div>
-                        {% endif %}
-
-                        {% if req.current_dept_flow == 'DEPT' %}
-                        <div class="bg-yellow-50 p-4 rounded border border-yellow-200">
-                            <h4 class="text-xs font-bold text-yellow-800 uppercase mb-3">Commercial Terms</h4>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Payment Terms</label>
-                                    <select name="payment_terms" class="w-full border rounded p-1.5 text-sm">
-                                        <option value="">-- Select --</option>
-                                        <option value="0001">Immediate</option>
-                                        <option value="Z030">30 Days Credit</option>
-                                        <option value="Z045">45 Days Credit</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Incoterms</label>
-                                    <select name="incoterms" class="w-full border rounded p-1.5 text-sm">
-                                        <option value="">-- Select --</option>
-                                        <option value="FOB">FOB</option>
-                                        <option value="CIF">CIF</option>
-                                        <option value="DAP">DAP</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Purchase Org</label>
-                                    <input type="text" name="purchase_org" placeholder="e.g. 1000" class="w-full border rounded p-1.5 text-sm">
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        {% if req.current_dept_flow == 'IT' %}
-                        <div class="bg-purple-50 p-4 rounded border border-purple-100">
-                            <label class="block text-xs font-bold text-purple-800 uppercase mb-1">Create SAP Vendor Code</label>
-                            <input type="text" name="sap_id" placeholder="e.g. 5001999" required class="w-full border p-2 rounded text-sm">
-                        </div>
-                        {% endif %}
-
-                        <button name="action" value="approve" class="w-full bg-green-700 text-white font-bold py-3 rounded hover:bg-green-800">Approve</button>
-                        <button name="action" value="reject" class="w-full bg-white text-red-600 font-bold py-3 rounded border border-red-200">Reject</button>
-                    </form>
+        <div id="rejectModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div class="bg-white rounded-xl p-6 w-96 shadow-2xl">
+                <h3 class="font-bold text-lg mb-2 text-red-600">Reject Request</h3>
+                <textarea name="comments" class="w-full border p-2 rounded mb-4 h-24 text-sm" placeholder="Reason for rejection..."></textarea>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('rejectModal').classList.add('hidden')" class="text-gray-500 px-3">Cancel</button>
+                    <button type="submit" name="action" value="reject" class="bg-red-600 text-white px-4 py-2 rounded font-bold">Confirm Reject</button>
                 </div>
-            {% else %}
-                <div class="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center opacity-75">
-                    <h3 class="text-lg font-bold text-gray-700">Pending Review</h3>
-                    <p class="text-sm text-gray-500 mt-2">Currently with: {{ pending_email }}</p>
-                </div>
-            {% endif %}
+            </div>
         </div>
-    </div>
+    </form>
 </div>
+
+<script>
+    const TAX_TYPES = [{code:"", label:"--"}, {% for t in tax_types %}{code: "{{t.code}}", label: "{{t.code}}"},{% endfor %}];
+    const TAX_CODE_MAP = {{ tax_code_map | safe }}; 
+    const EXEMPTIONS = [{code:"", label:"--"}, {% for r in exemption_reasons %}{code: "{{r.code}}", label: "{{r.code}}"},{% endfor %}];
+    const SAVED_TAX1 = {{ req.get_tax1_rows() | tojson | safe }};
+    const SAVED_TAX2 = {{ req.get_tax2_rows() | tojson | safe }};
+
+    function createSelect(name, options, selectedVal, onChangeStr) {
+        let html = `<select name="${name}" class="w-full border-0 p-1 bg-transparent" ${onChangeStr ? `onchange="${onChangeStr}"` : ''}>`;
+        options.forEach(o => { html += `<option value="${o.code}" ${o.code == selectedVal ? 'selected' : ''}>${o.label}</option>`; });
+        html += `</select>`;
+        return html;
+    }
+
+    function addTax1Row(data = {}) {
+        const tbody = document.getElementById('tax1_body');
+        const row = document.createElement('tr');
+        row.className = "bg-white border-b hover:bg-gray-50";
+        let codes = [{code:"", label:"--"}];
+        if(data.type && TAX_CODE_MAP[data.type]) codes = TAX_CODE_MAP[data.type];
+
+        row.innerHTML = `
+            <td class="px-1 py-1 border">${createSelect('tax1_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
+            <td class="px-1 py-1 border"><select name="tax1_code[]" class="w-full border-0 p-1 bg-transparent tax-code-select">${codes.map(c => `<option value="${c.code}" ${c.code == data.code ? 'selected' : ''}>${c.label}</option>`).join('')}</select></td>
+            <td class="px-1 py-1 border text-center"><input type="checkbox" ${data.subject == '1' ? 'checked' : ''} onchange="this.nextElementSibling.value = this.checked ? '1' : '0'"><input type="hidden" name="tax1_subject_hidden[]" value="${data.subject || '0'}"></td>
+            <td class="px-1 py-1 border"><select name="tax1_recipient_type[]" class="w-full border-0 p-1 bg-transparent"><option value="CO" ${data.recipient == 'CO' ? 'selected' : ''}>CO</option><option value="OT" ${data.recipient == 'OT' ? 'selected' : ''}>OT</option></select></td>
+            <td class="px-1 py-1 border">${createSelect('tax1_exemption_reason[]', EXEMPTIONS, data.reason)}</td>
+            <td class="px-1 py-1 border"><input type="text" name="tax1_cert_no[]" value="${data.cert || ''}" class="w-full border-0 p-1 bg-transparent"></td>
+            <td class="px-1 py-1 border"><input type="text" name="tax1_rate[]" value="${data.rate || ''}" class="w-full border-0 p-1 bg-transparent"></td>
+            <td class="px-1 py-1 border"><input type="date" name="tax1_start_date[]" value="${data.start || ''}" class="w-full border-0 p-1 bg-transparent font-mono"></td>
+            <td class="px-1 py-1 border"><input type="date" name="tax1_end_date[]" value="${data.end || ''}" class="w-full border-0 p-1 bg-transparent font-mono"></td>
+            <td class="px-1 py-1 border text-center text-red-500 cursor-pointer" onclick="this.parentElement.remove()">✖</td>`;
+        tbody.appendChild(row);
+    }
+
+    function addTax2Row(data = {}) {
+        const tbody = document.getElementById('tax2_body');
+        const row = document.createElement('tr');
+        row.className = "bg-white border-b hover:bg-gray-50";
+        let codes = [{code:"", label:"--"}];
+        if(data.type && TAX_CODE_MAP[data.type]) codes = TAX_CODE_MAP[data.type];
+
+        row.innerHTML = `
+            <td class="px-1 py-1 border"><input type="text" name="tax2_section_code[]" value="${data.section || ''}" class="w-full border-0 p-1 bg-transparent"></td>
+            <td class="px-1 py-1 border"><input type="text" name="tax2_cert_no[]" value="${data.cert || ''}" class="w-full border-0 p-1 bg-transparent"></td>
+            <td class="px-1 py-1 border"><input type="text" name="tax2_rate[]" value="${data.rate || ''}" class="w-full border-0 p-1 bg-transparent"></td>
+            <td class="px-1 py-1 border"><input type="date" name="tax2_start_date[]" value="${data.start || ''}" class="w-full border-0 p-1 bg-transparent font-mono"></td>
+            <td class="px-1 py-1 border"><input type="date" name="tax2_end_date[]" value="${data.end || ''}" class="w-full border-0 p-1 bg-transparent font-mono"></td>
+            <td class="px-1 py-1 border bg-gray-50 font-medium text-center">T7</td>
+            <td class="px-1 py-1 border">${createSelect('tax2_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
+            <td class="px-1 py-1 border"><select name="tax2_code[]" class="w-full border-0 p-1 bg-transparent tax-code-select">${codes.map(c => `<option value="${c.code}" ${c.code == data.code ? 'selected' : ''}>${c.label}</option>`).join('')}</select></td>
+            <td class="px-1 py-1 border"><input type="text" name="tax2_threshold_amount[]" value="${data.thresh || '5,000,000.00'}" class="w-full border-0 p-1 bg-transparent text-right"></td>
+            <td class="px-1 py-1 border bg-gray-50 font-medium text-center">INR</td>
+            <td class="px-1 py-1 border text-center text-red-500 cursor-pointer" onclick="this.parentElement.remove()">✖</td>`;
+        tbody.appendChild(row);
+    }
+
+    function filterTaxCodes(typeSelect) {
+        const row = typeSelect.closest('tr');
+        const codeSelect = row.querySelector('.tax-code-select');
+        const selectedType = typeSelect.value;
+        codeSelect.innerHTML = '<option value="">--</option>';
+        if (selectedType && TAX_CODE_MAP[selectedType]) {
+            TAX_CODE_MAP[selectedType].forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.code; opt.innerText = c.label;
+                codeSelect.appendChild(opt);
+            });
+        }
+    }
+
+    window.addEventListener('load', () => {
+        if(SAVED_TAX1.length > 0) SAVED_TAX1.forEach(r => addTax1Row(r)); else addTax1Row({});
+        if(SAVED_TAX2.length > 0) SAVED_TAX2.forEach(r => addTax2Row(r)); else addTax2Row({});
+    });
+</script>
 {% endblock %}

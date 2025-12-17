@@ -1,72 +1,115 @@
-from app import create_app, db
-from app.models import User, Department, CategoryRouting, WorkflowStep, ITRouting
+import os
+import csv
+from app import create_app
+from app.extensions import db
+from app.models import User, Department, MasterData
 
 app = create_app()
 
-def seed_system():
-    print("Seeding 3-Phase Workflow Data...")
+FILE_CONFIG = {
+    'Account Group List.csv':       ('ACCOUNT_GROUP',   'account group',         'name',        None),
+    'Exemption Reason Drodown.csv': ('EXEMPTION_REASON','exemption reason code', 'description', None),
+    'GL list.csv':                  ('GL_ACCOUNT',      'gl',                    'description', None),
+    'House Bank.csv':               ('HOUSE_BANK',      'house bank',            'bank name',   None),
+    'Inco terms.csv':               ('INCOTERM',        'incoterm',              'description', None),
+    'MSME Type.csv':                ('MSME_TYPE',       'type',                  'description', None),
+    'Payment Terms.csv':            ('PAYMENT_TERM',    'payment terms',         'description', None),
+    'Purch.Org.csv':                ('PURCHASE_ORG',    'purch.org',             'description', None),
+    'Region.csv':                   ('REGION',          'reg code',              'description', None),
+    'Withholding Tax Types.csv':    ('TAX_TYPE',        'tax code',              'description', None),
     
-    # 1. Departments
-    depts = ['Purchase', 'Marketing', 'Finance', 'IT', 'HR']
-    for d in depts:
-        if not Department.query.filter_by(name=d).first():
-            db.session.add(Department(name=d))
+    # KEY CHANGE: Mapping Parent Code (Tax Type)
+    # Tuple: (Category, Code Col, Label Col, Parent Code Col)
+    'TDS Type wise details.csv':    ('TDS_CODE', 'withhoding tax code', 'name', 'withhoding tax type'), 
+}
+
+def get_column_index(headers, target_name):
+    target = target_name.lower().strip()
+    for i, h in enumerate(headers):
+        if h.lower().strip().replace('"', '') == target: return i
+    return -1
+
+def load_csvs():
+    folder = 'csv_data'
+    if not os.path.exists(folder):
+        print(f"❌ Error: '{folder}' folder missing.")
+        return
+
+    for filename, config in FILE_CONFIG.items():
+        category, target_code, target_label, target_parent = config
+        filepath = os.path.join(folder, filename)
+        
+        if not os.path.exists(filepath):
+            print(f"⚠️  Missing: {filename}"); continue
+
+        print(f"📂 Loading {category} from {filename}...")
+        
+        try:
+            lines = []
+            try:
+                with open(filepath, 'r', encoding='utf-8-sig') as f: lines = f.readlines()
+            except:
+                with open(filepath, 'r', encoding='latin1') as f: lines = f.readlines()
+
+            if not lines: continue
+            if 'GL list' in filename: lines = [l.replace('\t', ',') for l in lines]
+            
+            reader = csv.reader(lines)
+            headers = next(reader, None)
+            if not headers: continue
+
+            code_idx = get_column_index(headers, target_code)
+            label_idx = get_column_index(headers, target_label)
+            parent_idx = get_column_index(headers, target_parent) if target_parent else -1
+
+            if code_idx == -1: 
+                print(f"   ❌ Col '{target_code}' not found."); continue
+
+            count = 0
+            for row in reader:
+                if len(row) <= code_idx: continue
+                
+                code_val = row[code_idx].strip()
+                label_val = row[label_idx].strip() if label_idx != -1 and len(row) > label_idx else code_val
+                parent_val = row[parent_idx].strip() if parent_idx != -1 and len(row) > parent_idx else None
+
+                if code_val:
+                    if not MasterData.query.filter_by(category=category, code=code_val, parent_code=parent_val).first():
+                        db.session.add(MasterData(category=category, code=code_val, label=label_val, parent_code=parent_val))
+                        count += 1
+            
+            db.session.commit()
+            print(f"   ✅ Added {count} items.")
+
+        except Exception as e:
+            print(f"   ❌ Error: {e}")
+
+with app.app_context():
+    print("🧹 Cleaning Database...")
+    db.drop_all()
+    print("✨ Creating Tables...")
+    db.create_all()
+
+    # --- CREATE USERS ---
+    print("👤 Creating Users...")
+    for d in ['IT', 'Finance', 'Purchase', 'HR']: db.session.add(Department(name=d))
     
-    # 2. Category Routing (Phase 1: Dept Level)
-    # Example: Purchase Dept has rules for "Raw Materials"
-    if not CategoryRouting.query.filter_by(category_name='Raw Materials').first():
-        db.session.add(CategoryRouting(
-            department='Purchase',
-            category_name='Raw Materials',
-            l1_manager_email='purchase_l1@heritage.com',
-            l2_head_email='purchase_head@heritage.com'
-        ))
+    admin = User(username='System Admin', email='admin@heritage.com', role='admin', department='IT'); admin.set_password('admin123')
+    db.session.add(admin)
+
+    teams = [('Bill Passing Team', 'bill_passing@heritage.com', 'Finance'),
+             ('Treasury Team', 'treasury@heritage.com', 'Finance'),
+             ('Tax Team', 'tax@heritage.com', 'Finance'),
+             ('IT Admin', 'it_admin@heritage.com', 'IT'),
+             ('Purchase Initiator', 'initiator@heritage.com', 'Purchase')]
     
-    # 3. IT Routing (Phase 3: IT Level)
-    # The "Group of 2 people" logic:
-    # ZDOM (Domestic) -> Assigned to IT User 1
-    # ZIMP (Import)   -> Assigned to IT User 2
-    it_routes = [
-        ('ZDOM', 'it_domestic@heritage.com'),
-        ('ZIMP', 'it_import@heritage.com'),
-        ('ZSER', 'it_domestic@heritage.com') # Service vendors also go to Domestic guy
-    ]
-    for grp, email in it_routes:
-        if not ITRouting.query.filter_by(account_group=grp).first():
-            db.session.add(ITRouting(account_group=grp, it_assignee_email=email))
-
-    # 4. Create Users
-    users = [
-        # --- Admin ---
-        ('System Admin', 'admin@heritage.com', 'admin', 'IT'),
-        
-        # --- Phase 1: Dept Users ---
-        ('Purchase L1', 'purchase_l1@heritage.com', 'approver', 'Purchase'),
-        ('Purchase Head', 'purchase_head@heritage.com', 'approver', 'Purchase'),
-        ('Purchase Initiator', 'buyer@heritage.com', 'initiator', 'Purchase'),
-        
-        # --- Phase 2: Common Finance Chain (The "Group of 3") ---
-        ('Bill Passing Team', 'bill_passing@heritage.com', 'approver', 'Finance'),
-        ('Treasury Team', 'treasury@heritage.com', 'approver', 'Finance'),
-        ('Tax Team', 'tax@heritage.com', 'approver', 'Finance'),
-        
-        # --- Phase 3: Common IT Team (The "Group of 2") ---
-        ('IT Domestic Admin', 'it_domestic@heritage.com', 'approver', 'IT'),
-        ('IT Import Admin', 'it_import@heritage.com', 'approver', 'IT'),
-    ]
-
-    for name, email, role, dept in users:
-        if not User.query.filter_by(email=email).first():
-            u = User(username=name, email=email, role=role, department=dept)
-            if 'buyer' in email: u.assigned_category = 'Raw Materials' # Auto-assign for test
-            u.set_password('pass123')
-            db.session.add(u)
-            print(f"Created: {name} ({email})")
-
+    for name, email, dept in teams:
+        role = 'initiator' if 'Initiator' in name else 'approver'
+        u = User(username=name, email=email, role=role, department=dept)
+        if role == 'initiator': u.assigned_category = 'Raw Materials'
+        u.set_password('pass123')
+        db.session.add(u)
+    
     db.session.commit()
-    print("--- Seeding Complete ---")
-
-if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-        seed_system()
+    print("📥 importing CSVs..."); load_csvs()
+    print("🚀 Done.")
