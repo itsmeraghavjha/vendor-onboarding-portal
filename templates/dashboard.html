@@ -1,105 +1,161 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex justify-between items-end mb-8">
-    <div>
-        <h1 class="text-3xl font-bold text-gray-900">Procurement Dashboard</h1>
-        <p class="text-gray-500 mt-1">Manage vendor onboarding requests and approvals.</p>
+<div class="max-w-7xl mx-auto">
+    
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p class="text-gray-500 mt-1">
+                Welcome, {{ current_user.username }} 
+                <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded ml-2 font-bold uppercase">{{ current_user.department }}</span>
+            </p>
+        </div>
+        
+        {% if current_user.role == 'initiator' %}
+            <button onclick="document.getElementById('newReqModal').classList.remove('hidden')" 
+                    class="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 shadow-md font-bold flex items-center transition transform hover:-translate-y-0.5">
+                <span class="text-xl mr-2 leading-none">+</span> Initiate Onboarding
+            </button>
+        {% endif %}
     </div>
-    {% if current_user.role == 'initiator' %}
-        <button onclick="document.getElementById('newReqModal').classList.remove('hidden')" 
-                class="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 shadow-md font-bold flex items-center transition">
-            <span class="text-xl mr-2">+</span> Initiate Onboarding
-        </button>
-    {% endif %}
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Request ID</th>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type / Category</th>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Current Stage</th>
+                    <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for req in requests %}
+                <tr class="hover:bg-gray-50 transition">
+                    
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500 font-bold">
+                        {{ req.request_id }}
+                    </td>
+                    
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-bold text-gray-900">{{ req.vendor_name_basic }}</div>
+                        <div class="text-xs text-gray-500">{{ req.vendor_email }}</div>
+                    </td>
+                    
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if req.vendor_type == 'Standard' %}
+                            <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-200 font-medium">
+                                Standard Flow
+                            </span>
+                        {% else %}
+                            <span class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded border border-blue-100 font-bold">
+                                {{ req.vendor_type }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if req.status == 'COMPLETED' %}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-green-100 text-green-800 border border-green-200">
+                                Active
+                            </span>
+                        {% elif req.status == 'REJECTED' %}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-red-100 text-red-800 border border-red-200">
+                                Rejected
+                            </span>
+                        {% else %}
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-orange-600 uppercase">
+                                    {{ req.current_dept_flow.replace('_', ' ') }}
+                                </span>
+                                {% if req.finance_stage %}
+                                    <span class="text-[10px] text-gray-400 mt-0.5">
+                                        Step: {{ req.finance_stage }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{{ url_for('review_request', req_id=req.id) }}" class="text-green-600 hover:text-green-900 font-bold hover:underline">
+                            View Details &rarr;
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-gray-400 bg-gray-50">
+                        <div class="text-4xl mb-2">📭</div>
+                        <p>No active requests found.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
 </div>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-            <tr>
-                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Request ID</th>
-                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor Name</th>
-                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
-            </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-            {% for req in requests %}
-            <tr class="hover:bg-gray-50 transition">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">{{ req.request_id }}</td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-bold text-gray-900">{{ req.vendor_name_basic }}</div>
-                    <div class="text-xs text-gray-500">{{ req.vendor_email }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ req.vendor_type }}</td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    {% if req.status == 'COMPLETED' %}
-                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-green-100 text-green-800 border border-green-200">
-                            Active
-                        </span>
-                    {% elif req.status == 'REJECTED' %}
-                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-red-100 text-red-800 border border-red-200">
-                            Rejected
-                        </span>
-                    {% else %}
-                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-orange-100 text-orange-800 border border-orange-200">
-                            {{ req.status.replace('_', ' ') }}
-                        </span>
-                    {% endif %}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ req.created_at.strftime('%d %b, %Y') }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="{{ url_for('review_request', req_id=req.id) }}" class="text-green-600 hover:text-green-900 font-bold hover:underline">View Details</a>
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="6" class="px-6 py-10 text-center text-sm text-gray-500">
-                    No requests found. Start by adding a new vendor.
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<div id="newReqModal" class="fixed z-50 inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+<div id="newReqModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        
         <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="document.getElementById('newReqModal').classList.add('hidden')"></div>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-            <div class="bg-green-700 px-6 py-4">
+
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+            <div class="bg-green-600 px-6 py-4">
                 <h3 class="text-lg leading-6 font-bold text-white" id="modal-title">Initiate New Vendor</h3>
+                <p class="text-green-100 text-xs mt-1">Send an invitation link to the vendor.</p>
             </div>
-            <form action="{{ url_for('create_request') }}" method="POST" class="p-6">
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
-                        <input type="text" name="vendor_name" required class="w-full border-gray-300 rounded-md shadow-sm border p-2 focus:ring-green-500 focus:border-green-500">
+            
+            <form action="{{ url_for('create_request') }}" method="POST" class="p-6 space-y-5">
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Vendor Company Name</label>
+                    <input type="text" name="vendor_name" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Vendor Email Address</label>
+                    <input type="email" name="vendor_email" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
+                </div>
+                
+                {% if current_user.assigned_category %}
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned Category</label>
+                        <input type="text" value="{{ current_user.assigned_category }}" disabled class="w-full bg-white border border-gray-200 rounded p-2 text-gray-700 font-bold">
+                        <input type="hidden" name="vendor_type" value="{{ current_user.assigned_category }}">
                     </div>
+
+                {% elif dept_categories %}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                        <input type="email" name="vendor_email" required class="w-full border-gray-300 rounded-md shadow-sm border p-2 focus:ring-green-500 focus:border-green-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Category</label>
-                        <select name="vendor_type" class="w-full border-gray-300 rounded-md shadow-sm border p-2 focus:ring-green-500 focus:border-green-500">
-                            <option value="Raw Material">Raw Material Supply</option>
-                            <option value="Packaging">Packaging Material</option>
-                            <option value="Services">Logistics / Services</option>
-                            <option value="Maintenance">Maintenance / IT</option>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Select Category</label>
+                        <select name="vendor_type" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
+                            {% for cat in dept_categories %}
+                                <option value="{{ cat }}">{{ cat }}</option>
+                            {% endfor %}
                         </select>
                     </div>
-                </div>
-                <div class="mt-6 flex justify-end space-x-3">
-                    <button type="button" onclick="document.getElementById('newReqModal').classList.add('hidden')" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+
+                {% else %}
+                    <input type="hidden" name="vendor_type" value="Standard">
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <label class="block text-xs font-bold text-blue-800 uppercase mb-1">Department Flow</label>
+                        <div class="text-sm font-medium text-blue-900 flex items-center">
+                            <span class="mr-2">⚡</span> Standard Workflow ({{ current_user.department }})
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                    <button type="button" onclick="document.getElementById('newReqModal').classList.add('hidden')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-bold hover:bg-gray-50 transition">
                         Cancel
                     </button>
-                    <button type="submit" class="bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700">
-                        Send Invite
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-sm transition">
+                        Send Invite &rarr;
                     </button>
                 </div>
             </form>

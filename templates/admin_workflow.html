@@ -1,255 +1,188 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-7xl mx-auto" x-data="{ activeTab: '{{ active_tab }}' }">
+<div class="max-w-7xl mx-auto" x-data="{ 
+    activeTab: '{{ activeTab }}' || 'masters',
+    modalOpen: false,
+    modalType: '',
+    openModal(type) { this.modalType = type; this.modalOpen = true; },
+    closeModal() { this.modalOpen = false; }
+}">
     
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-6">System Administration</h1>
-        
-        <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                <button @click="activeTab = 'users'" 
-                    :class="activeTab === 'users' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                    class="group inline-flex items-center py-4 px-1 border-b-2 font-bold text-sm transition-colors">
-                    <span class="mr-2 text-lg">👥</span> User Management
-                </button>
-
-                <button @click="activeTab = 'workflow'" 
-                    :class="activeTab === 'workflow' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                    class="group inline-flex items-center py-4 px-1 border-b-2 font-bold text-sm transition-colors">
-                    <span class="mr-2 text-lg">⚡</span> Approval Workflows
-                </button>
-
-                <button @click="activeTab = 'departments'" 
-                    :class="activeTab === 'departments' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                    class="group inline-flex items-center py-4 px-1 border-b-2 font-bold text-sm transition-colors">
-                    <span class="mr-2 text-lg">🏢</span> Departments
-                </button>
-            </nav>
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">System Command Center</h1>
+            <p class="text-gray-500 mt-1">Manage Users, Workflows & Master Data tables.</p>
+        </div>
+        <div class="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+            <span class="block text-xs font-bold text-gray-400 uppercase">Master Records</span>
+            <span class="text-2xl font-bold text-blue-600">{{ master_items|length if selected_master_cat else '200+' }}</span>
         </div>
     </div>
 
-    <div x-show="activeTab === 'users'" x-transition.opacity>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-fit">
-                <h3 class="text-lg font-bold text-gray-900 mb-4">Create New User</h3>
-                <form method="POST" class="space-y-4">
-                    <input type="hidden" name="active_tab" value="users">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label>
-                        <input type="text" name="new_user_name" placeholder="e.g. John Doe" required class="w-full border-gray-300 rounded-md p-2.5 border text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email Address</label>
-                        <input type="email" name="new_user_email" placeholder="john@heritage.com" required class="w-full border-gray-300 rounded-md p-2.5 border text-sm">
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Role</label>
-                            <select name="user_role" class="w-full border-gray-300 rounded-md p-2.5 border text-sm">
-                                <option value="initiator">Initiator</option>
-                                <option value="approver">Approver</option>
-                            </select>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8 overflow-hidden">
+        <div class="flex border-b border-gray-100">
+            <button @click="activeTab = 'masters'" :class="activeTab === 'masters' ? 'bg-gray-50 text-blue-700 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'" class="flex-1 py-4 font-bold text-sm">
+                📚 Master Data Tables (14)
+            </button>
+            <button @click="activeTab = 'users'" :class="activeTab === 'users' ? 'bg-gray-50 text-green-700 border-b-2 border-green-600' : 'text-gray-500 hover:bg-gray-50'" class="flex-1 py-4 font-bold text-sm">
+                👥 User Management
+            </button>
+            <button @click="activeTab = 'logic'" :class="activeTab === 'logic' ? 'bg-gray-50 text-purple-700 border-b-2 border-purple-600' : 'text-gray-500 hover:bg-gray-50'" class="flex-1 py-4 font-bold text-sm">
+                ⚡ Workflows
+            </button>
+        </div>
+
+        <div class="p-6 bg-gray-50 min-h-[500px]">
+            
+            <div x-show="activeTab === 'masters'">
+                <div class="flex flex-col md:flex-row gap-6">
+                    
+                    <div class="w-full md:w-1/4 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[500px]">
+                        <div class="p-4 border-b border-gray-100 bg-gray-50 rounded-t-lg">
+                            <h4 class="font-bold text-xs text-gray-500 uppercase">Select Table</h4>
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Department</label>
-                            <select name="user_dept" class="w-full border-gray-300 rounded-md p-2.5 border text-sm">
-                                {% for dept in departments %}
-                                    <option value="{{ dept.name }}">{{ dept.name }}</option>
-                                {% endfor %}
-                            </select>
+                        <div class="flex-1 overflow-y-auto p-2 space-y-1">
+                            {% for cat in master_categories %}
+                            <a href="?active_tab=masters&master_cat={{ cat }}" 
+                               class="block px-3 py-2 rounded-md text-sm font-medium transition flex justify-between items-center
+                                      {{ 'bg-blue-50 text-blue-700' if cat == selected_master_cat else 'text-gray-600 hover:bg-gray-50' }}">
+                                <span>{{ cat.replace('_', ' ') }}</span>
+                                <span class="text-xs text-gray-400">➤</span>
+                            </a>
+                            {% endfor %}
                         </div>
                     </div>
-                    <button class="w-full bg-green-600 text-white font-bold py-2 rounded-md hover:bg-green-700 transition shadow-sm">
-                        + Create User
-                    </button>
-                    <p class="text-xs text-center text-gray-400 mt-2">Login created automatically. Password: <span class="font-mono">pass123</span></p>
-                </form>
+
+                    <div class="w-full md:w-3/4 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[500px]">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-lg">
+                            <div>
+                                <h3 class="font-bold text-gray-800">{{ selected_master_cat.replace('_', ' ') }}</h3>
+                                <p class="text-xs text-gray-500">Manage dropdown values for this category.</p>
+                            </div>
+                            <button @click="openModal('master')" class="bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-sm transition">
+                                + Add New Record
+                            </button>
+                        </div>
+                        
+                        <div class="flex-1 overflow-y-auto p-0">
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs text-gray-500 uppercase bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-6 py-3 border-b">Code</th>
+                                        <th class="px-6 py-3 border-b">Description / Label</th>
+                                        <th class="px-6 py-3 border-b text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    {% for item in master_items %}
+                                    <tr class="hover:bg-gray-50 group transition">
+                                        <td class="px-6 py-3 font-mono text-blue-600 font-medium">{{ item.code }}</td>
+                                        <td class="px-6 py-3 text-gray-700">{{ item.label }}</td>
+                                        <td class="px-6 py-3 text-right">
+                                            <form method="POST" onsubmit="return confirm('Delete {{ item.label }}?');">
+                                                <input type="hidden" name="delete_master_id" value="{{ item.id }}">
+                                                <button class="text-gray-300 hover:text-red-600 font-bold text-lg leading-none opacity-0 group-hover:opacity-100 transition">×</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="3" class="px-6 py-12 text-center text-gray-400">
+                                            <div class="text-2xl mb-2">📂</div>
+                                            No records found. Click "Add New" to create one.
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <h3 class="font-bold text-gray-700">Active Directory</h3>
-                    <span class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-bold">{{ users|length }} Users</span>
+            <div x-show="activeTab === 'users'" style="display: none;">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-gray-800">System Users</h3>
+                    <button @click="openModal('user')" class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-700">+ New User</button>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <table class="min-w-full text-sm text-left">
-                        <thead class="bg-gray-50 text-gray-500 font-bold">
-                            <tr>
-                                <th class="px-6 py-3">User</th>
-                                <th class="px-6 py-3">Role</th>
-                                <th class="px-6 py-3">Department</th>
-                            </tr>
+                        <thead class="bg-gray-50 text-gray-500 font-bold border-b">
+                            <tr><th class="px-6 py-3">User</th><th class="px-6 py-3">Role</th><th class="px-6 py-3">Dept</th><th class="px-6 py-3 text-right">Action</th></tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y">
                             {% for u in users %}
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4">
-                                    <div class="font-bold text-gray-900">{{ u.username }}</div>
-                                    <div class="text-gray-500 text-xs">{{ u.email }}</div>
+                                <td class="px-6 py-3 font-bold">{{ u.username }}<br><span class="text-xs text-gray-500 font-normal">{{ u.email }}</span></td>
+                                <td class="px-6 py-3"><span class="bg-gray-100 px-2 py-1 rounded text-xs font-bold">{{ u.role|upper }}</span></td>
+                                <td class="px-6 py-3">{{ u.department }}</td>
+                                <td class="px-6 py-3 text-right">
+                                    <form method="POST"><input type="hidden" name="delete_user_id" value="{{ u.id }}"><button class="text-red-500 text-xs font-bold">Remove</button></form>
                                 </td>
-                                <td class="px-6 py-4">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold {{ 'bg-blue-100 text-blue-800' if u.role == 'initiator' else 'bg-orange-100 text-orange-800' }}">
-                                        {{ u.role|upper }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-gray-600 font-medium">{{ u.department }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div x-show="activeTab === 'workflow'" x-transition.opacity style="display: none;">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-fit">
-                <h3 class="text-lg font-bold text-gray-900 mb-4">Add Approval Step</h3>
-                <form method="POST" class="space-y-4">
-                    <input type="hidden" name="active_tab" value="workflow">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Target Department</label>
-                        <select name="step_dept" class="w-full border-gray-300 rounded-md p-2.5 border text-sm">
-                            {% for dept in departments %}
-                                <option value="{{ dept.name }}">{{ dept.name }}</option>
+            <div x-show="activeTab === 'logic'" style="display: none;">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white border rounded-lg p-4">
+                        <div class="flex justify-between mb-4"><h3 class="font-bold">Workflow Rules</h3><button @click="openModal('rule')" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold">+ Add</button></div>
+                        <div class="h-64 overflow-y-auto space-y-2">
+                            {% for r in category_rules %}
+                            <div class="flex justify-between p-2 bg-gray-50 rounded border text-sm">
+                                <div><span class="font-bold">{{ r.category_name }}</span> <span class="text-xs text-gray-500">({{ r.department }})</span></div>
+                                <form method="POST"><input type="hidden" name="delete_rule_id" value="{{ r.id }}"><button class="text-red-500">×</button></form>
+                            </div>
                             {% endfor %}
-                        </select>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Approver Email</label>
-                        <input type="email" name="approver_email" placeholder="manager@heritage.com" required class="w-full border-gray-300 rounded-md p-2.5 border text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Role Label</label>
-                        <input type="text" name="role_label" placeholder="e.g. Finance Head" required class="w-full border-gray-300 rounded-md p-2.5 border text-sm">
-                    </div>
-                    <button class="w-full bg-green-700 text-white font-bold py-2 rounded-md hover:bg-green-800 transition">
-                        Add to Sequence
-                    </button>
-                </form>
-            </div>
-
-            <div class="lg:col-span-2 space-y-6">
-                {% for dept in departments %}
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="bg-gray-50 px-6 py-3 border-b border-gray-100 flex justify-between items-center">
-                        <h3 class="font-bold text-gray-800">{{ dept.name }} Workflow</h3>
-                        <span class="text-xs text-green-600 font-bold bg-green-100 px-2 py-1 rounded">DRAG TO REORDER</span>
-                    </div>
-                    <div class="p-6">
-                        {% set dept_steps = steps | selectattr("department", "equalto", dept.name) | list %}
-                        
-                        <div class="flex items-center space-x-2 overflow-x-auto pb-4">
-                            <div class="flex-shrink-0 flex flex-col items-center opacity-70">
-                                <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs border-2 border-white shadow-sm">START</div>
-                                <span class="text-xs mt-2 font-bold text-gray-400">Initiator</span>
+                    <div class="bg-white border rounded-lg p-4">
+                        <div class="flex justify-between mb-4"><h3 class="font-bold">IT Routing</h3><button @click="openModal('it')" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-bold">+ Add</button></div>
+                        <div class="h-64 overflow-y-auto space-y-2">
+                            {% for r in it_routes %}
+                            <div class="flex justify-between p-2 bg-gray-50 rounded border text-sm">
+                                <span class="font-mono font-bold">{{ r.account_group }}</span>
+                                <span class="text-gray-600 text-xs">{{ r.it_assignee_email }}</span>
+                                <form method="POST"><input type="hidden" name="delete_it_id" value="{{ r.id }}"><button class="text-red-500">×</button></form>
                             </div>
-
-                            <div class="h-0.5 w-6 bg-gray-300"></div>
-
-                            <div id="sortable-{{ dept.id }}" class="flex items-center space-x-2 sortable-list" data-dept="{{ dept.name }}">
-                                {% for step in dept_steps %}
-                                    <div class="flex items-center group cursor-grab active:cursor-grabbing" data-id="{{ step.id }}">
-                                        
-                                        <div class="w-40 bg-white border-2 border-gray-200 rounded-lg p-3 shadow-sm hover:border-green-500 hover:shadow-md transition relative step-card">
-                                            <div class="flex justify-between items-center mb-1">
-                                                <div class="text-[10px] text-green-700 font-bold uppercase tracking-wider level-label">Level {{ loop.index }}</div>
-                                                <div class="text-gray-300 cursor-move">⋮⋮</div>
-                                            </div>
-                                            <div class="text-sm font-bold text-gray-800 truncate" title="{{ step.role_label }}">{{ step.role_label }}</div>
-                                            <div class="text-xs text-gray-500 truncate" title="{{ step.approver_email }}">{{ step.approver_email }}</div>
-                                            
-                                            <a href="{{ url_for('delete_step', id=step.id) }}" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow hover:bg-red-600">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                            </a>
-                                        </div>
-
-                                        <div class="h-0.5 w-6 bg-gray-300 ml-2"></div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-
-                            <div class="flex-shrink-0 flex flex-col items-center">
-                                <div class="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-xs border-4 border-green-100 shadow-sm">END</div>
-                                <span class="text-xs mt-2 font-bold text-green-700">Approved</span>
-                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
-                {% endfor %}
             </div>
+
         </div>
     </div>
 
-    <div x-show="activeTab === 'departments'" x-transition.opacity style="display: none;">
-        <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
-            <h3 class="text-xl font-bold text-gray-900 mb-4">Manage Departments</h3>
+    <div x-show="modalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 backdrop-blur-sm" x-cloak>
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all" @click.away="closeModal()">
             
-            <form method="POST" class="flex gap-4 max-w-md mx-auto">
-                <input type="hidden" name="active_tab" value="departments">
-                <input type="text" name="new_dept_name" placeholder="e.g. Logistics" required class="flex-1 border-gray-300 rounded-lg p-2.5 border shadow-sm">
-                <button class="bg-green-600 text-white px-6 py-2.5 rounded-lg font-bold">Create</button>
-            </form>
-
-            <div class="mt-8 border-t border-gray-100 pt-8">
-                <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Existing Departments</h4>
-                <div class="flex flex-wrap justify-center gap-3">
-                    {% for dept in departments %}
-                        <span class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-full font-medium shadow-sm hover:bg-green-50 hover:border-green-200 transition">
-                            {{ dept.name }}
-                        </span>
-                    {% endfor %}
-                </div>
+            <div x-show="modalType === 'master'">
+                <h3 class="text-lg font-bold text-gray-900 mb-4">Add {{ selected_master_cat }}</h3>
+                <form method="POST" class="space-y-4">
+                    <input type="hidden" name="active_tab" value="masters">
+                    <input type="hidden" name="master_category" value="{{ selected_master_cat }}">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Code / Value</label>
+                        <input type="text" name="new_master_code" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Description / Label</label>
+                        <input type="text" name="new_master_label" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700">Save Record</button>
+                </form>
             </div>
+
+            <div x-show="modalType === 'user'">
+                </div>
+
+            <button @click="closeModal()" class="mt-4 w-full text-center text-gray-500 text-sm hover:text-gray-800">Cancel</button>
         </div>
     </div>
 
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var sortables = document.querySelectorAll('.sortable-list');
-        
-        sortables.forEach(function (el) {
-            new Sortable(el, {
-                animation: 150,
-                ghostClass: 'opacity-50',
-                onEnd: function (evt) {
-                    // 1. Get new order
-                    var newOrder = [];
-                    var cardElements = el.querySelectorAll('[data-id]');
-                    
-                    cardElements.forEach(function (node, index) {
-                        newOrder.push(node.getAttribute('data-id'));
-                        
-                        // 2. INSTANT UI UPDATE (No Reload needed!)
-                        // Update the "Level X" label immediately
-                        var label = node.querySelector('.level-label');
-                        if(label) {
-                            label.textContent = "LEVEL " + (index + 1);
-                        }
-                    });
-
-                    // 3. Send to backend silently
-                    fetch('/admin/workflow/reorder', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ step_ids: newOrder }),
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if(data.status !== 'success') {
-                            alert('Error saving order. Please refresh.');
-                        }
-                        // Success! Do nothing (UI already updated)
-                    });
-                },
-            });
-        });
-    });
-</script>
 {% endblock %}

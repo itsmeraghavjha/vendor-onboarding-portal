@@ -9,118 +9,40 @@
         </div>
         <div class="text-right">
             <span class="block text-xs font-bold text-gray-400 uppercase tracking-wider">Current Status</span>
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 text-orange-800 border border-orange-200">
-                {{ current_stage_label }}
-            </span>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
+                    {{ req.current_dept_flow.replace('_', ' ') }}
+                </span>
+            </div>
         </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         <div class="lg:col-span-2 space-y-8">
-            
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="bg-gray-900 px-6 py-4 flex justify-between items-center">
-                    <h2 class="text-white font-bold flex items-center">
-                        <span class="mr-2">🛡️</span> Automated Compliance Check
-                    </h2>
-                    <span class="bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded tracking-wider">SYSTEM VERIFIED</span>
-                </div>
-                
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 bg-gray-50">
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">PAN Status</p>
-                        <div class="flex items-center text-green-700 font-bold text-sm">
-                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                            {{ req.check_pan_status }}
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">GST Active</p>
-                        <div class="flex items-center text-green-700 font-bold text-sm">
-                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                            {{ req.check_gst_active }}
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">GST Filing (3m)</p>
-                        <div class="flex items-center text-green-700 font-bold text-sm">
-                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                            {{ req.check_gst_filing }}
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Penny Drop</p>
-                        <div class="flex items-center text-green-700 font-bold text-sm">
-                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                            {{ req.check_bank_valid }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Vendor Profile</h3>
-                <dl class="grid grid-cols-2 gap-x-4 gap-y-6">
-                    <div>
-                        <dt class="text-xs font-bold text-gray-500 uppercase">Legal Name</dt>
-                        <dd class="mt-1 text-sm font-medium text-gray-900">{{ req.vendor_name_basic }}</dd>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-6 text-sm">
+                    <div><dt class="text-xs font-bold text-gray-500 uppercase">Vendor Name</dt><dd>{{ req.vendor_name_basic }}</dd></div>
+                    <div><dt class="text-xs font-bold text-gray-500 uppercase">Email</dt><dd>{{ req.vendor_email }}</dd></div>
+                    <div><dt class="text-xs font-bold text-gray-500 uppercase">Address</dt>
+                        <dd>{{ req.address_line1 }}, {{ req.address_city }} - {{ req.address_pincode }}</dd>
                     </div>
-                    <div>
-                        <dt class="text-xs font-bold text-gray-500 uppercase">Email</dt>
-                        <dd class="mt-1 text-sm font-medium text-gray-900">{{ req.vendor_email }}</dd>
+                    <div><dt class="text-xs font-bold text-gray-500 uppercase">Contact</dt>
+                        <dd>{{ req.contact_name }} ({{ req.contact_number }})</dd>
                     </div>
-                    <div>
-                        <dt class="text-xs font-bold text-gray-500 uppercase">Structure</dt>
-                        <dd class="mt-1 text-sm font-medium text-gray-900">{{ req.structure_type }}</dd>
-                    </div>
-                    {% if req.structure_type == 'Company' %}
-                    <div>
-                        <dt class="text-xs font-bold text-gray-500 uppercase">CIN Number</dt>
-                        <dd class="mt-1 text-sm font-medium text-gray-900 font-mono">{{ req.cin_number }}</dd>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="col-span-2 border-t border-gray-100 my-2"></div>
-
-                    <div>
-                        <dt class="text-xs font-bold text-gray-500 uppercase">GST Number</dt>
-                        <dd class="mt-1 text-sm font-medium text-gray-900 font-mono">{{ req.gst_number }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-xs font-bold text-gray-500 uppercase">PAN Number</dt>
-                        <dd class="mt-1 text-sm font-medium text-gray-900 font-mono">{{ req.pan_number }}</dd>
-                    </div>
-                    
-                    {% if req.msme_registered %}
-                    <div class="col-span-2 bg-green-50 p-3 rounded border border-green-100">
-                        <dt class="text-xs font-bold text-green-700 uppercase">MSME Registered</dt>
-                        <dd class="mt-1 text-sm font-medium text-green-900">Udyam No: {{ req.msme_aadhar }}</dd>
-                    </div>
-                    {% endif %}
                 </dl>
             </div>
 
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Attached Documents</h3>
+                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Documents</h3>
                 <div class="space-y-3">
-                    {% for doc, label in [(req.doc_pan, 'PAN Card'), (req.doc_gst, 'GST Certificate'), (req.doc_cheque, 'Cancelled Cheque')] %}
-                        {% if doc %}
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-100 hover:bg-gray-100 transition">
-                            <div class="flex items-center">
-                                <span class="text-2xl mr-3">📄</span>
-                                <span class="text-sm font-medium text-gray-700">{{ label }}</span>
-                            </div>
-                            <a href="{{ url_for('static', filename='uploads/' + doc) }}" target="_blank" class="text-xs font-bold text-green-700 hover:underline">
-                                View File ↗
-                            </a>
-                        </div>
-                        {% else %}
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-100 opacity-50">
-                            <div class="flex items-center">
-                                <span class="text-2xl mr-3">🚫</span>
-                                <span class="text-sm font-medium text-gray-500">{{ label }} (Not Uploaded)</span>
-                            </div>
+                    {% set docs = [(req.doc_gst, 'GST Cert'), (req.doc_pan, 'PAN Card'), (req.doc_cheque, 'Cheque'), (req.doc_msme, 'MSME Cert')] %}
+                    {% for path, label in docs %}
+                        {% if path %}
+                        <div class="flex justify-between p-3 bg-gray-50 rounded border">
+                            <span>📄 {{ label }}</span>
+                            <a href="{{ url_for('static', filename='uploads/' + path) }}" target="_blank" class="text-blue-600 font-bold text-xs">View ↗</a>
                         </div>
                         {% endif %}
                     {% endfor %}
@@ -129,57 +51,68 @@
         </div>
 
         <div class="col-span-1">
-            
             {% if is_my_turn %}
                 <div class="bg-white rounded-xl shadow-lg border-t-4 border-green-600 p-6 sticky top-24">
-                    <h3 class="text-xl font-bold text-gray-900 mb-2">Take Action</h3>
-                    <p class="text-sm text-gray-500 mb-6">You are the assigned approver for this stage.</p>
-
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Take Action</h3>
                     <form method="POST" class="space-y-4">
                         
-                        {% if req.current_dept_flow == 'ACCOUNTS' %}
-                        <div class="bg-blue-50 p-4 rounded border border-blue-100">
-                            <label class="block text-xs font-bold text-blue-800 uppercase mb-1">Assign GL Code</label>
-                            <input type="text" name="gl_code" placeholder="e.g. 400200" required 
-                                   class="w-full border-blue-200 rounded p-2 text-sm focus:ring-blue-500">
-                            <p class="text-xs text-blue-600 mt-1">Required for Finance Approval</p>
+                        {% if req.current_dept_flow == 'INITIATOR_REVIEW' or req.finance_stage == 'TAX' %}
+                        <div class="bg-blue-50 p-3 rounded border border-blue-100">
+                            <label class="block text-xs font-bold text-blue-800 uppercase mb-1">Account Group</label>
+                            <select name="account_group" class="w-full border p-2 rounded text-sm">
+                                <option value="ZDOM" {% if req.account_group == 'ZDOM' %}selected{% endif %}>ZDOM (Domestic)</option>
+                                <option value="ZIMP" {% if req.account_group == 'ZIMP' %}selected{% endif %}>ZIMP (Import)</option>
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        {% if req.current_dept_flow == 'DEPT' %}
+                        <div class="bg-yellow-50 p-4 rounded border border-yellow-200">
+                            <h4 class="text-xs font-bold text-yellow-800 uppercase mb-3">Commercial Terms</h4>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Payment Terms</label>
+                                    <select name="payment_terms" class="w-full border rounded p-1.5 text-sm">
+                                        <option value="">-- Select --</option>
+                                        <option value="0001">Immediate</option>
+                                        <option value="Z030">30 Days Credit</option>
+                                        <option value="Z045">45 Days Credit</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Incoterms</label>
+                                    <select name="incoterms" class="w-full border rounded p-1.5 text-sm">
+                                        <option value="">-- Select --</option>
+                                        <option value="FOB">FOB</option>
+                                        <option value="CIF">CIF</option>
+                                        <option value="DAP">DAP</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Purchase Org</label>
+                                    <input type="text" name="purchase_org" placeholder="e.g. 1000" class="w-full border rounded p-1.5 text-sm">
+                                </div>
+                            </div>
                         </div>
                         {% endif %}
 
                         {% if req.current_dept_flow == 'IT' %}
                         <div class="bg-purple-50 p-4 rounded border border-purple-100">
                             <label class="block text-xs font-bold text-purple-800 uppercase mb-1">Create SAP Vendor Code</label>
-                            <input type="text" name="sap_id" placeholder="e.g. 5001999" required 
-                                   class="w-full border-purple-200 rounded p-2 text-sm focus:ring-purple-500">
+                            <input type="text" name="sap_id" placeholder="e.g. 5001999" required class="w-full border p-2 rounded text-sm">
                         </div>
                         {% endif %}
 
-                        <button name="action" value="approve" 
-                                class="w-full bg-green-700 text-white font-bold py-3 rounded-lg hover:bg-green-800 shadow-md transition transform hover:-translate-y-0.5">
-                            Approve Request
-                        </button>
-                        
-                        <button name="action" value="reject" 
-                                class="w-full bg-white text-red-600 font-bold py-3 rounded-lg border border-red-200 hover:bg-red-50 transition">
-                            Reject & Return
-                        </button>
+                        <button name="action" value="approve" class="w-full bg-green-700 text-white font-bold py-3 rounded hover:bg-green-800">Approve</button>
+                        <button name="action" value="reject" class="w-full bg-white text-red-600 font-bold py-3 rounded border border-red-200">Reject</button>
                     </form>
                 </div>
-            
             {% else %}
-                <div class="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center sticky top-24 opacity-75">
-                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">⏳</div>
+                <div class="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center opacity-75">
                     <h3 class="text-lg font-bold text-gray-700">Pending Review</h3>
-                    <p class="text-sm text-gray-500 mt-2">
-                        Currently with: <br>
-                        <span class="font-mono font-medium text-gray-800 bg-white px-2 py-1 rounded border mt-1 inline-block">
-                            {{ pending_email }}
-                        </span>
-                    </p>
-                    <p class="text-xs text-gray-400 mt-4">You cannot take action until the previous approver completes their review.</p>
+                    <p class="text-sm text-gray-500 mt-2">Currently with: {{ pending_email }}</p>
                 </div>
             {% endif %}
-
         </div>
     </div>
 </div>
