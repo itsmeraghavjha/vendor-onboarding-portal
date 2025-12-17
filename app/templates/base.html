@@ -20,19 +20,19 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-20">
                 <div class="flex items-center space-x-8">
-                    <a href="{{ url_for('dashboard') }}" class="flex items-center gap-3">
+                    <a href="{{ url_for('main.dashboard') }}" class="flex items-center gap-3">
         <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Heritage Foods Logo" class="h-12 w-auto">
     </a>
                     
                     {% if current_user.is_authenticated and current_user.role == 'admin' %}
-                        <a href="{{ url_for('admin_workflow') }}" class="ml-6 px-3 py-1.5 rounded-full text-xs font-bold text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 flex items-center transition">
+                        <a href="{{ url_for('admin.admin_workflow') }}" class="ml-6 px-3 py-1.5 rounded-full text-xs font-bold text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 flex items-center transition">
                             <span>⚙️ System Admin</span>
                         </a>
                     {% endif %}
                 </div>
 
                 <div class="flex items-center space-x-6">
-                    <a href="{{ url_for('fake_inbox') }}" target="_blank" class="text-sm font-medium text-gray-500 hover:text-green-600 flex items-center group">
+                    <a href="{{ url_for('main.fake_inbox') }}" target="_blank" class="text-sm font-medium text-gray-500 hover:text-green-600 flex items-center group">
                         <span class="group-hover:scale-110 transition transform mr-2">📧</span> Email Logs
                     </a>
                     
@@ -42,7 +42,7 @@
                                 <div class="text-xs text-green-600 font-bold uppercase">{{ current_user.role }}</div>
                                 <div class="text-sm font-semibold text-gray-800">{{ current_user.username }}</div>
                             </div>
-                            <a href="{{ url_for('logout') }}" class="text-gray-400 hover:text-red-500 transition">
+                            <a href="{{ url_for('auth.logout') }}" class="text-gray-400 hover:text-red-500 transition">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                 </svg>
