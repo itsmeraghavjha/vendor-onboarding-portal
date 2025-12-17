@@ -1,0 +1,39 @@
+Payment Terms,Description
+Z000,Payable immediately Due net
+Z001,within 7 days Due net
+Z002,within 10 days Due net
+Z003,For incoming invoices until 15 of the month
+Z004,within 30 days Due net
+Z005,within 20 days Due net
+Z006,15 Days Credit
+Z007,AS PER ANNEXURE
+Z008,25% advance & 75% Balance Before Delivery
+Z009,60% advance & 40% Balance After Material Delivery
+Z010,50% advance & 50% Before Delivery
+Z011,50% advance & balance 15 days from the date of GRN
+Z012,30 days from the date of receipt of material
+Z013,15 days from the date of receipt of material
+Z020,30 days from the date of receipt of material
+Z023,2 Days From Delivery
+Z024,within 15 days Due net
+Z025,100% PAYMENT AGAINST INVOICE
+Z026,25% ADVANCE & 75% AFTER COMPLETION OF WORK
+Z027,100% ADVANCE ALONG WITH PO
+Z028,100% ADVANCE ALONG WITH PI
+Z029,75% ADVANCE & 25% AFTER COMPLETION OF WORK
+Z030,50% Advance  & balance 50% after 6 months
+Z031,10% advance 90% as per Mentioned in the PO Text
+Z032,15% advance 85% as per Mentioned in the PO Text
+Z033,20% advance 80% as per Mentioned in the PO Text
+Z034,25% advance 75% as per Mentioned in the PO Text
+Z035,30% advance 70% as per Mentioned in the PO Text
+Z036,35% advance 65% as per Mentioned in the PO Text
+Z037,40% advance 60% as per Mentioned in the PO Text
+Z038,50% advance 50% as per Mentioned in the PO Text
+Z039,80% ADVANCE & 20% AFTER COMPLETION OF WORK
+Z040,45 days from the date of receipt of material
+Z100,Payable in 4 partial amounts
+Z101,Payable in 3 partial amounts
+Z102,Payable in 2 partial amounts
+Z103,Payable in 2 Instalments for 10 days
+Z104,Payable in 2 Instalments for 15 days

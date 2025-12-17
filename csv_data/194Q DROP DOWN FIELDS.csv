@@ -1,0 +1,19 @@
+T7,Exemption u/s 194Q,Fixed
+IA,Inv - Contractors - TDS Sec.,
+Withholding Tax Type,Withholding Tax Code,Description
+IA,I1,Inv - Contract - Co/Firms @ 2%
+IA,I2,Inv - Contract W/O PAN - Co/Firms @ 20%
+IA,I3,Inv - Contract - Co/Firms @ 1.5%
+IA,I4,Inv - Contract - 206AB without ITR@ 5%
+IA,I7,Inv - Contract - HUF/Indiv @ 0.75%
+IA,I8,Inv - Contract W/O PAN - HUF/Indiv @ 20%
+IA,I9,Inv - Contract - HUF/Indiv @ 1%
+PA,Pay - Contractors - TDS Sec.194C,
+Withholding Tax Type,Withholding Tax Code,Description
+PA,P1,Pay - Contract - Co/Firms @ 2%
+PA,P2,Pay  - Contract W/O PAN - Co/Firms @
+PA,P3,Pay - Contract - Co/Firms @ 1.50%
+PA,P4,Pay -Contract -Co/Firms Sec:206AB@5%
+PA,P7,Inv - Contract - HUF/Indiv @ 0.75%
+PA,P8,Pay  - Contract W/O PAN - HUF/Indiv@
+PA,P9,Inv - Contract - HUF/Indiv @ 1%

@@ -1,0 +1,18 @@
+SL No,Incoterm,Description
+1,CFR,Costs and freight
+2,CIF,"Costs,insurance & freight"
+3,CIP,Carriage and insurance paid to
+4,CPT,Carriage paid to
+5,DAF,Delivered at frontier
+6,DAP,DELIVERED AT PLACE
+7,DDP,Delivered Duty Paid
+8,DDU,Delivered Duty Unpaid
+9,DEQ,Delivered ex quay (duty paid)
+10,DES,Delivered ex ship
+11,EXW,Ex Works
+12,FAS,Free Alongside Ship
+13,FCA,Free Carrier
+14,FH,Free house
+15,FOB,Free on board
+16,FOR,Free on Road
+17,UN,Not Free

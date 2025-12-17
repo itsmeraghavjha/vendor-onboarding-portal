@@ -114,9 +114,12 @@ class MockEmail(db.Model):
 
 class MasterData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    category = db.Column(db.String(50))
-    code = db.Column(db.String(50))
-    label = db.Column(db.String(200))
-    parent_code = db.Column(db.String(50))
-    meta_data = db.Column(db.Text)
+    category = db.Column(db.String(50), index=True) # e.g. 'REGION', 'BANK'
+    code = db.Column(db.String(50))                 # e.g. '01', 'HDFC'
+    label = db.Column(db.String(255))               # e.g. 'Andhra Pradesh'
+    parent_code = db.Column(db.String(50))          # For dependent dropdowns
+    meta_data = db.Column(db.Text)                  # JSON string for extras (e.g. Account No)
     is_active = db.Column(db.Boolean, default=True)
+
+    def __repr__(self):
+        return f"<{self.category}: {self.code}>"

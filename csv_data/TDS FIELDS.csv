@@ -1,0 +1,11 @@
+Withholding Tax Type,Withholding Tax Code,Subject to w/tax,Recipient Type,W/tax identification no.,Exemption Certificate No.,Exemption Rate,Exemption Start Date,Exemption End Date,Exemption Reason,,
+IA,I1,X,CO,,1AC0525SSH,87.5,2025-05-13 00:00:00,2026-03-31 00:00:00,T6,Exmpt.Resn Text,
+PA,P1,,CO,,1AC0525SSH,87.5,2025-05-13 00:00:00,2026-03-31 00:00:00,T6,T1,Accumulated Losses
+IA,I9,X,OT,,,0,,,,T2,Refund due
+PA,P9,,OT,,,0,,,,T3,Charitable Institutions
+IH,I1,X,CO,,,0,,,,T4,Export undertaking
+PH,P1,,CO,,,0,,,,T5,Income below exemption limit
+IA,I1,X,CO,,,0,,,,T6,Others
+PA,P1,,CO,,,0,,,,T7,Exemption u/s 194Q
+IH,I1,X,CO,,,0,,,,,
+PH,P1,,CO,,,0,,,,,
