@@ -2,9 +2,10 @@ import uuid
 import json
 import csv
 import io
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, stream_with_context
+from datetime import datetime # NEW IMPORT
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
-from app.models import VendorRequest, CategoryRouting, WorkflowStep, User, MasterData
+from app.models import VendorRequest, CategoryRouting, WorkflowStep, MasterData
 from app.extensions import db
 from app.utils import send_status_email, send_system_email, get_next_approver_email
 
@@ -38,7 +39,7 @@ def dashboard():
         dept_categories = sorted(list(set([r.category_name for r in rules])))
         if not dept_categories: dept_categories = ["General Goods", "Services"]
 
-    return render_template('dashboard.html', requests=my_items, dept_categories=dept_categories, all_requests=all_reqs)
+    return render_template('main/dashboard.html', requests=my_items, dept_categories=dept_categories, all_requests=all_reqs)
 
 @main_bp.route('/create_request', methods=['POST'])
 @login_required
@@ -62,28 +63,34 @@ def create_request():
     db.session.add(new_req)
     db.session.commit()
     
+    # --- FIX: Render the Template for Invitation Email ---
     portal_link = url_for('vendor.vendor_portal', token=new_req.token, _external=True)
     subject = f"Invitation: Register with Heritage Foods ({new_req.request_id})"
-    body = f"<h3>Dear {new_req.vendor_name_basic},</h3><p>Please click below to register:</p><br><a href='{portal_link}'>Open Form</a>"
-    send_system_email(new_req.vendor_email, subject, body, portal_link)
+    
+    body_html = render_template('email/notification.html',
+        req=new_req,
+        subject="Vendor Registration Invitation",
+        body=f"Dear {new_req.vendor_name_basic},<br><br>You have been invited to register with Heritage Foods. Please click the button below to start your onboarding process.",
+        link=portal_link,
+        current_year=datetime.now().year
+    )
+    
+    send_system_email(new_req.vendor_email, subject, body_html)
     
     flash('Invite sent to vendor.', 'success')
     return redirect(url_for('main.dashboard'))
 
-# --- NEW: GENERATE SAP REPORT CSV ---
 @main_bp.route('/download_sap/<int:req_id>')
 @login_required
 def download_sap_report(req_id):
     req = db.session.get(VendorRequest, req_id)
     if not req: return "Not Found", 404
 
-    # Extract Tax Rows (Take 1st row of each table for report flattened format)
     t1 = req.get_tax1_rows()
     t1 = t1[0] if t1 else {}
     t2 = req.get_tax2_rows()
     t2 = t2[0] if t2 else {}
 
-    # Define Header based on your requirement
     headers = [
         "Vendor Account Group", "Title", "Name 1 (Legal Name)", "Name 2 (Trade Name)",
         "Street", "Street 2", "Street 3", "City", "Postal Code", "Region",
@@ -91,15 +98,12 @@ def download_sap_report(req_id):
         "GST Number", "PAN Number", "MSME Number", "MSME Type",
         "IFSC Code", "Bank Account No", "Account Holder Name",
         "GL Account", "House Bank", "Payment Terms", "Purch. Org", "Inco Terms",
-        # Tax Table 1
         "Withholding Tax Type - 1", "Withholding Tax Code - 1", "Subject to W/Tax", "Recipient Type",
         "Exemption Cert No. - 1", "Exemption Rate - 1", "Exemption Start - 1", "Exemption End - 1", "Exemption Reason - 1",
-        # Tax Table 2
         "Section Code", "Exemption Cert No. - 2", "Exemption Rate - 2", "Exemption Start - 2", "Exemption End - 2", 
         "Exemption Reason - 2", "Withholding Tax Type - 2", "Withholding Tax Code - 2", "Exemption Thr Amt", "Currency"
     ]
 
-    # Map Data
     row = [
         req.account_group, req.title, req.vendor_name_basic, req.trade_name,
         req.street, req.street_2, req.street_3, req.city, req.postal_code, req.region_code,
@@ -107,15 +111,12 @@ def download_sap_report(req_id):
         req.gst_number, req.pan_number, req.msme_number, req.msme_type,
         req.bank_ifsc, req.bank_account_no, req.bank_account_holder_name,
         req.gl_account, req.house_bank, req.payment_terms, req.purchase_org, req.incoterms,
-        # T1
         t1.get('type',''), t1.get('code',''), 'X' if t1.get('subject')=='1' else '', t1.get('recipient',''),
         t1.get('cert',''), t1.get('rate',''), t1.get('start',''), t1.get('end',''), t1.get('reason',''),
-        # T2
         t2.get('section',''), t2.get('cert',''), t2.get('rate',''), t2.get('start',''), t2.get('end',''),
         'T7', t2.get('type',''), t2.get('code',''), t2.get('thresh',''), 'INR'
     ]
 
-    # Generate CSV
     def generate():
         f = io.StringIO()
         w = csv.writer(f)
@@ -137,7 +138,6 @@ def review_request(req_id):
     is_my_turn = (pending_email and current_user.email and pending_email.strip().lower() == current_user.email.strip().lower())
     if current_user.role == 'admin': is_my_turn = True
 
-    # --- FETCH MASTERS ---
     acc_groups = MasterData.query.filter_by(category='ACCOUNT_GROUP').all()
     pay_terms = MasterData.query.filter_by(category='PAYMENT_TERM').all()
     purch_orgs = MasterData.query.filter_by(category='PURCHASE_ORG').all()
@@ -145,7 +145,6 @@ def review_request(req_id):
     gl_list = MasterData.query.filter_by(category='GL_ACCOUNT').all()
     house_banks = MasterData.query.filter_by(category='HOUSE_BANK').all()
     
-    # TAX MASTERS
     tax_types = MasterData.query.filter_by(category='TAX_TYPE').all()
     all_tax_codes = MasterData.query.filter_by(category='TDS_CODE').all()
     tax_code_map = {}
@@ -164,8 +163,19 @@ def review_request(req_id):
         if action == 'send_back':
             req.status = 'PENDING_VENDOR'; req.current_dept_flow = 'INITIATOR_REVIEW'
             db.session.commit()
+            
+            # --- FIX: Render Template for Query Email ---
             link = url_for('vendor.vendor_portal', token=req.token, _external=True)
-            send_system_email(req.vendor_email, f"Query on {req.request_id}", f"<p>{comments}</p>", link)
+            subject = f"Query on {req.request_id}"
+            body_html = render_template('email/notification.html',
+                req=req,
+                subject="Application Sent Back",
+                body=f"The reviewer has sent back your application with the following query:<br><br><b>{comments}</b><br><br>Please update your details and resubmit.",
+                link=link,
+                current_year=datetime.now().year
+            )
+            
+            send_system_email(req.vendor_email, subject, body_html)
             flash("Sent back.", "warning"); return redirect(url_for('main.dashboard'))
 
         if action == 'reject':
@@ -173,23 +183,20 @@ def review_request(req_id):
             send_status_email(req, req.vendor_email, f"Rejected: {comments}")
             flash("Rejected.", "error"); return redirect(url_for('main.dashboard'))
 
-        # --- SAVE DATA ---
         if req.current_dept_flow == 'INITIATOR_REVIEW':
             req.account_group = request.form.get('account_group')
             req.payment_terms = request.form.get('payment_terms')
             req.purchase_org = request.form.get('purchase_org')
             req.incoterms = request.form.get('incoterms')
         
-        # IT APPROVAL (FINAL STEP)
         if req.current_dept_flow == 'IT': 
             req.sap_id = request.form.get('sap_id')
-            req.status = 'COMPLETED' # Directly Complete
+            req.status = 'COMPLETED'
 
         if req.finance_stage == 'BILL_PASSING': req.gl_account = request.form.get('gl_account')
         elif req.finance_stage == 'TREASURY': req.house_bank = request.form.get('house_bank')
-        
         elif req.finance_stage == 'TAX':
-            # Save Tax Table 1
+            # Tax 1 Logic
             t1_types = request.form.getlist('tax1_type[]')
             t1_codes = request.form.getlist('tax1_code[]')
             t1_subj = request.form.getlist('tax1_subject_hidden[]')
@@ -215,7 +222,7 @@ def review_request(req_id):
                     })
             req.tax1_data = json.dumps(rows1)
 
-            # Save Tax Table 2
+            # Tax 2 Logic
             t2_sec = request.form.getlist('tax2_section_code[]')
             t2_cert = request.form.getlist('tax2_cert_no[]')
             t2_rate = request.form.getlist('tax2_rate[]')
@@ -239,8 +246,7 @@ def review_request(req_id):
                     })
             req.tax2_data = json.dumps(rows2)
 
-        # WORKFLOW LOGIC
-        if req.status != 'COMPLETED': # Only move if not just completed
+        if req.status != 'COMPLETED':
             if req.current_dept_flow == 'INITIATOR_REVIEW':
                 req.current_dept_flow = 'DEPT'; req.current_step_number = 1
             elif req.current_dept_flow == 'DEPT':
@@ -255,18 +261,25 @@ def review_request(req_id):
         db.session.commit()
         
         next_person, next_stage = get_next_approver_email(req)
-        if req.status == 'COMPLETED': send_system_email(req.vendor_email, "Onboarding Complete", f"Code: {req.sap_id}")
-        elif next_person: send_status_email(req, next_person, next_stage)
+        
+        # --- FIX: Render Template for Completion Email ---
+        if req.status == 'COMPLETED': 
+             subject = "Onboarding Complete"
+             body_html = render_template('email/notification.html',
+                req=req,
+                subject=subject,
+                body=f"Congratulations! Your onboarding is complete.<br><br><b>Your Vendor Code: {req.sap_id}</b>",
+                link=None, # Optional: could link to login
+                current_year=datetime.now().year
+             )
+             send_system_email(req.vendor_email, subject, body_html)
+             
+        elif next_person: 
+            send_status_email(req, next_person, next_stage)
 
         flash("Approved.", "success"); return redirect(url_for('main.dashboard'))
 
-    return render_template('review.html', req=req, pending_email=pending_email, is_my_turn=is_my_turn, stage_name=stage_name,
+    return render_template('main/review.html', req=req, pending_email=pending_email, is_my_turn=is_my_turn, stage_name=stage_name,
                            acc_groups=acc_groups, pay_terms=pay_terms, purch_orgs=purch_orgs, incoterms=incoterms,
                            gl_list=gl_list, house_banks=house_banks,
                            tax_types=tax_types, tax_code_map=json.dumps(tax_code_map), exemption_reasons=exemption_reasons)
-
-
-
-@main_bp.route('/fake_inbox')
-def fake_inbox():
-    return render_template('fake_inbox.html', emails=MockEmail.query.order_by(MockEmail.timestamp.desc()).all())

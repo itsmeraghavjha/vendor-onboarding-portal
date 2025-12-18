@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heritage Foods Notification</title>
+    <style>
+        /* Client-specific Resets */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; }
+        
+        /* General Styles */
+        body { margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .wrapper { width: 100%; table-layout: fixed; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        .webkit { max-width: 600px; margin: 0 auto; }
+        
+        /* Button Hover */
+        .btn:hover { background-color: #007a3a !important; box-shadow: 0 4px 12px rgba(0, 156, 73, 0.4) !important; }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6;">
+
+    <center class="wrapper" style="width: 100%; background-color: #f3f4f6; padding-bottom: 40px;">
+        <div class="webkit" style="max-width: 600px; margin: 0 auto;">
+            
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 40px; margin-bottom: 20px;">
+                <tr>
+                    <td align="center">
+                        <div style="font-family: 'Georgia', serif; color: #009C49; font-size: 24px; font-weight: bold; letter-spacing: -0.5px;">
+                            Heritage Foods
+                        </div>
+                        <div style="color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; font-family: sans-serif;">
+                            Vendor Lifecycle System
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); overflow: hidden; border-top: 6px solid #009C49;">
+                
+                <tr>
+                    <td style="padding: 40px 40px 20px 40px;">
+                        
+                        <h2 style="color: #1e293b; font-size: 20px; font-weight: 700; margin: 0 0 16px 0; font-family: sans-serif;">
+                            Action Required
+                        </h2>
+                        
+                        <div style="color: #475569; font-size: 15px; line-height: 1.6; font-family: sans-serif;">
+                            Hello, <br><br>
+                            A new update requires your attention in the vendor portal. Please review the details below.
+                        </div>
+
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 25px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <tr>
+                                <td style="padding: 20px;">
+                                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                        <tr>
+                                            <td style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold; padding-bottom: 4px; font-family: sans-serif;">Notification Type</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-size: 16px; color: #0f172a; font-weight: 600; font-family: sans-serif; padding-bottom: 16px;">
+                                                {{ subject }}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold; padding-bottom: 4px; font-family: sans-serif;">Message</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-size: 14px; color: #334155; line-height: 1.5; font-family: sans-serif;">
+                                                {{ body | safe }}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </td>
+                </tr>
+
+                {% if link %}
+                <tr>
+                    <td align="center" style="padding: 10px 40px 40px 40px;">
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                                <td align="center">
+                                    <a href="{{ link }}" class="btn" style="display: inline-block; background-color: #009C49; color: #ffffff; padding: 14px 32px; font-family: sans-serif; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 6px; box-shadow: 0 4px 6px rgba(0, 156, 73, 0.25); transition: all 0.2s ease;">
+                                        Open Portal &rarr;
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="text-align: center; margin-top: 24px; font-size: 12px; color: #94a3b8; font-family: sans-serif;">
+                            Trouble clicking? Copy this link:<br>
+                            <a href="{{ link }}" style="color: #009C49; text-decoration: underline;">{{ link }}</a>
+                        </p>
+                    </td>
+                </tr>
+                {% endif %}
+
+            </table>
+
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 20px;">
+                <tr>
+                    <td align="center" style="padding: 0 20px;">
+                        <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; font-family: sans-serif; margin: 0;">
+                            &copy; 2025 Heritage Foods Ltd. All rights reserved.<br>
+                            6-3-541/C, Panjagutta, Hyderabad, Telangana 500082
+                        </p>
+                        <p style="color: #cbd5e1; font-size: 11px; margin-top: 10px; font-family: sans-serif;">
+                            System Generated Email • Please do not reply
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+        </div>
+    </center>
+</body>
+</html>

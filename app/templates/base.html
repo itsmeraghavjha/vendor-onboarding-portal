@@ -32,9 +32,6 @@
                 </div>
 
                 <div class="flex items-center space-x-6">
-                    <a href="{{ url_for('main.fake_inbox') }}" target="_blank" class="text-sm font-medium text-gray-500 hover:text-green-600 flex items-center group">
-                        <span class="group-hover:scale-110 transition transform mr-2">📧</span> Email Logs
-                    </a>
                     
                     {% if current_user.is_authenticated %}
                         <div class="flex items-center border-l-2 border-gray-100 pl-6">

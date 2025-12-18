@@ -1,5 +1,7 @@
-import json  # <--- THIS IS CRITICAL
-from datetime import datetime
+import json
+import jwt
+from datetime import datetime, timedelta
+from flask import current_app
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
@@ -16,6 +18,28 @@ class User(UserMixin, db.Model):
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def get_reset_token(self, expires_sec=1800):
+        """Generates a JWT token valid for 30 minutes."""
+        payload = {
+            'user_id': self.id,
+            'exp': datetime.utcnow() + timedelta(seconds=expires_sec)
+        }
+        # Use a secret key from config to sign the token
+        return jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
+
+    @staticmethod
+    def verify_reset_token(token):
+        """Verifies the JWT token and returns the user."""
+        try:
+            payload = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
+            user_id = payload['user_id']
+            return db.session.get(User, user_id)
+        except:
+            return None
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)

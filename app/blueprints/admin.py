@@ -30,7 +30,6 @@ def reorder_steps():
 def admin_workflow():
     if current_user.role != 'admin': return "Access Denied", 403
     
-    # CORRECT VARIABLE DEFINITION (snake_case)
     active_tab = request.form.get('active_tab', request.args.get('active_tab', 'dashboard'))
     
     # --- 1. Master Data Setup ---
@@ -71,7 +70,6 @@ def admin_workflow():
 
     # FETCH LOGIC DATA
     if logic_view == 'FINANCE_COMMON':
-        # Fetch actual users for the 3 fixed roles
         finance_users = User.query.filter(User.username.in_(['Bill Passing Team', 'Treasury Team', 'Tax Team'])).all()
         order = {'Bill Passing Team': 1, 'Treasury Team': 2, 'Tax Team': 3}
         finance_users.sort(key=lambda u: order.get(u.username, 99))
@@ -192,7 +190,6 @@ def admin_workflow():
             active_tab = 'masters'
             selected_master_cat = request.form.get('master_category')
 
-        # Redirect to clean POST data
         return redirect(url_for('admin.admin_workflow', active_tab=active_tab, logic_view=logic_view, master_cat=selected_master_cat, user_dept=user_dept_view))
 
     # --- DASHBOARD STATS ---
@@ -214,5 +211,5 @@ def admin_workflow():
         'req_by_dept': {r[0]: r[1] for r in db.session.query(VendorRequest.initiator_dept, func.count(VendorRequest.id)).group_by(VendorRequest.initiator_dept).all()}
     }
 
-    # CORRECT RETURN STATEMENT
-    return render_template('admin_workflow.html', departments=departments, stats=stats, activeTab=active_tab, master_categories=master_categories, selected_master_cat=selected_master_cat, master_items=master_items, logic_view=logic_view, dept_rule_counts=dept_rule_counts, dept_rules=dept_rules, dept_steps=dept_steps, dept_it_routes=dept_it_routes, finance_users=finance_users, user_dept_view=user_dept_view, dept_user_stats=dept_user_stats, dept_initiators=dept_initiators, dept_approvers=dept_approvers, json=json)
+    # CRITICAL FIX: Updated path to 'admin/workflow.html'
+    return render_template('admin/workflow.html', departments=departments, stats=stats, activeTab=active_tab, master_categories=master_categories, selected_master_cat=selected_master_cat, master_items=master_items, logic_view=logic_view, dept_rule_counts=dept_rule_counts, dept_rules=dept_rules, dept_steps=dept_steps, dept_it_routes=dept_it_routes, finance_users=finance_users, user_dept_view=user_dept_view, dept_user_stats=dept_user_stats, dept_initiators=dept_initiators, dept_approvers=dept_approvers, json=json)

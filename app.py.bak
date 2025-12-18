@@ -160,7 +160,7 @@ def send_system_email(to, subject, body, link=None):
         msg = Message(subject, recipients=[to])
         # Use template if available, else fallback to string
         try:
-            msg.html = render_template('email_notification.html', subject=subject, body=body, link=link)
+            msg.html = render_template('email/notification.html', subject=subject, body=body, link=link)
         except:
             msg.html = f"<p>{body}</p>"
         mail.send(msg)

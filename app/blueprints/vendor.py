@@ -1,7 +1,8 @@
 import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.extensions import db
-from app.models import VendorRequest, MasterData
+from app.models import VendorRequest, MasterData, User
+from app.forms import VendorOnboardingForm
 from app.utils import save_file, send_status_email
 
 vendor_bp = Blueprint('vendor', __name__)
@@ -10,96 +11,141 @@ vendor_bp = Blueprint('vendor', __name__)
 def vendor_portal(token):
     req = VendorRequest.query.filter_by(token=token).first()
     
-    if not req: return "Invalid Link", 404
-    if req.status != 'PENDING_VENDOR': return render_template('vendor_success.html', req=req)
+    # 1. Security & Status Checks
+    if not req: 
+        return "Invalid Link", 404
+    
+    # If already submitted, show success page immediately
+    if req.status != 'PENDING_VENDOR': 
+        return render_template('vendor/success.html', req=req)
 
-    # UPDATED DROPDOWNS
-    titles = ['Mr', 'Ms', 'M/s', 'Dr']
+    # 2. Initialize Form
+    form = VendorOnboardingForm()
     
-    # Clearly defined options to trigger CIN logic
-    constitutions = [
-        'Proprietorship', 
-        'Partnership', 
-        'LLP (Limited Liability Partnership)', 
-        'Private Limited Company', 
-        'Public Limited Company', 
-        'HUF', 
-        'Trust/NGO', 
-        'Govt Undertaking'
-    ]
-    
-    msme_types = ['Manufacturing Micro', 'Manufacturing Small', 'Manufacturing Medium', 'Services Micro', 'Services Small', 'Services Medium']
+    # 3. Dynamic Data: Populate State Dropdown from DB
     states = MasterData.query.filter_by(category='REGION').all()
-    banks = MasterData.query.filter_by(category='BANK').all()
+    form.state.choices = [(s.code, s.label) for s in states]
 
-    if request.method == 'POST':
-        try:
-            # --- SCREEN 1 ---
-            req.title = request.form.get('title')
-            req.vendor_name_basic = request.form.get('legal_name')
-            req.trade_name = request.form.get('trade_name')
-            req.constitution = request.form.get('constitution')
-            req.cin_number = request.form.get('cin_no') # Capture CIN
-            
-            req.contact_person_name = request.form.get('contact_name')
-            req.contact_person_designation = request.form.get('designation')
-            req.mobile_number = request.form.get('mobile_1')
-            req.mobile_number_2 = request.form.get('mobile_2')
-            req.landline_number = request.form.get('landline')
-            req.product_service_description = request.form.get('product_desc')
-            
-            req.street = request.form.get('street_1')
-            req.street_2 = request.form.get('street_2')
-            req.street_3 = request.form.get('street_3')
-            req.city = request.form.get('city')
-            req.postal_code = request.form.get('pincode')
-            req.state = request.form.get('state')
+    # 4. Pre-fill Form Data (GET Request)
+    # This ensures that if they refresh or come back, their data is visible (if saved previously)
+    if request.method == 'GET':
+        form.title.data = req.title
+        form.trade_name.data = req.trade_name
+        form.constitution.data = req.constitution
+        form.cin_no.data = req.cin_number
+        
+        form.contact_name.data = req.contact_person_name
+        form.designation.data = req.contact_person_designation
+        form.mobile_1.data = req.mobile_number
+        form.mobile_2.data = req.mobile_number_2
+        form.landline.data = req.landline_number
+        form.product_desc.data = req.product_service_description
+        
+        form.street_1.data = req.street
+        form.street_2.data = req.street_2
+        form.street_3.data = req.street_3
+        form.city.data = req.city
+        form.pincode.data = req.postal_code
+        form.state.data = req.state # Matches the code value
+        
+        # Pre-fill Bank Details
+        form.bank_name.data = req.bank_name
+        form.holder_name.data = req.bank_account_holder_name
+        form.acc_no.data = req.bank_account_no
+        form.acc_no_confirm.data = req.bank_account_no
+        form.ifsc.data = req.bank_ifsc
 
-            # --- SCREEN 2 ---
-            req.gst_registered = request.form.get('gst_reg')
+        # Pre-fill Conditional Fields
+        if req.gst_registered: 
+            form.gst_reg.data = req.gst_registered
             if req.gst_registered == 'YES':
-                req.gst_number = request.form.get('gst_no')
-                f = request.files.get('gst_file')
-                if f: req.gst_file_path = save_file(f, 'GST')
+                form.gst_no.data = req.gst_number
 
-            req.pan_number = request.form.get('pan_no')
-            f = request.files.get('pan_file')
-            if f: req.pan_file_path = save_file(f, 'PAN')
-
-            req.msme_registered = request.form.get('msme_reg')
+        if req.msme_registered: 
+            form.msme_reg.data = req.msme_registered
             if req.msme_registered == 'YES':
-                req.msme_number = request.form.get('udyam_no')
-                req.msme_type = request.form.get('msme_type')
-                f = request.files.get('msme_file')
-                if f: req.msme_file_path = save_file(f, 'MSME')
+                form.msme_number.data = req.msme_number
+                form.msme_type.data = req.msme_type
+        
+        if req.tds_exemption_number:
+            form.tds_cert_no.data = req.tds_exemption_number
+            
+        if req.pan_number:
+            form.pan_no.data = req.pan_number
 
-            req.tds_exemption_number = request.form.get('tds_cert_no')
-            f = request.files.get('tds_file')
-            if f: req.tds_exemption_file_path = save_file(f, 'TDS')
+    # 5. Handle Submission (POST Request)
+    if form.validate_on_submit():
+        try:
+            # --- MAP FORM TO DATABASE MODEL ---
+            
+            # Step 1: General
+            req.title = form.title.data
+            req.vendor_name_basic = request.form.get('legal_name') # Hidden field (readonly)
+            req.trade_name = form.trade_name.data
+            req.constitution = form.constitution.data
+            req.cin_number = form.cin_no.data
+            
+            req.contact_person_name = form.contact_name.data
+            req.contact_person_designation = form.designation.data
+            req.mobile_number = form.mobile_1.data
+            req.mobile_number_2 = form.mobile_2.data
+            req.landline_number = form.landline.data
+            req.product_service_description = form.product_desc.data
+            
+            req.street = form.street_1.data
+            req.street_2 = form.street_2.data
+            req.street_3 = form.street_3.data
+            req.city = form.city.data
+            req.postal_code = form.pincode.data
+            req.state = form.state.data
 
-            # --- SCREEN 3 ---
-            req.bank_name = request.form.get('bank_name')
-            req.bank_account_holder_name = request.form.get('holder_name')
-            req.bank_account_no = request.form.get('acc_no')
-            req.bank_ifsc = request.form.get('ifsc')
-            f = request.files.get('bank_file')
-            if f: req.bank_proof_file_path = save_file(f, 'BANK')
+            # Step 2: Tax & Compliance + File Uploads
+            req.gst_registered = form.gst_reg.data
+            if form.gst_reg.data == 'YES':
+                req.gst_number = form.gst_no.data
+                if form.gst_file.data:
+                    req.gst_file_path = save_file(form.gst_file.data, 'GST')
 
+            req.pan_number = form.pan_no.data
+            if form.pan_file.data:
+                req.pan_file_path = save_file(form.pan_file.data, 'PAN')
+
+            req.msme_registered = form.msme_reg.data
+            if form.msme_reg.data == 'YES':
+                req.msme_number = form.msme_number.data
+                req.msme_type = form.msme_type.data
+                if form.msme_file.data:
+                    req.msme_file_path = save_file(form.msme_file.data, 'MSME')
+
+            req.tds_exemption_number = form.tds_cert_no.data
+            if form.tds_file.data:
+                req.tds_exemption_file_path = save_file(form.tds_file.data, 'TDS')
+
+            # Step 3: Bank Details
+            req.bank_name = form.bank_name.data
+            req.bank_account_holder_name = form.holder_name.data
+            req.bank_account_no = form.acc_no.data
+            req.bank_ifsc = form.ifsc.data
+            if form.bank_file.data:
+                req.bank_proof_file_path = save_file(form.bank_file.data, 'BANK')
+
+            # --- WORKFLOW TRIGGER ---
             req.status = 'PENDING_APPROVAL'
             req.current_dept_flow = 'INITIATOR_REVIEW'
             db.session.commit()
             
-            # Use User model for email lookup
-            from app.models import User
+            # Notify the Initiator
             initiator = db.session.get(User, req.initiator_id)
             if initiator:
                 send_status_email(req, initiator.email, "Vendor Submitted (Ready for Review)")
 
-            return render_template('vendor_success.html', req=req)
+            # Render Success Page
+            return render_template('vendor/success.html', req=req)
 
         except Exception as e:
             db.session.rollback()
-            flash(f"Error: {str(e)}", "error")
+            flash(f"System Error: {str(e)}", "error")
             return redirect(request.url)
 
-    return render_template('vendor_portal.html', req=req, titles=titles, constitutions=constitutions, msme_types=msme_types, states=states, banks=banks)
+    # 6. Render Portal (Initial Load or Validation Error)
+    return render_template('vendor/portal.html', req=req, form=form)
