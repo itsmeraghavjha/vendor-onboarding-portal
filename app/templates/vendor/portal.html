@@ -91,6 +91,26 @@
         </div>
     </header>
 
+    {% if req.status == 'PENDING_VENDOR' and req.last_query %}
+    <div class="max-w-4xl mx-auto px-4 mt-6">
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-r-lg shadow-sm flex items-start gap-4">
+            <div class="text-3xl">⚠️</div>
+            <div>
+                <h3 class="text-lg font-bold text-yellow-800">Action Required: Correction Needed</h3>
+                <p class="text-sm text-yellow-700 mt-1">
+                    The reviewer has returned your application with the following instruction:
+                </p>
+                <div class="mt-3 bg-white bg-opacity-60 p-3 rounded border border-yellow-200 text-gray-800 font-medium italic">
+                    "{{ req.last_query }}"
+                </div>
+                <p class="text-xs text-yellow-600 mt-2 font-bold">
+                    Please make the necessary changes and re-submit your application.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <main class="max-w-4xl mx-auto px-4 mt-8" x-data="{ 
         step: 1, 
         gstReg: '{{ form.gst_reg.data or 'NO' }}', 

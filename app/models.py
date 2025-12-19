@@ -151,6 +151,7 @@ class VendorRequest(db.Model):
     tax2_data = db.Column(db.Text) # 194Q Table
     
     sap_id = db.Column(db.String(20))
+    last_query = db.Column(db.Text)
 
     def get_tax1_rows(self):
         try: return json.loads(self.tax1_data) if self.tax1_data else []

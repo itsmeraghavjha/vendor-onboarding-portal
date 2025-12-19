@@ -86,10 +86,12 @@ def download_sap_report(req_id):
     req = db.session.get(VendorRequest, req_id)
     if not req: return "Not Found", 404
 
-    t1 = req.get_tax1_rows()
-    t1 = t1[0] if t1 else {}
-    t2 = req.get_tax2_rows()
-    t2 = t2[0] if t2 else {}
+    t1_rows = req.get_tax1_rows()
+    t2_rows = req.get_tax2_rows()
+
+    # Determine max rows needed
+    max_rows = max(len(t1_rows), len(t2_rows))
+    if max_rows == 0: max_rows = 1 
 
     headers = [
         "Vendor Account Group", "Title", "Name 1 (Legal Name)", "Name 2 (Trade Name)",
@@ -104,25 +106,77 @@ def download_sap_report(req_id):
         "Exemption Reason - 2", "Withholding Tax Type - 2", "Withholding Tax Code - 2", "Exemption Thr Amt", "Currency"
     ]
 
-    row = [
-        req.account_group, req.title, req.vendor_name_basic, req.trade_name,
-        req.street, req.street_2, req.street_3, req.city, req.postal_code, req.region_code,
-        req.contact_person_name, req.mobile_number, req.mobile_number_2, req.landline_number, req.vendor_email,
-        req.gst_number, req.pan_number, req.msme_number, req.msme_type,
-        req.bank_ifsc, req.bank_account_no, req.bank_account_holder_name,
-        req.gl_account, req.house_bank, req.payment_terms, req.purchase_org, req.incoterms,
-        t1.get('type',''), t1.get('code',''), 'X' if t1.get('subject')=='1' else '', t1.get('recipient',''),
-        t1.get('cert',''), t1.get('rate',''), t1.get('start',''), t1.get('end',''), t1.get('reason',''),
-        t2.get('section',''), t2.get('cert',''), t2.get('rate',''), t2.get('start',''), t2.get('end',''),
-        'T7', t2.get('type',''), t2.get('code',''), t2.get('thresh',''), 'INR'
-    ]
-
     def generate():
         f = io.StringIO()
         w = csv.writer(f)
         w.writerow(headers)
-        w.writerow(row)
-        yield f.getvalue()
+
+        for i in range(max_rows):
+            # Get data or empty dict if index out of range
+            t1 = t1_rows[i] if i < len(t1_rows) else {}
+            t2 = t2_rows[i] if i < len(t2_rows) else {}
+
+            # Is this the first row? (For repeating headers)
+            is_first = (i == 0)
+            
+            row = [
+                # --- HEADER DATA (Only Name 1 Repeats) ---
+                req.account_group if is_first else '', 
+                req.title if is_first else '', 
+                (req.vendor_name_basic or '').upper(),          # Key Field (Repeats)
+                req.trade_name if is_first else '',
+                req.street if is_first else '', 
+                req.street_2 if is_first else '', 
+                req.street_3 if is_first else '', 
+                (req.city or '').upper() if is_first else '',   
+                req.postal_code if is_first else '', 
+                req.region_code if is_first else '',
+                req.contact_person_name if is_first else '', 
+                req.mobile_number if is_first else '', 
+                req.mobile_number_2 if is_first else '', 
+                req.landline_number if is_first else '', 
+                req.vendor_email if is_first else '',
+                req.gst_number if is_first else '', 
+                req.pan_number if is_first else '', 
+                req.msme_number if is_first else '', 
+                req.msme_type if is_first else '',
+                req.bank_ifsc if is_first else '', 
+                req.bank_account_no if is_first else '', 
+                req.bank_account_holder_name if is_first else '',
+                req.gl_account if is_first else '', 
+                req.house_bank if is_first else '', 
+                req.payment_terms if is_first else '', 
+                req.purchase_org if is_first else '', 
+                req.incoterms if is_first else '',
+                
+                # --- TAX 1 DATA ---
+                t1.get('type',''), 
+                t1.get('code',''), 
+                'X' if t1.get('subject')=='1' else '', 
+                t1.get('recipient',''),
+                t1.get('cert',''), 
+                t1.get('rate',''), 
+                t1.get('start',''), 
+                t1.get('end',''), 
+                t1.get('reason',''),
+                
+                # --- TAX 2 DATA ---
+                t2.get('section',''), 
+                t2.get('cert',''), 
+                t2.get('rate',''), 
+                t2.get('start',''), 
+                t2.get('end',''),
+                'T7' if t2 else '',     # FIX: Only show 'T7' if row has Tax 2 data
+                t2.get('type',''), 
+                t2.get('code',''), 
+                t2.get('thresh',''), 
+                'INR' if t2 else ''     # FIX: Only show 'INR' if row has Tax 2 data
+            ]
+            
+            w.writerow(row)
+            yield f.getvalue()
+            f.seek(0)
+            f.truncate(0)
 
     return Response(generate(), mimetype='text/csv', 
                     headers={"Content-Disposition": f"attachment; filename=SAP_Upload_{req.request_id}.csv"})
@@ -162,6 +216,9 @@ def review_request(req_id):
 
         if action == 'send_back':
             req.status = 'PENDING_VENDOR'; req.current_dept_flow = 'INITIATOR_REVIEW'
+            db.session.commit()
+
+            req.last_query = comments 
             db.session.commit()
             
             # --- FIX: Render Template for Query Email ---

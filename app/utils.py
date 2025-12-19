@@ -38,7 +38,6 @@ def send_status_email(req, next_email, stage_name):
     
     subject = f"Action Required: {stage_name} - {req.vendor_name_basic}"
     
-    # --- THIS IS THE FIX ---
     # We tell Python: "Don't use a string. Go read 'email/notification.html' instead."
     body = render_template('email/notification.html', 
                            req=req, 
@@ -53,8 +52,15 @@ def get_next_approver_email(req):
     """
     Determines the next email address based on the 3-Phase Pipeline.
     """
+    
+    # --- PHASE 0: INITIATOR REVIEW (CRITICAL FIX ADDED HERE) ---
+    if req.current_dept_flow == 'INITIATOR_REVIEW':
+        initiator = db.session.get(User, req.initiator_id)
+        # Returns the initiator's email so the system knows it's their turn
+        return initiator.email if initiator else None, "Initiator Review"
+
     # --- PHASE 1: DEPARTMENT INTERNAL ---
-    if req.current_dept_flow == 'DEPT':
+    elif req.current_dept_flow == 'DEPT':
         # 1. Check Category Rule (Priority)
         cat_rule = CategoryRouting.query.filter_by(department=req.initiator_dept, category_name=req.vendor_type).first()
         
@@ -79,7 +85,8 @@ def get_next_approver_email(req):
         target_username = role_map.get(req.finance_stage)
         if target_username:
             user = User.query.filter_by(username=target_username).first()
-            return user.email if user else 'admin@heritage.com', f"Finance: {req.finance_stage.replace('_', ' ').title()}"
+            fallback = current_app.config['ADMIN_EMAIL']
+            return user.email if user else fallback, f"Finance: {req.finance_stage.replace('_', ' ').title()}"
 
     # --- PHASE 3: COMMON IT EXECUTION ---
     elif req.current_dept_flow == 'IT':
@@ -87,6 +94,6 @@ def get_next_approver_email(req):
         if route:
             return route.it_assignee_email, "IT: SAP Creation"
         else:
-            return 'it_admin@heritage.com', "IT: Admin (Fallback)"
+            return current_app.config['IT_ADMIN_EMAIL'], "IT: Admin (Fallback)"
 
     return None, None

@@ -1,7 +1,13 @@
 from flask import Flask
 from config import Config
-from .extensions import db, login_manager, mail
+# 1. Added 'migrate' to imports
+from .extensions import db, login_manager, mail, migrate 
 from .models import User
+# 2. Added dotenv to load environment variables
+from dotenv import load_dotenv
+
+# 3. Load .env file before app creation
+load_dotenv()
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -11,6 +17,8 @@ def create_app(config_class=Config):
     db.init_app(app)
     mail.init_app(app)
     login_manager.init_app(app)
+    # 4. Initialize Migrate
+    migrate.init_app(app, db) 
     
     # Configure Login Manager
     login_manager.login_view = 'auth.login'
@@ -32,7 +40,9 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(vendor_bp, url_prefix='/vendor')
 
-    # Create DB Tables if they don't exist
+    # Create DB Tables
+    # Note: With Flask-Migrate, you typically use 'flask db upgrade' instead of this,
+    # but keeping it here is fine for development to ensure tables exist.
     with app.app_context():
         db.create_all()
 
