@@ -2,12 +2,13 @@ import uuid
 import json
 import csv
 import io
-from datetime import datetime # NEW IMPORT
+from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
-from app.models import VendorRequest, CategoryRouting, WorkflowStep, MasterData
+from app.models import VendorRequest, CategoryRouting, WorkflowStep, MasterData, VendorTaxDetail
 from app.extensions import db
 from app.utils import send_status_email, send_system_email, get_next_approver_email
+from app.services import admin_service
 
 main_bp = Blueprint('main', __name__)
 
@@ -63,7 +64,6 @@ def create_request():
     db.session.add(new_req)
     db.session.commit()
     
-    # --- FIX: Render the Template for Invitation Email ---
     portal_link = url_for('vendor.vendor_portal', token=new_req.token, _external=True)
     subject = f"Invitation: Register with Heritage Foods ({new_req.request_id})"
     
@@ -83,104 +83,20 @@ def create_request():
 @main_bp.route('/download_sap/<int:req_id>')
 @login_required
 def download_sap_report(req_id):
+    """
+    Downloads the SAP CSV for a SINGLE request (IT Team Button).
+    """
     req = db.session.get(VendorRequest, req_id)
     if not req: return "Not Found", 404
 
-    t1_rows = req.get_tax1_rows()
-    t2_rows = req.get_tax2_rows()
+    # Use the central logic in admin_service
+    csv_output = admin_service.generate_sap_csv([req.id])
 
-    # Determine max rows needed
-    max_rows = max(len(t1_rows), len(t2_rows))
-    if max_rows == 0: max_rows = 1 
-
-    headers = [
-        "Vendor Account Group", "Title", "Name 1 (Legal Name)", "Name 2 (Trade Name)",
-        "Street", "Street 2", "Street 3", "City", "Postal Code", "Region",
-        "Contact Person Name", "Mobile Number 1", "Mobile Number 2", "Landline No", "E-Mail Address",
-        "GST Number", "PAN Number", "MSME Number", "MSME Type",
-        "IFSC Code", "Bank Account No", "Account Holder Name",
-        "GL Account", "House Bank", "Payment Terms", "Purch. Org", "Inco Terms",
-        "Withholding Tax Type - 1", "Withholding Tax Code - 1", "Subject to W/Tax", "Recipient Type",
-        "Exemption Cert No. - 1", "Exemption Rate - 1", "Exemption Start - 1", "Exemption End - 1", "Exemption Reason - 1",
-        "Section Code", "Exemption Cert No. - 2", "Exemption Rate - 2", "Exemption Start - 2", "Exemption End - 2", 
-        "Exemption Reason - 2", "Withholding Tax Type - 2", "Withholding Tax Code - 2", "Exemption Thr Amt", "Currency"
-    ]
-
-    def generate():
-        f = io.StringIO()
-        w = csv.writer(f)
-        w.writerow(headers)
-
-        for i in range(max_rows):
-            # Get data or empty dict if index out of range
-            t1 = t1_rows[i] if i < len(t1_rows) else {}
-            t2 = t2_rows[i] if i < len(t2_rows) else {}
-
-            # Is this the first row? (For repeating headers)
-            is_first = (i == 0)
-            
-            row = [
-                # --- HEADER DATA (Only Name 1 Repeats) ---
-                req.account_group if is_first else '', 
-                req.title if is_first else '', 
-                (req.vendor_name_basic or '').upper(),          # Key Field (Repeats)
-                req.trade_name if is_first else '',
-                req.street if is_first else '', 
-                req.street_2 if is_first else '', 
-                req.street_3 if is_first else '', 
-                (req.city or '').upper() if is_first else '',   
-                req.postal_code if is_first else '', 
-                req.region_code if is_first else '',
-                req.contact_person_name if is_first else '', 
-                req.mobile_number if is_first else '', 
-                req.mobile_number_2 if is_first else '', 
-                req.landline_number if is_first else '', 
-                req.vendor_email if is_first else '',
-                req.gst_number if is_first else '', 
-                req.pan_number if is_first else '', 
-                req.msme_number if is_first else '', 
-                req.msme_type if is_first else '',
-                req.bank_ifsc if is_first else '', 
-                req.bank_account_no if is_first else '', 
-                req.bank_account_holder_name if is_first else '',
-                req.gl_account if is_first else '', 
-                req.house_bank if is_first else '', 
-                req.payment_terms if is_first else '', 
-                req.purchase_org if is_first else '', 
-                req.incoterms if is_first else '',
-                
-                # --- TAX 1 DATA ---
-                t1.get('type',''), 
-                t1.get('code',''), 
-                'X' if t1.get('subject')=='1' else '', 
-                t1.get('recipient',''),
-                t1.get('cert',''), 
-                t1.get('rate',''), 
-                t1.get('start',''), 
-                t1.get('end',''), 
-                t1.get('reason',''),
-                
-                # --- TAX 2 DATA ---
-                t2.get('section',''), 
-                t2.get('cert',''), 
-                t2.get('rate',''), 
-                t2.get('start',''), 
-                t2.get('end',''),
-                'T7' if t2 else '',     # FIX: Only show 'T7' if row has Tax 2 data
-                t2.get('type',''), 
-                t2.get('code',''), 
-                t2.get('thresh',''), 
-                'INR' if t2 else ''     # FIX: Only show 'INR' if row has Tax 2 data
-            ]
-            
-            w.writerow(row)
-            yield f.getvalue()
-            f.seek(0)
-            f.truncate(0)
-
-    return Response(generate(), mimetype='text/csv', 
-                    headers={"Content-Disposition": f"attachment; filename=SAP_Upload_{req.request_id}.csv"})
-
+    return Response(
+        csv_output.getvalue(), 
+        mimetype='text/csv', 
+        headers={"Content-Disposition": f"attachment; filename=SAP_Upload_{req.request_id}.csv"}
+    )
 
 @main_bp.route('/review/<int:req_id>', methods=['GET', 'POST'])
 @login_required
@@ -221,7 +137,6 @@ def review_request(req_id):
             req.last_query = comments 
             db.session.commit()
             
-            # --- FIX: Render Template for Query Email ---
             link = url_for('vendor.vendor_portal', token=req.token, _external=True)
             subject = f"Query on {req.request_id}"
             body_html = render_template('email/notification.html',
@@ -252,11 +167,16 @@ def review_request(req_id):
 
         if req.finance_stage == 'BILL_PASSING': req.gl_account = request.form.get('gl_account')
         elif req.finance_stage == 'TREASURY': req.house_bank = request.form.get('house_bank')
+        
+        # --- FIX: SAVING TAX DETAILS TO DB TABLE ---
         elif req.finance_stage == 'TAX':
-            # Tax 1 Logic
+            # 1. Wipe old tax details for this request (to avoid duplicates)
+            for old_tax in req.tax_details:
+                db.session.delete(old_tax)
+            
+            # 2. Save Tax 1 (WHT)
             t1_types = request.form.getlist('tax1_type[]')
             t1_codes = request.form.getlist('tax1_code[]')
-            t1_subj = request.form.getlist('tax1_subject_hidden[]')
             t1_recip = request.form.getlist('tax1_recipient_type[]')
             t1_reas = request.form.getlist('tax1_exemption_reason[]')
             t1_cert = request.form.getlist('tax1_cert_no[]')
@@ -264,22 +184,22 @@ def review_request(req_id):
             t1_start = request.form.getlist('tax1_start_date[]')
             t1_end = request.form.getlist('tax1_end_date[]')
 
-            rows1 = []
             for i in range(len(t1_types)):
                 if t1_types[i]:
-                    rows1.append({
-                        'type': t1_types[i], 'code': t1_codes[i] if i < len(t1_codes) else '',
-                        'subject': t1_subj[i] if i < len(t1_subj) else '0',
-                        'recipient': t1_recip[i] if i < len(t1_recip) else '',
-                        'reason': t1_reas[i] if i < len(t1_reas) else '',
-                        'cert': t1_cert[i] if i < len(t1_cert) else '',
-                        'rate': t1_rate[i] if i < len(t1_rate) else '',
-                        'start': t1_start[i] if i < len(t1_start) else '',
-                        'end': t1_end[i] if i < len(t1_end) else ''
-                    })
-            req.tax1_data = json.dumps(rows1)
+                    new_wht = VendorTaxDetail(
+                        vendor_request=req,
+                        tax_category='WHT',
+                        tax_code=t1_codes[i] if i < len(t1_codes) else '',
+                        recipient_type=t1_recip[i] if i < len(t1_recip) else '',
+                        exemption_reason=t1_reas[i] if i < len(t1_reas) else '',
+                        cert_no=t1_cert[i] if i < len(t1_cert) else '',
+                        rate=t1_rate[i] if i < len(t1_rate) else '',
+                        start_date=t1_start[i] if i < len(t1_start) else '',
+                        end_date=t1_end[i] if i < len(t1_end) else ''
+                    )
+                    db.session.add(new_wht)
 
-            # Tax 2 Logic
+            # 3. Save Tax 2 (194Q)
             t2_sec = request.form.getlist('tax2_section_code[]')
             t2_cert = request.form.getlist('tax2_cert_no[]')
             t2_rate = request.form.getlist('tax2_rate[]')
@@ -289,19 +209,23 @@ def review_request(req_id):
             t2_code = request.form.getlist('tax2_code[]')
             t2_thresh = request.form.getlist('tax2_threshold_amount[]')
 
-            rows2 = []
             for i in range(len(t2_sec)):
                 if t2_sec[i]:
-                    rows2.append({
-                        'section': t2_sec[i], 'cert': t2_cert[i] if i < len(t2_cert) else '',
-                        'rate': t2_rate[i] if i < len(t2_rate) else '',
-                        'start': t2_start[i] if i < len(t2_start) else '',
-                        'end': t2_end[i] if i < len(t2_end) else '',
-                        'type': t2_type[i] if i < len(t2_type) else '',
-                        'code': t2_code[i] if i < len(t2_code) else '',
-                        'thresh': t2_thresh[i] if i < len(t2_thresh) else ''
-                    })
-            req.tax2_data = json.dumps(rows2)
+                    new_194q = VendorTaxDetail(
+                        vendor_request=req,
+                        tax_category='194Q',
+                        section_code=t2_sec[i],
+                        cert_no=t2_cert[i] if i < len(t2_cert) else '',
+                        rate=t2_rate[i] if i < len(t2_rate) else '',
+                        start_date=t2_start[i] if i < len(t2_start) else '',
+                        end_date=t2_end[i] if i < len(t2_end) else '',
+                        # Map type/code to standard fields or custom if needed
+                        # For now mapping to standard tax_code field
+                        tax_code=t2_code[i] if i < len(t2_code) else '',
+                        threshold=t2_thresh[i] if i < len(t2_thresh) else ''
+                    )
+                    db.session.add(new_194q)
+        # ---------------------------------------------
 
         if req.status != 'COMPLETED':
             if req.current_dept_flow == 'INITIATOR_REVIEW':
@@ -319,14 +243,13 @@ def review_request(req_id):
         
         next_person, next_stage = get_next_approver_email(req)
         
-        # --- FIX: Render Template for Completion Email ---
         if req.status == 'COMPLETED': 
              subject = "Onboarding Complete"
              body_html = render_template('email/notification.html',
                 req=req,
                 subject=subject,
                 body=f"Congratulations! Your onboarding is complete.<br><br><b>Your Vendor Code: {req.sap_id}</b>",
-                link=None, # Optional: could link to login
+                link=None,
                 current_year=datetime.now().year
              )
              send_system_email(req.vendor_email, subject, body_html)

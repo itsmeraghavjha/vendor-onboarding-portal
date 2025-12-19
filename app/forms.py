@@ -64,6 +64,7 @@ class VendorOnboardingForm(FlaskForm):
     street_1 = StringField('Street 1', validators=[DataRequired()])
     street_2 = StringField('Street 2')
     street_3 = StringField('Street 3')
+    street_4 = StringField('Street 4')
     city = StringField('City', validators=[DataRequired()])
     pincode = StringField('Pincode', validators=[DataRequired(), Length(min=6, max=6)])
     state = SelectField('State', choices=[], validators=[DataRequired()]) 

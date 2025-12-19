@@ -28,7 +28,6 @@ class User(UserMixin, db.Model):
             'user_id': self.id,
             'exp': datetime.utcnow() + timedelta(seconds=expires_sec)
         }
-        # Use a secret key from config to sign the token
         return jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
 
     @staticmethod
@@ -41,9 +40,6 @@ class User(UserMixin, db.Model):
         except:
             return None
 
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
 class Department(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
@@ -53,7 +49,7 @@ class MasterData(db.Model):
     category = db.Column(db.String(50), nullable=False)
     code = db.Column(db.String(50), nullable=False)
     label = db.Column(db.String(200), nullable=False)
-    parent_code = db.Column(db.String(50)) # NEW: Links Tax Code (Child) to Tax Type (Parent)
+    parent_code = db.Column(db.String(50)) 
     is_active = db.Column(db.Boolean, default=True)
 
 class CategoryRouting(db.Model):
@@ -110,6 +106,7 @@ class VendorRequest(db.Model):
     street = db.Column(db.String(100))
     street_2 = db.Column(db.String(100))
     street_3 = db.Column(db.String(100))
+    street_4 = db.Column(db.String(100))
     city = db.Column(db.String(50))
     state = db.Column(db.String(50)) 
     postal_code = db.Column(db.String(10))
@@ -125,8 +122,8 @@ class VendorRequest(db.Model):
     msme_type = db.Column(db.String(50))
     msme_number = db.Column(db.String(50))
     msme_file_path = db.Column(db.String(200))
-    tds_exemption_number = db.Column(db.String(50))
-    tds_exemption_file_path = db.Column(db.String(200))
+    
+    # REMOVED LEGACY TDS COLUMNS FROM HERE
     
     # Bank
     bank_name = db.Column(db.String(100))
@@ -144,72 +141,63 @@ class VendorRequest(db.Model):
     # Finance
     gl_account = db.Column(db.String(50))
     house_bank = db.Column(db.String(50))
-
-    # --- REFACTORED: REMOVED JSON BLOBS (tax1_data, tax2_data) ---
     
     sap_id = db.Column(db.String(20))
     last_query = db.Column(db.Text)
     
-    # --- HELPER METHODS FOR TEMPLATES ---
-    # We add these back so your existing HTML templates keep working without changes.
-    def get_tax1_rows(self):
-        # Convert new DB objects to the OLD dictionary format your template expects
-        rows = []
-        for t in self.tax_details:
-            if t.tax_category == 'WHT':
-                rows.append({
-                    'type': t.tax_category, # or t.recipient_type depending on your logic
-                    'code': t.tax_code,
-                    'rate': t.rate,
-                    'cert': t.cert_no,
-                    'start': t.start_date,
-                    'end': t.end_date,
-                    'recipient': t.recipient_type,
-                    'reason': t.exemption_reason
-                })
-        return rows
-
-    def get_tax2_rows(self):
-        rows = []
-        for t in self.tax_details:
-            if t.tax_category == '194Q':
-                rows.append({
-                    'section': t.section_code,
-                    'code': t.tax_code,
-                    'rate': t.rate,
-                    'thresh': t.threshold,
-                    'cert': t.cert_no,
-                    'start': t.start_date,
-                    'end': t.end_date
-                })
-        return rows
-
-    # Relationship (Keep this)
+    # Relationship
     tax_details = db.relationship('VendorTaxDetail', backref='vendor_request', lazy=True, cascade="all, delete-orphan")
 
+    def get_tax1_rows(self):
+        """Returns tax details filtered for 'WHT' category."""
+        return [
+            {
+                'type': t.tax_category,
+                'code': t.tax_code,
+                'rate': t.rate,
+                'cert': t.cert_no,
+                'start': t.start_date,
+                'end': t.end_date,
+                'recipient': t.recipient_type,
+                'reason': t.exemption_reason,
+                'subject': '1'  # Assuming subject is always checked if record exists
+            }
+            for t in self.tax_details if t.tax_category == 'WHT'
+        ]
 
-# --- NEW TABLE: VENDOR TAX DETAILS ---
+    def get_tax2_rows(self):
+        """Returns tax details filtered for '194Q' category."""
+        return [
+            {
+                'section': t.section_code,
+                'code': t.tax_code,
+                'rate': t.rate,
+                'cert': t.cert_no,
+                'start': t.start_date,
+                'end': t.end_date,
+                'thresh': t.threshold,
+                'type': t.tax_category  # Can store type if needed
+            }
+            for t in self.tax_details if t.tax_category == '194Q'
+        ]
+
+
 class VendorTaxDetail(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vendor_request_id = db.Column(db.Integer, db.ForeignKey('vendor_request.id'), nullable=False)
     
-    # 'WHT' or '194Q'
-    tax_category = db.Column(db.String(20), nullable=False) 
+    tax_category = db.Column(db.String(20), nullable=False) # 'WHT' or '194Q'
     
-    # Common Fields
     tax_code = db.Column(db.String(50)) 
-    rate = db.Column(db.String(20))     # Changed to String to handle "10%" or "10.5" easily
-    cert_no = db.Column(db.String(100)) # Missing Field Added
+    rate = db.Column(db.String(20))
+    cert_no = db.Column(db.String(100))
     
-    # Dates (Stored as strings for simplicity in this transition, or db.Date)
     start_date = db.Column(db.String(20)) 
     end_date = db.Column(db.String(20))
     
-    # WHT Specific
-    recipient_type = db.Column(db.String(20)) # CO/OT
+    recipient_type = db.Column(db.String(20))
     exemption_reason = db.Column(db.String(100))
     
-    # 194Q Specific
     section_code = db.Column(db.String(50))
     threshold = db.Column(db.String(50))
     

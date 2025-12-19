@@ -113,7 +113,7 @@
                         <div class="md:col-span-2 border-t border-gray-100 pt-4 mt-2">
                             <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Registered Address</label>
                             <div class="text-sm text-gray-700">
-                                {{ req.street }} {{ req.street_2 }} {{ req.street_3 }}<br>
+                                {{ req.street }} {{ req.street_2 }} {{ req.street_3 }} {{ req.street_4 }}<br>
                                 {{ req.city }} - <span class="font-bold">{{ req.postal_code }}</span><br>
                                 {{ req.state }}
                             </div>
@@ -245,7 +245,7 @@
         {% set tax1_rows = req.get_tax1_rows() %}
         {% set tax2_rows = req.get_tax2_rows() %}
         
-        {% if tax1_rows or tax2_rows %}
+        {% if (tax1_rows or tax2_rows) and (req.finance_stage == 'TAX' or req.current_dept_flow == 'IT' or req.status == 'COMPLETED') %}
         <div class="mt-8 bg-white rounded-xl shadow-sm border border-yellow-200 overflow-hidden">
             <div class="bg-yellow-50 px-6 py-4 border-b border-yellow-200">
                 <h3 class="font-bold text-yellow-900 flex items-center gap-2">

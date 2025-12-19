@@ -1,13 +1,30 @@
 import json
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, Response
 from flask_login import login_required, current_user
 from sqlalchemy import func
-from app.models import User, Department, CategoryRouting, WorkflowStep, ITRouting, MasterData
+from app.models import User, Department, CategoryRouting, WorkflowStep, ITRouting, MasterData, VendorRequest
 from app.extensions import db
-# Import our new service layer
 from app.services import admin_service
 
 admin_bp = Blueprint('admin', __name__)
+
+@admin_bp.route('/export/sap')
+@login_required
+def export_sap_data():
+    if current_user.role != 'admin': 
+        return "Access Denied", 403
+    
+    # Export all for now (or add filtering later)
+    requests = VendorRequest.query.all() 
+    request_ids = [r.id for r in requests]
+    
+    csv_output = admin_service.generate_sap_csv(request_ids)
+    
+    return Response(
+        csv_output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=sap_vendor_creation.csv"}
+    )
 
 @admin_bp.route('/reorder_steps', methods=['POST'])
 @login_required
@@ -29,7 +46,6 @@ def reorder_steps():
 def admin_workflow():
     if current_user.role != 'admin': return "Access Denied", 403
     
-    # --- 1. POST HANDLING (Delegated to Service) ---
     active_tab = request.form.get('active_tab', request.args.get('active_tab', 'dashboard'))
     logic_view = request.form.get('logic_view') or request.args.get('logic_view')
     selected_master_cat = request.form.get('master_category') or request.args.get('master_cat')
@@ -43,7 +59,6 @@ def admin_workflow():
 
         elif 'update_logic_type' in request.form:
             admin_service.update_logic_email(request.form)
-            # Redirect to clear form submission
             return redirect(url_for('admin.admin_workflow', active_tab='logic', logic_view=logic_view))
 
         elif any(k in request.form for k in ['new_category_name', 'delete_rule_id', 'new_step_role', 'delete_step_id', 'new_account_group', 'delete_it_id']):
@@ -62,14 +77,10 @@ def admin_workflow():
 
         return redirect(url_for('admin.admin_workflow', active_tab=active_tab, logic_view=logic_view, master_cat=selected_master_cat, user_dept=user_dept_view))
 
-    # --- 2. GET HANDLING (View Preparation) ---
-    
-    # Master Data Categories
     cat_query = db.session.query(MasterData.category).distinct().all()
     master_categories = sorted([c[0] for c in cat_query]) if cat_query else []
     master_items = MasterData.query.filter_by(category=selected_master_cat).all() if selected_master_cat else []
 
-    # Departments & User Stats
     departments = Department.query.all()
     
     dept_user_stats = {d.name: {'initiator': 0, 'approver': 0} for d in departments}
@@ -84,9 +95,7 @@ def admin_workflow():
         dept_initiators = [u for u in users if u.role == 'initiator']
         dept_approvers = [u for u in users if u.role == 'approver']
 
-    # Logic Data Fetching
     dept_rule_counts = {d.name: 0 for d in departments}
-    # (Optional: This count logic could also be moved to service, but it's purely view-related so it's fine here)
     for d, c in db.session.query(CategoryRouting.department, func.count(CategoryRouting.id)).group_by(CategoryRouting.department).all():
         if d in dept_rule_counts: dept_rule_counts[d] += c
     for d, c in db.session.query(WorkflowStep.department, func.count(WorkflowStep.id)).group_by(WorkflowStep.department).all():
@@ -105,7 +114,6 @@ def admin_workflow():
         dept_rules = CategoryRouting.query.filter_by(department=logic_view).all()
         dept_steps = WorkflowStep.query.filter_by(department=logic_view).order_by(WorkflowStep.step_order).all()
 
-    # Dashboard Stats (Delegated)
     stats = admin_service.get_dashboard_stats()
 
     return render_template('admin/workflow.html', 
