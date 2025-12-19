@@ -1,0 +1,23 @@
+{
+  "name": "vendor-onboarding-portal",
+  "version": "1.0.0",
+  "description": "It is a portal to onboard new vendors, has multiple approval cycles from multiple departments",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/itsmeraghavjha/vendor-onboarding-portal.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/itsmeraghavjha/vendor-onboarding-portal/issues"
+  },
+  "homepage": "https://github.com/itsmeraghavjha/vendor-onboarding-portal#readme",
+  "devDependencies": {
+    "tailwindcss": "^4.1.18"
+  }
+}

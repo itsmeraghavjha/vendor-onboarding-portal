@@ -1,10 +1,11 @@
 from flask import Flask
 from config import Config
 # 1. Added 'migrate' to imports
-from .extensions import db, login_manager, mail, migrate 
+from .extensions import db, login_manager, mail, migrate, celery
 from .models import User
 # 2. Added dotenv to load environment variables
 from dotenv import load_dotenv
+from .celery_utils import init_celery
 
 # 3. Load .env file before app creation
 load_dotenv()
@@ -19,6 +20,9 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     # 4. Initialize Migrate
     migrate.init_app(app, db) 
+
+    # Initialize Celery
+    init_celery(app, celery)
     
     # Configure Login Manager
     login_manager.login_view = 'auth.login'

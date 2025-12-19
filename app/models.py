@@ -145,21 +145,75 @@ class VendorRequest(db.Model):
     gl_account = db.Column(db.String(50))
     house_bank = db.Column(db.String(50))
 
-    # --- TAX TEAM (JSON STORAGE FOR MULTI-ROW) ---
-    # We store the entire table as a JSON string
-    tax1_data = db.Column(db.Text) # Withholding Tax Table
-    tax2_data = db.Column(db.Text) # 194Q Table
+    # --- REFACTORED: REMOVED JSON BLOBS (tax1_data, tax2_data) ---
     
     sap_id = db.Column(db.String(20))
     last_query = db.Column(db.Text)
-
+    
+    # --- HELPER METHODS FOR TEMPLATES ---
+    # We add these back so your existing HTML templates keep working without changes.
     def get_tax1_rows(self):
-        try: return json.loads(self.tax1_data) if self.tax1_data else []
-        except: return []
+        # Convert new DB objects to the OLD dictionary format your template expects
+        rows = []
+        for t in self.tax_details:
+            if t.tax_category == 'WHT':
+                rows.append({
+                    'type': t.tax_category, # or t.recipient_type depending on your logic
+                    'code': t.tax_code,
+                    'rate': t.rate,
+                    'cert': t.cert_no,
+                    'start': t.start_date,
+                    'end': t.end_date,
+                    'recipient': t.recipient_type,
+                    'reason': t.exemption_reason
+                })
+        return rows
 
     def get_tax2_rows(self):
-        try: return json.loads(self.tax2_data) if self.tax2_data else []
-        except: return []
+        rows = []
+        for t in self.tax_details:
+            if t.tax_category == '194Q':
+                rows.append({
+                    'section': t.section_code,
+                    'code': t.tax_code,
+                    'rate': t.rate,
+                    'thresh': t.threshold,
+                    'cert': t.cert_no,
+                    'start': t.start_date,
+                    'end': t.end_date
+                })
+        return rows
+
+    # Relationship (Keep this)
+    tax_details = db.relationship('VendorTaxDetail', backref='vendor_request', lazy=True, cascade="all, delete-orphan")
+
+
+# --- NEW TABLE: VENDOR TAX DETAILS ---
+class VendorTaxDetail(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    vendor_request_id = db.Column(db.Integer, db.ForeignKey('vendor_request.id'), nullable=False)
+    
+    # 'WHT' or '194Q'
+    tax_category = db.Column(db.String(20), nullable=False) 
+    
+    # Common Fields
+    tax_code = db.Column(db.String(50)) 
+    rate = db.Column(db.String(20))     # Changed to String to handle "10%" or "10.5" easily
+    cert_no = db.Column(db.String(100)) # Missing Field Added
+    
+    # Dates (Stored as strings for simplicity in this transition, or db.Date)
+    start_date = db.Column(db.String(20)) 
+    end_date = db.Column(db.String(20))
+    
+    # WHT Specific
+    recipient_type = db.Column(db.String(20)) # CO/OT
+    exemption_reason = db.Column(db.String(100))
+    
+    # 194Q Specific
+    section_code = db.Column(db.String(50))
+    threshold = db.Column(db.String(50))
+    
+    is_active = db.Column(db.Boolean, default=True)
 
 class MockEmail(db.Model):
     id = db.Column(db.Integer, primary_key=True)

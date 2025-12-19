@@ -7,15 +7,21 @@ from flask_mail import Message
 from .extensions import db, mail
 from .models import MockEmail, User, CategoryRouting, WorkflowStep, ITRouting
 
+# --- CRITICAL IMPORT ---
+# We must import the task so we can call .delay() on it
+from .tasks import send_async_email 
+
 def save_file(file_obj, prefix):
     if not file_obj or not file_obj.filename: return None
     filename = file_obj.filename
     if '.' not in filename: return None
     ext = filename.rsplit('.', 1)[1].lower()
     if ext in current_app.config['ALLOWED_EXTENSIONS']:
+        # Use config for upload folder
+        upload_folder = current_app.config['UPLOAD_FOLDER']
         safe_name = secure_filename(f"{prefix}_{uuid.uuid4().hex[:8]}.{ext}")
-        os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
-        file_obj.save(os.path.join(current_app.config['UPLOAD_FOLDER'], safe_name))
+        os.makedirs(upload_folder, exist_ok=True)
+        file_obj.save(os.path.join(upload_folder, safe_name))
         return safe_name
     return None
 
@@ -24,13 +30,12 @@ def send_system_email(to, subject, body, link=None):
     Generic sender for system alerts.
     """
     try:
-        msg = Message(subject, recipients=[to])
-        # FIX: The body is now HTML loaded from the template
-        msg.html = body 
-        mail.send(msg)
-        print(f"✓ Email sent to {to}")
+        # Use .delay() to hand off the task to Celery/Redis
+        # This returns immediately, so the user doesn't wait.
+        send_async_email.delay(subject, to, body) 
+        print(f"✓ Task queued for {to}")
     except Exception as e:
-        print(f"✗ Email Error: {e}")
+        print(f"✗ Task Error: {e}")
 
 def send_status_email(req, next_email, stage_name):
     """Workflow-specific sender."""
@@ -53,10 +58,9 @@ def get_next_approver_email(req):
     Determines the next email address based on the 3-Phase Pipeline.
     """
     
-    # --- PHASE 0: INITIATOR REVIEW (CRITICAL FIX ADDED HERE) ---
+    # --- PHASE 0: INITIATOR REVIEW ---
     if req.current_dept_flow == 'INITIATOR_REVIEW':
         initiator = db.session.get(User, req.initiator_id)
-        # Returns the initiator's email so the system knows it's their turn
         return initiator.email if initiator else None, "Initiator Review"
 
     # --- PHASE 1: DEPARTMENT INTERNAL ---

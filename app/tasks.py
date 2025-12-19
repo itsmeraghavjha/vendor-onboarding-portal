@@ -1,6 +1,5 @@
-from app import celery # You'll need to initialize this in __init__
+from app.extensions import celery, mail # <--- Import from extensions
 from flask_mail import Message
-from app.extensions import mail
 
 @celery.task(bind=True, max_retries=3)
 def send_async_email(self, subject, recipient, body_html):
@@ -8,7 +7,7 @@ def send_async_email(self, subject, recipient, body_html):
         msg = Message(subject, recipients=[recipient])
         msg.html = body_html
         mail.send(msg)
-        return "Sent"
+        return f"Email sent to {recipient}"
     except Exception as e:
-        # Enterprise Feature: Auto-retry if it fails!
+        # Retry in 60 seconds if it fails (e.g., Gmail is down)
         self.retry(exc=e, countdown=60)
