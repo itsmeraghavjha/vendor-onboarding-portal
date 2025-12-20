@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.extensions import db
 from app.models import VendorRequest, MasterData, User, VendorTaxDetail
 from app.forms import VendorOnboardingForm
-from app.utils import save_file, send_status_email
+from app.utils import save_file, send_status_email, log_audit # <--- Import log_audit
 
 vendor_bp = Blueprint('vendor', __name__)
 
@@ -60,7 +60,6 @@ def vendor_portal(token):
                 form.msme_number.data = req.msme_number
                 form.msme_type.data = req.msme_type
         
-        # Check for existing WHT entry to pre-fill
         wht_tax = next((t for t in req.tax_details if t.tax_category == 'WHT'), None)
         if wht_tax and wht_tax.cert_no:
             form.tds_cert_no.data = wht_tax.cert_no
@@ -73,7 +72,7 @@ def vendor_portal(token):
         try:
             # 1. General
             req.title = form.title.data
-            req.vendor_name_basic = request.form.get('legal_name') # Assuming logic from JS or hidden field
+            req.vendor_name_basic = request.form.get('legal_name')
             req.trade_name = form.trade_name.data
             req.constitution = form.constitution.data
             req.cin_number = form.cin_no.data
@@ -111,17 +110,11 @@ def vendor_portal(token):
                 if form.msme_file.data:
                     req.msme_file_path = save_file(form.msme_file.data, 'MSME')
 
-            # --- UPDATED TAX MAPPING (Cleaned) ---
-            
-            # Clear old entries to avoid duplicates on resubmission
+            # Tax Details
             for old_tax in req.tax_details:
                 db.session.delete(old_tax)
 
-            # Create new WHT entry if data exists
             if form.tds_cert_no.data or form.tds_file.data:
-                # Note: File saving for TDS is handled, but not linked to TaxDetail yet. 
-                # Ideally, you'd add a file_path column to VendorTaxDetail.
-                # For now, we save the file to disk (logic inside save_file handles it)
                 if form.tds_file.data:
                      save_file(form.tds_file.data, 'TDS')
 
@@ -135,7 +128,6 @@ def vendor_portal(token):
                     end_date='31.03.2025'
                 )
                 db.session.add(wht)
-            # -------------------------------------
 
             # 3. Bank Details
             req.bank_name = form.bank_name.data
@@ -148,6 +140,12 @@ def vendor_portal(token):
             # Workflow
             req.status = 'PENDING_APPROVAL'
             req.current_dept_flow = 'INITIATOR_REVIEW'
+            
+            # --- NEW: Log the vendor action ---
+            # Use None for user_id since this is an external user
+            log_audit(req.id, None, 'SUBMITTED_BY_VENDOR', "Vendor filled the form")
+            # ----------------------------------
+
             db.session.commit()
             
             initiator = db.session.get(User, req.initiator_id)

@@ -7,7 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from app.models import VendorRequest, CategoryRouting, WorkflowStep, MasterData, VendorTaxDetail
 from app.extensions import db
-from app.utils import send_status_email, send_system_email, get_next_approver_email
+from app.utils import send_status_email, send_system_email, get_next_approver_email, log_audit
 from app.services import admin_service
 
 main_bp = Blueprint('main', __name__)
@@ -62,7 +62,12 @@ def create_request():
         account_group=request.form.get('account_group', 'ZDOM') 
     )
     db.session.add(new_req)
-    db.session.commit()
+    db.session.commit() # Commit 1: Saves the Request (generates ID)
+    
+    # --- FIX IS HERE ---
+    log_audit(new_req.id, current_user.id, 'INITIATED', "Vendor Request Created")
+    db.session.commit() # Commit 2: SAVES THE LOG (This was missing!)
+    # -------------------
     
     portal_link = url_for('vendor.vendor_portal', token=new_req.token, _external=True)
     subject = f"Invitation: Register with Heritage Foods ({new_req.request_id})"
@@ -80,16 +85,14 @@ def create_request():
     flash('Invite sent to vendor.', 'success')
     return redirect(url_for('main.dashboard'))
 
+
 @main_bp.route('/download_sap/<int:req_id>')
 @login_required
 def download_sap_report(req_id):
-    """
-    Downloads the SAP CSV for a SINGLE request (IT Team Button).
-    """
+    """Downloads the SAP CSV for a SINGLE request (IT Team Button)."""
     req = db.session.get(VendorRequest, req_id)
     if not req: return "Not Found", 404
 
-    # Use the central logic in admin_service
     csv_output = admin_service.generate_sap_csv([req.id])
 
     return Response(
@@ -133,6 +136,8 @@ def review_request(req_id):
         if action == 'send_back':
             req.status = 'PENDING_VENDOR'; req.current_dept_flow = 'INITIATOR_REVIEW'
             db.session.commit()
+            
+            log_audit(req.id, current_user.id, 'QUERY_RAISED', f"Query: {comments}")
 
             req.last_query = comments 
             db.session.commit()
@@ -151,26 +156,45 @@ def review_request(req_id):
             flash("Sent back.", "warning"); return redirect(url_for('main.dashboard'))
 
         if action == 'reject':
-            req.status = 'REJECTED'; db.session.commit()
+            req.status = 'REJECTED'
+            log_audit(req.id, current_user.id, 'REJECTED', f"Reason: {comments}")
+            db.session.commit()
             send_status_email(req, req.vendor_email, f"Rejected: {comments}")
             flash("Rejected.", "error"); return redirect(url_for('main.dashboard'))
+
+        # --- ACTION LOGGING LOGIC ---
+        log_action_name = "APPROVED"
 
         if req.current_dept_flow == 'INITIATOR_REVIEW':
             req.account_group = request.form.get('account_group')
             req.payment_terms = request.form.get('payment_terms')
             req.purchase_org = request.form.get('purchase_org')
             req.incoterms = request.form.get('incoterms')
+            log_action_name = "APPROVED_INITIATOR"
         
-        if req.current_dept_flow == 'IT': 
+        elif req.current_dept_flow == 'DEPT':
+            # Identify which step/role is approving
+            step = WorkflowStep.query.filter_by(department=req.initiator_dept, step_order=req.current_step_number).first()
+            role_label = step.role_label if step else f"STEP_{req.current_step_number}"
+            # Clean string for DB (e.g., "Factory Head" -> "APPROVED_FACTORY_HEAD")
+            log_action_name = f"APPROVED_{role_label.replace(' ', '_').upper()}"
+
+        elif req.current_dept_flow == 'IT': 
             req.sap_id = request.form.get('sap_id')
             req.status = 'COMPLETED'
+            log_action_name = "COMPLETED_BY_IT"
 
-        if req.finance_stage == 'BILL_PASSING': req.gl_account = request.form.get('gl_account')
-        elif req.finance_stage == 'TREASURY': req.house_bank = request.form.get('house_bank')
-        
-        # --- FIX: SAVING TAX DETAILS TO DB TABLE ---
+        elif req.finance_stage == 'BILL_PASSING': 
+            req.gl_account = request.form.get('gl_account')
+            log_action_name = "APPROVED_BILL_PASSING"
+            
+        elif req.finance_stage == 'TREASURY': 
+            req.house_bank = request.form.get('house_bank')
+            log_action_name = "APPROVED_TREASURY"
+            
         elif req.finance_stage == 'TAX':
-            # 1. Wipe old tax details for this request (to avoid duplicates)
+            log_action_name = "APPROVED_TAX"
+            # 1. Wipe old tax details
             for old_tax in req.tax_details:
                 db.session.delete(old_tax)
             
@@ -219,25 +243,40 @@ def review_request(req_id):
                         rate=t2_rate[i] if i < len(t2_rate) else '',
                         start_date=t2_start[i] if i < len(t2_start) else '',
                         end_date=t2_end[i] if i < len(t2_end) else '',
-                        # Map type/code to standard fields or custom if needed
-                        # For now mapping to standard tax_code field
                         tax_code=t2_code[i] if i < len(t2_code) else '',
                         threshold=t2_thresh[i] if i < len(t2_thresh) else ''
                     )
                     db.session.add(new_194q)
-        # ---------------------------------------------
 
+        # Log the specific approval action
+        log_audit(req.id, current_user.id, log_action_name)
+
+        # --- TRANSITION LOGIC & LOGGING ---
         if req.status != 'COMPLETED':
             if req.current_dept_flow == 'INITIATOR_REVIEW':
                 req.current_dept_flow = 'DEPT'; req.current_step_number = 1
+                log_audit(req.id, current_user.id, "MOVED_TO_DEPT_FLOW")
+            
             elif req.current_dept_flow == 'DEPT':
                 next_step = WorkflowStep.query.filter_by(department=req.initiator_dept, step_order=req.current_step_number + 1).first()
-                if next_step: req.current_step_number += 1
-                else: req.current_dept_flow = 'FINANCE'; req.finance_stage = 'BILL_PASSING'
+                if next_step: 
+                    req.current_step_number += 1
+                    # Log movement to next department step
+                    log_audit(req.id, current_user.id, f"MOVED_TO_DEPT_STEP_{next_step.step_order}", f"Next: {next_step.role_label}")
+                else: 
+                    req.current_dept_flow = 'FINANCE'; req.finance_stage = 'BILL_PASSING'
+                    log_audit(req.id, current_user.id, "MOVED_TO_FINANCE_BILL_PASSING")
+            
             elif req.current_dept_flow == 'FINANCE':
-                if req.finance_stage == 'BILL_PASSING': req.finance_stage = 'TREASURY'
-                elif req.finance_stage == 'TREASURY': req.finance_stage = 'TAX'
-                elif req.finance_stage == 'TAX': req.current_dept_flow = 'IT'; req.finance_stage = None
+                if req.finance_stage == 'BILL_PASSING': 
+                    req.finance_stage = 'TREASURY'
+                    log_audit(req.id, current_user.id, "MOVED_TO_FINANCE_TREASURY")
+                elif req.finance_stage == 'TREASURY': 
+                    req.finance_stage = 'TAX'
+                    log_audit(req.id, current_user.id, "MOVED_TO_FINANCE_TAX")
+                elif req.finance_stage == 'TAX': 
+                    req.current_dept_flow = 'IT'; req.finance_stage = None
+                    log_audit(req.id, current_user.id, "MOVED_TO_IT_TEAM")
 
         db.session.commit()
         

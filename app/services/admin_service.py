@@ -1,9 +1,10 @@
 import csv
 import io
+from datetime import datetime
 from flask import flash
 from sqlalchemy import func
 from app.extensions import db
-from app.models import User, Department, CategoryRouting, WorkflowStep, ITRouting, VendorRequest, MasterData, VendorTaxDetail
+from app.models import User, Department, CategoryRouting, WorkflowStep, ITRouting, VendorRequest, MasterData, VendorTaxDetail, AuditLog
 
 def format_sap_date(date_str):
     """Converts YYYY-MM-DD to DD.MM.YYYY for SAP."""
@@ -17,7 +18,7 @@ def format_sap_date(date_str):
         return date_str
 
 def generate_sap_csv(request_ids):
-    """Generates the SAP Upload CSV with specific columns and logic."""
+    """Generates the SAP Upload CSV."""
     output = io.StringIO()
     writer = csv.writer(output)
 
@@ -53,8 +54,7 @@ def generate_sap_csv(request_ids):
             
             is_first = (i == 0)
 
-            # --- ROW LOGIC ---
-            name_1 = (req.vendor_name_basic or '').upper() # Repeats
+            name_1 = (req.vendor_name_basic or '').upper()
             
             # Fields only on First Row
             account_group = (req.account_group or "ZDOM") if is_first else ""
@@ -91,60 +91,22 @@ def generate_sap_csv(request_ids):
             inco = req.incoterms if is_first else ""
 
             row = [
-                idx,            # Repeats
-                account_group,
-                title,
-                name_1,         # Repeats
-                name_2,
-                street,
-                street2,
-                street3,
-                street4,
-                city,
-                postal_code,
-                region,
-                contact,
-                mob1,
-                mob2,
-                landline,
-                email,
-                gst,
-                pan,
-                msme_no,
-                msme_type,
-                ifsc,
-                bank_acc,
-                holder,
-                gl,
-                h_bank,
-                pay_term,
-                purch_org,
-                pay_term,       
-                inco,
+                idx,
+                account_group, title, name_1, name_2,
+                street, street2, street3, street4, city, postal_code, region,
+                contact, mob1, mob2, landline, email,
+                gst, pan, msme_no, msme_type,
+                ifsc, bank_acc, holder,
+                gl, h_bank, pay_term, purch_org, pay_term, inco,
                 
-                # Tax 1
-                t1.get('type',''), 
-                t1.get('code',''), 
-                'X' if t1.get('subject')=='1' else '', 
-                t1.get('recipient',''),
-                t1.get('cert',''), 
-                t1.get('rate',''), 
-                format_sap_date(t1.get('start','')),
-                format_sap_date(t1.get('end','')),
-                t1.get('reason',''),
+                t1.get('type',''), t1.get('code',''), 'X' if t1.get('subject')=='1' else '', 
+                t1.get('recipient',''), t1.get('cert',''), t1.get('rate',''), 
+                format_sap_date(t1.get('start','')), format_sap_date(t1.get('end','')), t1.get('reason',''),
                 
-                # Tax 2
-                t2.get('section',''), 
-                t2.get('cert',''), 
-                t2.get('rate',''), 
-                format_sap_date(t2.get('start','')),
-                format_sap_date(t2.get('end','')),
-                '',
-                t2.get('code',''),
-                'TDSU/S194Q' if t2 else '',
-                t2.get('thresh',''),
-                
-                "INR" # Repeats on EVERY row
+                t2.get('section',''), t2.get('cert',''), t2.get('rate',''), 
+                format_sap_date(t2.get('start','')), format_sap_date(t2.get('end','')), 
+                '', t2.get('code',''), 'TDSU/S194Q' if t2 else '', t2.get('thresh',''),
+                "INR"
             ]
             writer.writerow(row)
     
@@ -152,23 +114,72 @@ def generate_sap_csv(request_ids):
     return output
 
 def get_dashboard_stats():
-    """Calculates all statistics for the admin dashboard."""
+    """Calculates operational analytics."""
+    
+    # 1. Basic Counts
+    total_reqs = VendorRequest.query.count()
+    completed = VendorRequest.query.filter_by(status='COMPLETED').count()
+    rejected = VendorRequest.query.filter_by(status='REJECTED').count()
+    pending = VendorRequest.query.filter(VendorRequest.status.in_(['PENDING_VENDOR', 'PENDING_APPROVAL'])).count()
+    
+    # 2. Pipeline Bottlenecks (Where are they stuck?)
+    bottlenecks = {
+        'dept': VendorRequest.query.filter(VendorRequest.status=='PENDING_APPROVAL', VendorRequest.current_dept_flow.in_(['INITIATOR_REVIEW', 'DEPT'])).count(),
+        'bill': VendorRequest.query.filter_by(status='PENDING_APPROVAL', finance_stage='BILL_PASSING').count(),
+        'treasury': VendorRequest.query.filter_by(status='PENDING_APPROVAL', finance_stage='TREASURY').count(),
+        'tax': VendorRequest.query.filter_by(status='PENDING_APPROVAL', finance_stage='TAX').count(),
+        'it': VendorRequest.query.filter_by(status='PENDING_APPROVAL', current_dept_flow='IT').count()
+    }
+
+    # 3. Cycle Time Calculation (Avg days to complete)
+    completed_reqs = VendorRequest.query.filter_by(status='COMPLETED').all()
+    total_days = 0
+    avg_cycle_time = 0
+    
+    if completed_reqs:
+        for r in completed_reqs:
+            end_time = datetime.utcnow()
+            # Try to find the exact completion log
+            log = AuditLog.query.filter_by(vendor_request_id=r.id, action='COMPLETED_BY_IT').first()
+            if log: end_time = log.timestamp
+            
+            delta = end_time - r.created_at
+            total_days += delta.days
+        
+        avg_cycle_time = round(total_days / len(completed_reqs), 1)
+
+    # 4. Department Volume
+    dept_stats = {}
+    raw_data = db.session.query(
+        VendorRequest.initiator_dept, 
+        func.count(VendorRequest.id)
+    ).group_by(VendorRequest.initiator_dept).all()
+
+    dept_labels = []
+    dept_volumes = []
+    
+    for dept, count in raw_data:
+        if dept:
+            dept_labels.append(dept)
+            dept_volumes.append(count)
+
+    # Fallback for empty data to prevent JS errors
+    if not dept_labels:
+        dept_labels = ["No Data"]
+        dept_volumes = [0]
+
     return {
         'users': User.query.count(),
         'rules': CategoryRouting.query.count() + WorkflowStep.query.count() + ITRouting.query.count(),
         'masters': MasterData.query.count(),
-        'total': VendorRequest.query.count(),
-        'completed': VendorRequest.query.filter_by(status='COMPLETED').count(),
-        'rejected': VendorRequest.query.filter_by(status='REJECTED').count(),
-        'pending': VendorRequest.query.filter(VendorRequest.status.in_(['PENDING_VENDOR', 'PENDING_APPROVAL'])).count(),
-        'bottlenecks': {
-            'dept': VendorRequest.query.filter_by(current_dept_flow='DEPT', status='PENDING_APPROVAL').count(),
-            'bill': VendorRequest.query.filter_by(finance_stage='BILL_PASSING', status='PENDING_APPROVAL').count(),
-            'treasury': VendorRequest.query.filter_by(finance_stage='TREASURY', status='PENDING_APPROVAL').count(),
-            'tax': VendorRequest.query.filter_by(finance_stage='TAX', status='PENDING_APPROVAL').count(),
-            'it': VendorRequest.query.filter_by(current_dept_flow='IT', status='PENDING_APPROVAL').count()
-        },
-        'req_by_dept': {r[0]: r[1] for r in db.session.query(VendorRequest.initiator_dept, func.count(VendorRequest.id)).group_by(VendorRequest.initiator_dept).all()}
+        'total': total_reqs,
+        'completed': completed,
+        'rejected': rejected,
+        'pending': pending,
+        'avg_cycle_time': avg_cycle_time,
+        'bottlenecks': bottlenecks,
+        'dept_labels': dept_labels,
+        'dept_volumes': dept_volumes
     }
 
 def handle_master_import(file):
@@ -183,20 +194,14 @@ def handle_master_import(file):
         count = 0
         for row in csv_input:
             row_clean = {k.strip().lower(): v for k, v in row.items()}
-            cat = row_clean.get('category', '').strip().upper() or 'HOUSE_BANK'
+            cat = row_clean.get('category', '').strip().upper() or 'GENERAL'
             code = row_clean.get('code', '').strip() or row_clean.get('Code')
             label = row_clean.get('label', '').strip() or row_clean.get('Label')
-            account_no = row_clean.get('Account No')
             
             if code and label:
                 exists = MasterData.query.filter_by(category=cat, code=code).first()
                 if not exists:
-                    db.session.add(MasterData(
-                        category=cat, 
-                        code=code, 
-                        label=label,
-                        parent_code=account_no
-                    ))
+                    db.session.add(MasterData(category=cat, code=code, label=label))
                     count += 1
         db.session.commit()
         flash(f"Successfully imported {count} items.", "success")
@@ -207,7 +212,7 @@ def handle_master_import(file):
         return False
 
 def update_logic_email(form):
-    """Updates email addresses for various workflow rules."""
+    """Updates email addresses for workflow rules."""
     l_type = form.get('update_logic_type')
     r_id = form.get('rule_id')
     new_email = form.get('new_email')
@@ -263,8 +268,9 @@ def manage_users_and_masters(form):
                 username=form['new_user_name'], 
                 email=email, 
                 role=form['user_role'], 
-                department=form['user_dept'], 
-                assigned_category=form.get('assigned_category')
+                department=form['user_dept'],
+                # --- NEW: Capture Category ---
+                assigned_category=form.get('user_category', '').strip() or None
             )
             u.set_password('pass123')
             db.session.add(u)
@@ -272,14 +278,5 @@ def manage_users_and_masters(form):
     elif 'delete_user_id' in form:
         u = db.session.get(User, form['delete_user_id'])
         if u: db.session.delete(u)
-            
-    elif 'new_master_code' in form:
-        cat, code = form['master_category'], form['new_master_code']
-        if not MasterData.query.filter_by(category=cat, code=code).first():
-            db.session.add(MasterData(category=cat, code=code, label=form['new_master_label']))
-            
-    elif 'delete_master_id' in form:
-        m = db.session.get(MasterData, form['delete_master_id'])
-        if m: db.session.delete(m)
         
     db.session.commit()

@@ -316,6 +316,33 @@
             </div>
         </div>
         {% endif %}
+        
+        <div class="mt-8 bg-gray-50 p-6 rounded-xl border border-gray-200">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span>📜</span> Approval History
+            </h3>
+            <div class="space-y-4 max-h-60 overflow-y-auto pr-2">
+                {% if req.audit_logs %}
+                    {% for log in req.audit_logs|sort(attribute='timestamp', reverse=True) %}
+                    <div class="flex items-start gap-3 text-sm border-l-2 border-gray-300 pl-3">
+                        <div class="min-w-[120px] text-gray-400 text-xs mt-0.5 font-mono">
+                            {{ log.timestamp.strftime('%d-%b %H:%M') }}
+                        </div>
+                        <div>
+                            <span class="font-bold text-gray-700">{% if log.user %}{{ log.user.username }}{% else %}System{% endif %}</span> 
+                            <span class="text-gray-500 text-xs uppercase mx-1">➜</span>
+                            <span class="font-mono bg-white border border-gray-200 px-1.5 py-0.5 rounded text-xs font-bold text-gray-600">{{ log.action }}</span>
+                            {% if log.details %}
+                            <p class="text-gray-500 text-xs mt-1 italic">"{{ log.details }}"</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-400 text-sm italic">No history recorded yet.</p>
+                {% endif %}
+            </div>
+        </div>
 
         {% if is_my_turn %}
         <div class="mt-10 border-t-4 border-blue-100 pt-8 scroll-mt-24" id="action-section">

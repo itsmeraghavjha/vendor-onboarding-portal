@@ -1,184 +1,546 @@
 {% extends "base.html" %}
 
 {% block content %}
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<div class="min-h-screen bg-gray-50 flex flex-col">
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+{% set excluded_users = ['Bill Passing Team', 'Treasury Team', 'Tax Team', 'IT Admin', 'IT Provisioning'] %}
+
+<div class="min-h-screen bg-slate-50 font-sans text-slate-600" x-data="{ activeTab: '{{ activeTab }}', showDeptModal: false }">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex space-x-8 h-16 items-center">
-                <span class="text-xl font-bold text-gray-800 tracking-tight mr-4">Admin Portal</span>
-                <a href="?active_tab=dashboard" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200 {{ 'border-blue-500 text-gray-900' if activeTab == 'dashboard' else 'border-transparent text-gray-500 hover:text-gray-700' }}">Dashboard</a>
-                <a href="?active_tab=users" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200 {{ 'border-blue-500 text-gray-900' if activeTab == 'users' else 'border-transparent text-gray-500 hover:text-gray-700' }}">Users</a>
-                <a href="?active_tab=masters" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200 {{ 'border-blue-500 text-gray-900' if activeTab == 'masters' else 'border-transparent text-gray-500 hover:text-gray-700' }}">Master Data</a>
-                <a href="?active_tab=logic" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200 {{ 'border-blue-500 text-gray-900' if activeTab == 'logic' else 'border-transparent text-gray-500 hover:text-gray-700' }}">Workflow Logic</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-
-        {% if activeTab == 'dashboard' %}
-        <div class="space-y-8">
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between"><div><dt class="text-xs font-bold text-gray-400 uppercase">Total Requests</dt><dd class="text-3xl font-bold text-gray-900 mt-1">{{ stats.total }}</dd></div><div class="bg-gray-100 p-3 rounded-lg text-2xl">📊</div></div>
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between"><div><dt class="text-xs font-bold text-blue-400 uppercase">Pending Action</dt><dd class="text-3xl font-bold text-blue-600 mt-1">{{ stats.pending }}</dd></div><div class="bg-blue-50 p-3 rounded-lg text-2xl">⏳</div></div>
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between"><div><dt class="text-xs font-bold text-green-400 uppercase">Completed</dt><dd class="text-3xl font-bold text-green-600 mt-1">{{ stats.completed }}</dd></div><div class="bg-green-50 p-3 rounded-lg text-2xl">✅</div></div>
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between"><div><dt class="text-xs font-bold text-red-400 uppercase">Rejected</dt><dd class="text-3xl font-bold text-red-600 mt-1">{{ stats.rejected }}</dd></div><div class="bg-red-50 p-3 rounded-lg text-2xl">🚫</div></div>
-            </div>
-            
-            <div>
-                <h2 class="text-lg font-bold text-gray-900 mb-4">📍 Pipeline Bottlenecks</h2>
-                <div class="grid grid-cols-5 gap-4">
-                    <div class="bg-orange-50 border border-orange-100 rounded-lg p-4 text-center"><div class="text-xs font-bold text-orange-400 uppercase">Phase 1: Dept</div><div class="text-4xl font-bold text-orange-600">{{ stats.bottlenecks.dept }}</div><div class="text-[10px] text-orange-400 mt-1">Stuck at Internal</div></div>
-                    <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-center"><div class="text-xs font-bold text-blue-400 uppercase">Fin: Bill Passing</div><div class="text-4xl font-bold text-blue-600">{{ stats.bottlenecks.bill }}</div><div class="text-[10px] text-blue-400 mt-1">Stuck at Basic Check</div></div>
-                    <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-center"><div class="text-xs font-bold text-blue-400 uppercase">Fin: Treasury</div><div class="text-4xl font-bold text-blue-600">{{ stats.bottlenecks.treasury }}</div><div class="text-[10px] text-blue-400 mt-1">Stuck at Bank Check</div></div>
-                    <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-center"><div class="text-xs font-bold text-blue-400 uppercase">Fin: Tax Team</div><div class="text-4xl font-bold text-blue-600">{{ stats.bottlenecks.tax }}</div><div class="text-[10px] text-blue-400 mt-1">Stuck at TDS/GST</div></div>
-                    <div class="bg-purple-50 border border-purple-100 rounded-lg p-4 text-center"><div class="text-xs font-bold text-purple-400 uppercase">Phase 3: IT</div><div class="text-4xl font-bold text-purple-600">{{ stats.bottlenecks.it }}</div><div class="text-[10px] text-purple-400 mt-1">Stuck at SAP ID</div></div>
-                </div>
-            </div>
-
-            <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50"><h3 class="text-sm font-bold text-gray-700 uppercase">Requests by Department</h3></div>
-                <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Requests</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Share</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">{% for dept in departments %}<tr class="hover:bg-gray-50"><td class="px-6 py-4 text-sm font-medium text-gray-900">{{ dept.name }}</td><td class="px-6 py-4 text-right text-sm text-gray-500 font-mono">{{ stats.req_by_dept.get(dept.name, 0) }}</td><td class="px-6 py-4 text-right text-sm">{% set count = stats.req_by_dept.get(dept.name, 0) %}{% set percent = (count / stats.total * 100)|round|int if stats.total > 0 else 0 %}<div class="w-24 ml-auto bg-gray-200 rounded-full h-1.5"><div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ percent }}%"></div></div><span class="text-xs text-gray-400">{{ percent }}%</span></td></tr>{% endfor %}</tbody></table>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if activeTab == 'users' %}
-            {% if not user_dept_view %}
-            <div class="space-y-6">
-                <h1 class="text-2xl font-bold text-gray-900">User Management by Department</h1>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">{% for d in departments %}{% set stats = dept_user_stats.get(d.name, {'initiator':0, 'approver':0}) %}<a href="?active_tab=users&user_dept={{ d.name }}" class="block group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all p-6"><div class="flex justify-between items-center mb-4"><div class="p-3 rounded-lg bg-blue-50 text-2xl group-hover:bg-blue-100">{% if d.name == 'IT' %}💻{% elif d.name == 'Finance' %}💰{% else %}🏢{% endif %}</div><span class="bg-gray-100 text-gray-600 py-1 px-3 rounded-full text-xs font-medium">{{ stats.initiator + stats.approver }} Users</span></div><h3 class="text-lg font-bold text-gray-900 group-hover:text-blue-600 mb-3">{{ d.name }}</h3><div class="flex gap-2 text-xs"><span class="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100">🚀 {{ stats.initiator }} Initiators</span><span class="bg-purple-50 text-purple-700 px-2 py-1 rounded border border-purple-100">✅ {{ stats.approver }} Approvers</span></div></a>{% endfor %}</div>
-            </div>
-            {% else %}
-            <div class="space-y-6"><div class="flex items-center justify-between"><div class="flex items-center gap-4"><a href="?active_tab=users" class="p-2 rounded-full hover:bg-gray-200 text-gray-500">← Back</a><h1 class="text-2xl font-bold text-gray-900">{{ user_dept_view }} Department Users</h1></div><button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 shadow-sm text-sm font-medium flex items-center gap-2"><span>+</span> Add User</button></div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8"><div class="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full"><div class="p-4 border-b border-gray-100 bg-green-50 rounded-t-lg flex justify-between items-center"><h2 class="font-bold text-green-800 flex items-center gap-2"><span class="text-xl">🚀</span> Initiators</h2><span class="bg-white text-green-600 px-2 py-0.5 rounded text-xs font-bold shadow-sm">{{ dept_initiators|length }}</span></div><div class="p-4 space-y-3 flex-1">{% for u in dept_initiators %}<div class="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg hover:shadow-sm hover:border-green-200 transition-all group"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">{{ u.username[:2] }}</div><div><div class="text-sm font-bold text-gray-900">{{ u.username }}</div><div class="text-xs text-gray-500">{{ u.email }}</div>{% if u.assigned_category %}<div class="text-[10px] text-green-600 mt-0.5 font-medium">Category: {{ u.assigned_category }}</div>{% endif %}</div></div><form method="POST" onsubmit="return confirm('Remove {{ u.username }}?');"><input type="hidden" name="active_tab" value="users"><input type="hidden" name="user_dept_hidden" value="{{ user_dept_view }}"><input type="hidden" name="delete_user_id" value="{{ u.id }}"><button class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button></form></div>{% else %}<div class="text-center py-8 text-gray-400 text-sm italic">No initiators assigned.</div>{% endfor %}</div></div><div class="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full"><div class="p-4 border-b border-gray-100 bg-purple-50 rounded-t-lg flex justify-between items-center"><h2 class="font-bold text-purple-800 flex items-center gap-2"><span class="text-xl">✅</span> Approvers</h2><span class="bg-white text-purple-600 px-2 py-0.5 rounded text-xs font-bold shadow-sm">{{ dept_approvers|length }}</span></div><div class="p-4 space-y-3 flex-1">{% for u in dept_approvers %}<div class="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg hover:shadow-sm hover:border-purple-200 transition-all group"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xs">{{ u.username[:2] }}</div><div><div class="text-sm font-bold text-gray-900">{{ u.username }}</div><div class="text-xs text-gray-500">{{ u.email }}</div></div></div><form method="POST" onsubmit="return confirm('Remove {{ u.username }}?');"><input type="hidden" name="active_tab" value="users"><input type="hidden" name="user_dept_hidden" value="{{ user_dept_view }}"><input type="hidden" name="delete_user_id" value="{{ u.id }}"><button class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button></form></div>{% else %}<div class="text-center py-8 text-gray-400 text-sm italic">No approvers assigned.</div>{% endfor %}</div></div></div></div>
-            <div id="addUserModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"><div class="bg-white rounded-xl p-6 w-96"><form method="POST"><input type="hidden" name="active_tab" value="users"><input type="hidden" name="user_dept_hidden" value="{{ user_dept_view }}"><input type="hidden" name="user_dept" value="{{ user_dept_view }}"><div class="grid grid-cols-2 gap-4"><input type="text" name="new_user_name" placeholder="Name" required class="border p-2 rounded"><input type="email" name="new_user_email" placeholder="Email" required class="border p-2 rounded"></div><div class="grid grid-cols-2 gap-4 mt-4"><select name="user_role" class="border p-2 rounded"><option value="initiator">Initiator</option><option value="approver">Approver</option></select><input type="text" name="assigned_category" placeholder="Category (Opt)" class="border p-2 rounded"></div><button class="mt-4 bg-blue-600 text-white px-4 py-2 rounded w-full">Create</button></form></div></div>
-            {% endif %}
-        {% endif %}
-
-        {% if activeTab == 'masters' %}
-            {% if not selected_master_cat %}
-            <div class="space-y-6"><h1 class="text-2xl font-bold text-gray-900">Master Data</h1><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">{% for cat in master_categories %}<a href="?active_tab=masters&master_cat={{ cat }}" class="block group bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md"><div class="flex justify-between mb-4"><div class="p-3 rounded-lg bg-blue-50 text-2xl group-hover:bg-blue-100">{% if 'BANK' in cat %}🏦{% elif 'REGION' in cat %}🗺️{% elif 'PAYMENT' in cat %}💳{% else %}📋{% endif %}</div></div><h3 class="text-lg font-bold text-gray-900 group-hover:text-blue-600">{{ cat.replace('_', ' ').title() }}</h3></a>{% endfor %}</div></div>
-            {% else %}
-            <div class="space-y-6"><div class="flex items-center justify-between"><div class="flex items-center gap-4"><a href="?active_tab=masters" class="p-2 rounded-full hover:bg-gray-200 text-gray-500">← Back</a><h1 class="text-2xl font-bold text-gray-900">{{ selected_master_cat.replace('_', ' ').title() }}</h1></div><button onclick="document.getElementById('addMasterModal').classList.remove('hidden')" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 shadow-sm font-medium">+ Add Item</button></div><div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden"><table class="min-w-full divide-y divide-gray-200"><tbody class="bg-white divide-y divide-gray-200">{% for item in master_items %}<tr><td class="px-6 py-4">{{ item.code }}</td><td class="px-6 py-4">{{ item.label }}</td><td class="px-6 py-4 text-right"><form method="POST" class="inline" onsubmit="return confirm('Delete?');"><input type="hidden" name="active_tab" value="masters"><input type="hidden" name="master_category" value="{{ selected_master_cat }}"><input type="hidden" name="delete_master_id" value="{{ item.id }}"><button class="text-red-600">🗑️</button></form></td></tr>{% endfor %}</tbody></table></div></div>
-            <div id="addMasterModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"><div class="bg-white rounded-xl p-6 w-96"><form method="POST"><input type="hidden" name="active_tab" value="masters"><input type="hidden" name="master_category" value="{{ selected_master_cat }}"><input type="text" name="new_master_code" placeholder="Code" class="w-full border p-2 rounded mb-2"><input type="text" name="new_master_label" placeholder="Label" class="w-full border p-2 rounded mb-4"><button class="bg-blue-600 text-white px-4 py-2 rounded w-full">Save</button></form></div></div>
-            {% endif %}
-        {% endif %}
-
-        {% if activeTab == 'logic' %}
-            {% if not logic_view %}
-            
-            <div class="mb-10">
-                <h1 class="text-2xl font-bold text-gray-900 mb-6">Workflow Pipeline Map</h1>
-                <div class="flex items-center gap-4 overflow-x-auto pb-4">
-                    <div class="flex-1 bg-white border border-orange-200 rounded-xl p-6 relative shadow-sm">
-                        <span class="absolute top-0 right-0 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-bl-lg">PHASE 1</span>
-                        <div class="text-3xl mb-2">🏢</div>
-                        <h3 class="font-bold text-gray-900">Department Internal</h3>
-                        <p class="text-xs text-gray-500 mt-1">Configurable per Dept below &darr;</p>
+            <div class="h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-indigo-600 text-white p-1.5 rounded-lg shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                     </div>
-                    <div class="text-gray-300 text-2xl">&rarr;</div>
-                    <a href="?active_tab=logic&logic_view=FINANCE_COMMON" class="flex-1 bg-white border border-blue-200 rounded-xl p-6 relative shadow-sm ring-2 ring-blue-50 hover:bg-blue-50 transition-colors cursor-pointer group">
-                        <span class="absolute top-0 right-0 bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-bl-lg">PHASE 2 (FIXED)</span>
-                        <div class="text-3xl mb-2">⚖️</div>
-                        <h3 class="font-bold text-gray-900 group-hover:text-blue-700">Common Finance Chain</h3>
-                        <p class="text-xs text-gray-500 mt-1">Bill Passing &rarr; Treasury &rarr; Tax.</p>
-                        <div class="mt-2 text-xs font-bold text-blue-600 underline">Click to Edit Emails</div>
-                    </a>
-                    <div class="text-gray-300 text-2xl">&rarr;</div>
-                    <a href="?active_tab=logic&logic_view=IT_COMMON" class="flex-1 bg-white border border-purple-200 rounded-xl p-6 relative shadow-sm hover:bg-purple-50 transition-colors cursor-pointer group">
-                        <span class="absolute top-0 right-0 bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded-bl-lg">PHASE 3</span>
-                        <div class="text-3xl mb-2">💻</div>
-                        <h3 class="font-bold text-gray-900 group-hover:text-purple-700">Common IT Chain</h3>
-                        <p class="text-xs text-gray-500 mt-1">Routing via Account Group.</p>
-                        <div class="mt-2 text-xs font-bold text-purple-600 underline">Click to Edit Routes</div>
-                    </a>
+                    <div>
+                        <h1 class="text-sm font-bold text-slate-900 leading-tight">Admin Console</h1>
+                        <p class="text-[10px] font-medium text-slate-400 uppercase tracking-wide">System Configuration</p>
+                    </div>
                 </div>
-            </div>
 
-            <div class="space-y-6">
-                <h2 class="text-lg font-bold text-orange-900 border-b pb-2">Phase 1: Department Internal Configuration</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {% for d in departments %}
-                        <a href="?active_tab=logic&logic_view={{ d.name }}" class="block group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-orange-300 transition-all p-6">
-                            <div class="flex justify-between items-center mb-4"><div class="p-3 rounded-lg bg-orange-50 text-2xl group-hover:bg-orange-100">{% if d.name == 'IT' %}💻{% elif d.name == 'Finance' %}💰{% else %}🏢{% endif %}</div><span class="bg-gray-100 text-gray-600 py-1 px-3 rounded-full text-xs font-medium">{{ dept_rule_counts.get(d.name, 0) }} Rules</span></div>
-                            <h3 class="text-lg font-bold text-gray-900 group-hover:text-orange-600">{{ d.name }} Internal</h3>
-                            <p class="text-xs text-gray-400 mt-2">Manage internal budget approvals.</p>
-                        </a>
+                <nav class="flex bg-slate-100/80 p-1 rounded-lg backdrop-blur-sm">
+                    {% for tab_id, label, icon in [
+                        ('dashboard', 'Analytics', 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'),
+                        ('logic', 'Workflow', 'M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z'),
+                        ('users', 'Team', 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'),
+                        ('masters', 'Data', 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4')
+                    ] %}
+                    <button @click="activeTab = '{{ tab_id }}'" 
+                        :class="activeTab === '{{ tab_id }}' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700'" 
+                        class="flex items-center gap-2 px-4 py-1.5 rounded-md text-xs font-bold transition-all duration-200">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ icon }}"></path></svg>
+                        {{ label }}
+                    </button>
                     {% endfor %}
-                </div>
+                </nav>
             </div>
+        </div>
+    </header>
 
-            {% else %}
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <div x-show="activeTab === 'dashboard'" x-transition.opacity class="space-y-6">
             
-            {% if logic_view == 'FINANCE_COMMON' %}
-            <div class="space-y-6">
-                <div class="flex items-center gap-4"><a href="?active_tab=logic" class="p-2 rounded-full hover:bg-gray-200 text-gray-500">← Back</a><h1 class="text-2xl font-bold text-blue-900">Common Finance Chain Configuration</h1></div>
-                <div class="bg-white shadow-sm rounded-lg border border-blue-200 p-6">
-                    <p class="text-sm text-gray-500 mb-4">The system follows this exact sequence. Update the email addresses for the users who perform these checks.</p>
-                    <table class="min-w-full text-sm"><thead class="bg-blue-50 text-xs text-blue-700 uppercase"><tr><th class="px-6 py-3 text-left">Seq</th><th class="px-6 py-3 text-left">Role Name</th><th class="px-6 py-3 text-left">Assigned Email</th></tr></thead><tbody class="divide-y divide-blue-100">{% for u in finance_users %}<tr><td class="px-6 py-4 font-bold text-blue-800">{{ loop.index }}</td><td class="px-6 py-4 font-medium">{{ u.username }}</td><td class="px-6 py-4 text-gray-600 flex items-center gap-2">{{ u.email }} <button onclick="openLogicEditModal('finance_user', {{ u.id }}, '{{ u.email }}')" class="text-blue-400 hover:text-blue-600">✏️</button></td></tr>{% endfor %}</tbody></table>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-blue-300 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Cycle Time</p>
+                        <span class="bg-blue-50 text-blue-600 p-1.5 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <h3 class="text-3xl font-bold text-slate-800">{{ stats.avg_cycle_time }}</h3>
+                        <span class="text-xs font-medium text-slate-500">days</span>
+                    </div>
+                    <div class="mt-3 w-full bg-slate-100 rounded-full h-1"><div class="bg-blue-500 h-1 rounded-full" style="width: 65%"></div></div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-purple-300 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Requests</p>
+                        <span class="bg-purple-50 text-purple-600 p-1.5 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></span>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">{{ stats.total }}</h3>
+                    <p class="text-xs text-green-600 font-bold mt-2 flex items-center gap-1"><span>↑</span> Active Pipeline</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-rose-300 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rejection Rate</p>
+                        <span class="bg-rose-50 text-rose-600 p-1.5 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></span>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <h3 class="text-3xl font-bold text-slate-800">
+                            {% if stats.total > 0 %}{{ ((stats.rejected / stats.total) * 100) | round(1) }}{% else %}0{% endif %}<span class="text-lg">%</span>
+                        </h3>
+                    </div>
+                    <div class="mt-3 w-full bg-slate-100 rounded-full h-1"><div class="bg-rose-500 h-1 rounded-full" style="width: {{ ((stats.rejected / stats.total) * 100) if stats.total > 0 else 0 }}%"></div></div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-amber-300 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Action Required</p>
+                        <span class="bg-amber-50 text-amber-600 p-1.5 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">{{ stats.pending }}</h3>
+                    <p class="text-xs text-amber-600 font-bold mt-2">Pending Review</p>
                 </div>
             </div>
 
-            {% elif logic_view == 'IT_COMMON' %}
-            <div class="space-y-6">
-                <div class="flex items-center justify-between"><div class="flex items-center gap-4"><a href="?active_tab=logic" class="p-2 rounded-full hover:bg-gray-200 text-gray-500">← Back</a><h1 class="text-2xl font-bold text-purple-900">Common IT Chain Configuration</h1></div><button onclick="document.getElementById('addITModal').classList.remove('hidden')" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 shadow-sm font-medium">+ Add Route</button></div>
-                <div class="bg-white shadow-sm rounded-lg border border-purple-200 overflow-hidden">
-                    <table class="min-w-full text-sm"><thead class="bg-purple-50 text-xs text-purple-700 uppercase"><tr><th class="px-6 py-3 text-left">Account Group</th><th class="px-6 py-3 text-left">Assigned IT Email</th><th class="px-6 py-3"></th></tr></thead>
-                        <tbody class="divide-y divide-purple-100">
-                            {% for it in dept_it_routes %}
+            <div>
+                <h3 class="font-bold text-slate-800 text-sm mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> Pipeline Bottlenecks
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div class="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center hover:shadow-sm transition">
+                        <p class="text-[10px] font-bold text-orange-400 uppercase">Phase 1: Dept</p>
+                        <h4 class="text-3xl font-bold text-orange-600 my-1">{{ stats.bottlenecks.dept }}</h4>
+                        <p class="text-[10px] text-orange-400">Stuck at Internal</p>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center hover:shadow-sm transition">
+                        <p class="text-[10px] font-bold text-blue-400 uppercase">Fin: Bill Passing</p>
+                        <h4 class="text-3xl font-bold text-blue-600 my-1">{{ stats.bottlenecks.bill }}</h4>
+                        <p class="text-[10px] text-blue-400">Stuck at Basic Check</p>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center hover:shadow-sm transition">
+                        <p class="text-[10px] font-bold text-blue-400 uppercase">Fin: Treasury</p>
+                        <h4 class="text-3xl font-bold text-blue-600 my-1">{{ stats.bottlenecks.treasury }}</h4>
+                        <p class="text-[10px] text-blue-400">Stuck at Bank Check</p>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center hover:shadow-sm transition">
+                        <p class="text-[10px] font-bold text-blue-400 uppercase">Fin: Tax Team</p>
+                        <h4 class="text-3xl font-bold text-blue-600 my-1">{{ stats.bottlenecks.tax }}</h4>
+                        <p class="text-[10px] text-blue-400">Stuck at TDS/GST</p>
+                    </div>
+                    <div class="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center hover:shadow-sm transition">
+                        <p class="text-[10px] font-bold text-purple-400 uppercase">Phase 3: IT</p>
+                        <h4 class="text-3xl font-bold text-purple-600 my-1">{{ stats.bottlenecks.it }}</h4>
+                        <p class="text-[10px] text-purple-400">Stuck at SAP ID</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h4 class="font-bold text-slate-800 text-sm mb-6">Request Volume by Department</h4>
+                    <div class="h-64 w-full">
+                        <canvas id="deptChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
+                    <h4 class="font-bold text-slate-800 text-sm mb-2">Pipeline Health</h4>
+                    <div class="flex-1 relative min-h-[200px]">
+                        <canvas id="statusChart"></canvas>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span class="text-3xl font-bold text-slate-800">{{ stats.completed }}</span>
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Done</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">SAP Master Data Export</h4>
+                        <p class="text-xs text-slate-500">Download validated vendor data for SAP ERP ingestion.</p>
+                    </div>
+                </div>
+                <form action="{{ url_for('admin.export_sap_data') }}" method="get" class="flex flex-col md:flex-row gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <div class="flex-1 w-full space-y-1">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Date Range</label>
+                        <div class="flex gap-2">
+                            <input type="date" name="start_date" class="w-full rounded-md border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="date" name="end_date" class="w-full rounded-md border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="w-full md:w-48 space-y-1">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Status</label>
+                        <select name="status" class="w-full rounded-md border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="ALL">All Requests</option>
+                            <option value="COMPLETED">Completed Only</option>
+                            <option value="PENDING_APPROVAL">Pending Approval</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full md:w-auto bg-slate-900 text-white px-6 py-2 rounded-md font-bold text-xs shadow hover:bg-black transition h-[34px]">Download CSV</button>
+                </form>
+            </div>
+        </div>
+
+        <div x-show="activeTab === 'logic'" class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
+            
+            <div class="w-full lg:w-64 flex-shrink-0 bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden shadow-sm h-full">
+                <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Business Units</span>
+                    <button @click="showDeptModal = true" class="text-indigo-600 hover:text-indigo-800 text-lg leading-none font-bold transition">+</button>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-2 space-y-0.5 custom-scrollbar">
+                    {% for d in departments %}
+                    <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept=d.name) }}" 
+                       class="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200
+                       {% if selected_dept == d.name %}bg-indigo-50 text-indigo-700 font-bold border border-indigo-100{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                        {{ d.name }}
+                        {% if selected_dept == d.name %}<div class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>{% endif %}
+                    </a>
+                    {% endfor %}
+                    
+                    <div class="my-3 border-t border-slate-100 mx-2"></div>
+                    <div class="px-3 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Central Teams</div>
+                    
+                    <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept='GLOBAL_FINANCE') }}" 
+                       class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200
+                       {% if selected_dept == 'GLOBAL_FINANCE' %}bg-emerald-50 text-emerald-700 font-bold border border-emerald-100{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                        <span class="text-sm">💰</span> Finance Provisioning
+                    </a>
+                    <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept='GLOBAL_IT') }}" 
+                       class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200
+                       {% if selected_dept == 'GLOBAL_IT' %}bg-purple-50 text-purple-700 font-bold border border-purple-100{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                        <span class="text-sm">💻</span> IT Provisioning
+                    </a>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-1 pb-20 custom-scrollbar space-y-6 h-full">
+
+                {% if selected_dept not in ['GLOBAL_FINANCE', 'GLOBAL_IT'] %}
+                
+                <div class="flex items-end justify-between border-b border-slate-200 pb-3">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">{{ selected_dept }}</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Configure approval chains for this business unit.</p>
+                    </div>
+                    <span class="px-2 py-1 rounded bg-slate-100 text-[10px] font-mono text-slate-500 uppercase font-bold">{{ selected_dept }}</span>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="bg-slate-50/80 px-5 py-3 border-b border-slate-200 flex items-center gap-2 backdrop-blur-sm">
+                        <span class="bg-blue-100 text-blue-700 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold">A</span>
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Category Routing Matrix</h3>
+                    </div>
+                    <table class="w-full text-xs">
+                        <thead class="bg-white text-slate-400 border-b border-slate-100">
                             <tr>
-                                <td class="px-6 py-3 font-mono text-gray-900">{{ it.account_group }} 
-                                    <span class="text-gray-400 ml-2 text-xs font-bold">{% if it.account_group in ['ZDOM', 'ZIMP', 'ZSER', 'ZFOP'] %}(MM){% else %}(FI){% endif %}</span>
+                                <th class="px-5 py-3 text-left font-bold uppercase tracking-wider">Category</th>
+                                <th class="px-5 py-3 text-left font-bold uppercase tracking-wider">L1 Manager</th>
+                                <th class="px-5 py-3 text-left font-bold uppercase tracking-wider">L2 Dept Head</th>
+                                <th class="px-5 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            {% for rule in dept_matrix_rules %}
+                            <tr class="group hover:bg-slate-50 transition">
+                                <td class="px-5 py-2 font-bold text-slate-700">{{ rule.category_name }}</td>
+                                <td class="px-5 py-2">
+                                    <form method="POST">
+                                        <input type="hidden" name="update_logic_type" value="cat_l1"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ rule.id }}">
+                                        <select name="new_email" onchange="this.form.submit()" class="w-full rounded border-slate-200 text-xs py-1.5 focus:border-blue-500 focus:ring-blue-500 bg-transparent group-hover:bg-white transition">
+                                            <option value="">Select...</option>
+                                            {% for u in users %}
+                                                {% if (u.department == selected_dept and u.username not in excluded_users) or u.email == rule.l1_manager_email %}
+                                                <option value="{{ u.email }}" {% if u.email == rule.l1_manager_email %}selected{% endif %}>{{ u.username }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </form>
                                 </td>
-                                <td class="px-6 py-3 text-gray-600 flex items-center gap-2">{{ it.it_assignee_email }} <button onclick="openLogicEditModal('it_route', {{ it.id }}, '{{ it.it_assignee_email }}')" class="text-blue-400 hover:text-blue-600">✏️</button></td>
-                                <td class="px-6 py-3 text-right"><form method="POST" class="inline" onsubmit="return confirm('Delete?');"><input type="hidden" name="active_tab" value="logic"><input type="hidden" name="logic_view" value="IT_COMMON"><input type="hidden" name="delete_it_id" value="{{ it.id }}"><button class="text-gray-300 hover:text-red-500">🗑️</button></form></td>
+                                <td class="px-5 py-2">
+                                    <form method="POST">
+                                        <input type="hidden" name="update_logic_type" value="cat_l2"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ rule.id }}">
+                                        <select name="new_email" onchange="this.form.submit()" class="w-full rounded border-slate-200 text-xs py-1.5 focus:border-blue-500 focus:ring-blue-500 bg-transparent group-hover:bg-white transition">
+                                            <option value="">Select...</option>
+                                            {% for u in users %}
+                                                {% if (u.department == selected_dept and u.username not in excluded_users) or u.email == rule.l2_head_email %}
+                                                <option value="{{ u.email }}" {% if u.email == rule.l2_head_email %}selected{% endif %}>{{ u.username }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                </td>
+                                <td class="px-5 py-2 text-right"><form method="POST"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="delete_rule_id" value="{{ rule.id }}"><button class="text-slate-300 hover:text-rose-500 font-bold px-2 transition">×</button></form></td>
                             </tr>
                             {% endfor %}
+                            <tr class="bg-slate-50/50">
+                                <form method="POST">
+                                    <input type="hidden" name="logic_view" value="{{ selected_dept }}">
+                                    <td class="px-5 py-2"><input type="text" name="new_category_name" placeholder="Category Name" class="w-full rounded border-slate-300 text-xs py-1.5 focus:border-blue-500 focus:ring-blue-500 bg-white"></td>
+                                    <td class="px-5 py-2"><select name="l1_email" class="w-full rounded border-slate-300 text-xs py-1.5 focus:border-blue-500 focus:ring-blue-500 bg-white" required><option value="">Select...</option>{% for u in users if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}</select></td>
+                                    <td class="px-5 py-2"><select name="l2_email" class="w-full rounded border-slate-300 text-xs py-1.5 focus:border-blue-500 focus:ring-blue-500 bg-white" required><option value="">Select...</option>{% for u in users if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}</select></td>
+                                    <td class="px-5 py-2 text-right"><button class="text-blue-600 hover:text-blue-800 text-xs font-bold px-3 py-1">Add</button></td>
+                                </form>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
-                <div id="addITModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"><div class="bg-white rounded-xl p-6 w-96"><h3 class="font-bold mb-4">Add IT Route</h3><form method="POST"><input type="hidden" name="active_tab" value="logic"><input type="hidden" name="logic_view" value="IT_COMMON"><input type="text" name="new_account_group" placeholder="Group (e.g. ZDOM)" class="w-full border p-2 rounded mb-2"><input type="email" name="it_email" placeholder="IT Email" class="w-full border p-2 rounded mb-4"><div class="flex justify-end gap-2"><button type="button" onclick="document.getElementById('addITModal').classList.add('hidden')" class="text-gray-500">Cancel</button><button class="bg-purple-600 text-white px-4 py-2 rounded">Save</button></div></form></div></div>
-            </div>
 
-            {% else %}
-            <div class="space-y-8">
-                <div class="flex items-center gap-4"><a href="?active_tab=logic" class="p-2 rounded-full hover:bg-gray-200 text-gray-500">← Back</a><h1 class="text-2xl font-bold text-gray-900">{{ logic_view }} Internal Rules</h1></div>
-                <div class="bg-white shadow-sm rounded-lg border border-blue-200 p-6 border-l-4 border-l-blue-500"><div class="flex justify-between items-center mb-4 border-b pb-2"><div><h2 class="text-lg font-bold text-blue-900">📂 Category Routing</h2><p class="text-xs text-gray-500">Specific approval chains based on vendor category.</p></div><button onclick="document.getElementById('addCatModal').classList.remove('hidden')" class="text-blue-600 text-xs font-bold bg-blue-50 px-3 py-1 rounded hover:bg-blue-100">+ Add Rule</button></div>{% if dept_rules %}<table class="min-w-full text-sm"><thead class="bg-blue-50 text-xs text-blue-700 uppercase"><tr><th class="px-4 py-2 text-left">Category</th><th class="px-4 py-2 text-left">L1 Manager</th><th class="px-4 py-2 text-left">L2 Head</th><th></th></tr></thead><tbody class="divide-y divide-blue-100">{% for r in dept_rules %}<tr><td class="px-4 py-3 font-bold text-blue-700">{{ r.category_name }}</td><td class="px-4 py-3">{{ r.l1_manager_email }} <button onclick="openLogicEditModal('cat_l1', {{ r.id }}, '{{ r.l1_manager_email }}')" class="text-blue-400 hover:text-blue-600">✏️</button></td><td class="px-4 py-3">{{ r.l2_head_email }} <button onclick="openLogicEditModal('cat_l2', {{ r.id }}, '{{ r.l2_head_email }}')" class="text-blue-400 hover:text-blue-600">✏️</button></td><td class="px-4 py-3 text-right"><form method="POST" class="inline" onsubmit="return confirm('Delete?');"><input type="hidden" name="active_tab" value="logic"><input type="hidden" name="logic_view" value="{{ logic_view }}"><input type="hidden" name="delete_rule_id" value="{{ r.id }}"><button class="text-blue-300 hover:text-red-500">🗑️</button></form></td></tr>{% endfor %}</tbody></table>{% else %}<p class="text-sm text-gray-400 italic py-2">No category-specific rules defined.</p>{% endif %}</div>
-                <div class="bg-white shadow-sm rounded-lg border border-gray-200 p-6"><div class="flex justify-between items-center mb-4 border-b pb-2"><div><h2 class="text-lg font-bold text-gray-900">✅ Standard Steps</h2><p class="text-xs text-gray-500">Drag to reorder.</p></div><button onclick="document.getElementById('addStepModal').classList.remove('hidden')" class="text-green-600 text-xs font-bold bg-green-50 px-3 py-1 rounded hover:bg-green-100">+ Add Step</button></div>
-                    <table class="min-w-full text-sm"><thead class="bg-gray-50 text-xs text-gray-500 uppercase"><tr><th class="px-4 py-2 w-10"></th><th class="px-4 py-2 text-left">Step</th><th class="px-4 py-2 text-left">Role</th><th class="px-4 py-2 text-left">Email</th><th></th></tr></thead><tbody id="stepsList" class="divide-y divide-gray-100">{% for s in dept_steps %}<tr class="bg-white hover:bg-gray-50" data-id="{{ s.id }}"><td class="px-4 py-3 cursor-move text-gray-400">☰</td><td class="px-4 py-3 font-bold step-number">{{ loop.index }}</td><td class="px-4 py-3">{{ s.role_label }}</td><td class="px-4 py-3 text-gray-600">{{ s.approver_email }} <button onclick="openLogicEditModal('step', {{ s.id }}, '{{ s.approver_email }}')" class="text-blue-400 hover:text-blue-600">✏️</button></td><td class="px-4 py-3 text-right"><form method="POST" class="inline" onsubmit="return confirm('Delete?');"><input type="hidden" name="active_tab" value="logic"><input type="hidden" name="logic_view" value="{{ logic_view }}"><input type="hidden" name="delete_step_id" value="{{ s.id }}"><button class="text-gray-300 hover:text-red-500">🗑️</button></form></td></tr>{% endfor %}</tbody></table></div>
-                <div id="addCatModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"><div class="bg-white rounded-xl p-6 w-96"><form method="POST"><input type="hidden" name="active_tab" value="logic"><input type="hidden" name="logic_view" value="{{ logic_view }}"><input type="text" name="new_category_name" placeholder="Category" class="w-full border p-2 rounded mb-2"><input type="email" name="l1_email" placeholder="L1 Email" class="w-full border p-2 rounded mb-2"><input type="email" name="l2_email" placeholder="L2 Email" class="w-full border p-2 rounded mb-4"><button class="bg-blue-600 text-white px-4 py-2 rounded w-full">Save</button></form></div></div>
-                <div id="addStepModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"><div class="bg-white rounded-xl p-6 w-96"><form method="POST"><input type="hidden" name="active_tab" value="logic"><input type="hidden" name="logic_view" value="{{ logic_view }}"><input type="text" name="new_step_role" placeholder="Role Label" class="w-full border p-2 rounded mb-2"><input type="email" name="new_step_email" placeholder="Email" class="w-full border p-2 rounded mb-4"><button class="bg-green-600 text-white px-4 py-2 rounded w-full">Save</button></form></div></div>
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="bg-slate-50/80 px-5 py-3 border-b border-slate-200 flex items-center gap-2 backdrop-blur-sm">
+                        <span class="bg-green-100 text-green-700 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold">B</span>
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Linear Approval Steps</h3>
+                    </div>
+                    <div class="p-5">
+                        <div id="stepList" class="space-y-2 mb-4">
+                            {% for step in dept_linear_steps %}
+                            <div class="step-item flex items-center gap-3 bg-white border border-slate-200 p-2.5 rounded-lg hover:border-green-400 hover:shadow-sm transition-all cursor-move group" data-id="{{ step.id }}">
+                                <div class="text-slate-300 group-hover:text-green-500 cursor-grab px-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg></div>
+                                <div class="w-6 h-6 bg-slate-100 rounded flex items-center justify-center font-bold text-slate-500 text-xs step-number">{{ loop.index }}</div>
+                                <div class="flex-1">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase">Role</p>
+                                    <p class="text-xs font-bold text-slate-800">{{ step.role_label }}</p>
+                                </div>
+                                <div class="flex-[2]">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase">Assignee</p>
+                                    <form method="POST">
+                                        <input type="hidden" name="update_logic_type" value="step"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ step.id }}">
+                                        <select name="new_email" class="w-full rounded border-slate-200 text-xs py-1 h-7 bg-slate-50 focus:bg-white transition" onchange="this.form.submit()">
+                                            {% for u in users %}
+                                                {% if (u.department == selected_dept and u.username not in excluded_users) or u.email == step.approver_email %}
+                                                <option value="{{ u.email }}" {% if u.email == step.approver_email %}selected{% endif %}>{{ u.username }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                </div>
+                                <form method="POST"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="delete_step_id" value="{{ step.id }}"><button class="text-slate-300 hover:text-rose-500 p-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></form>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <form method="POST" class="flex gap-3 p-3 bg-slate-50 rounded-lg border border-dashed border-slate-300 items-end">
+                            <input type="hidden" name="logic_view" value="{{ selected_dept }}">
+                            <div class="flex-1 space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">New Role Name</label>
+                                <input type="text" name="new_step_role" placeholder="e.g. Factory Head" class="w-full rounded border-slate-300 text-xs py-1.5 focus:border-green-500 focus:ring-green-500" required>
+                            </div>
+                            <div class="flex-1 space-y-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Assign User</label>
+                                <select name="new_step_email" class="w-full rounded border-slate-300 text-xs py-1.5 focus:border-green-500 focus:ring-green-500" required>
+                                    <option value="">Select...</option>
+                                    {% for u in users %}{% if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endif %}{% endfor %}
+                                </select>
+                            </div>
+                            <button class="bg-green-600 text-white px-4 py-1.5 rounded text-xs font-bold shadow-sm hover:bg-green-700 h-[30px]">+ Step</button>
+                        </form>
+                    </div>
+                </div>
+
+                {% elif selected_dept == 'GLOBAL_FINANCE' %}
+                <div class="bg-white rounded-xl border border-blue-200 shadow-sm p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="p-2 bg-blue-100 text-blue-600 rounded">💰</div>
+                        <div><h2 class="text-lg font-bold text-slate-800">Finance Configuration</h2><p class="text-xs text-slate-500">Sequential approval workflow.</p></div>
+                    </div>
+                    <div class="space-y-4">
+                        {% for u in finance_users %}
+                        <div class="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xs">{{ loop.index }}</div>
+                            <div class="w-48"><p class="text-[10px] font-bold text-slate-400 uppercase">Stage</p><p class="font-bold text-slate-800">{{ u.username }}</p></div>
+                            <div class="flex-1">
+                                <form method="POST">
+                                    <input type="hidden" name="update_logic_type" value="finance_user"><input type="hidden" name="rule_id" value="{{ u.id }}">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Assigned Agent</label>
+                                    <select name="new_email" onchange="this.form.submit()" class="w-full rounded border-slate-300 text-xs py-2 mt-1">
+                                        {% for user in users if user.department == 'Finance' or user.email == u.email %}
+                                            <option value="{{ user.email }}" {% if user.email == u.email %}selected{% endif %}>{{ user.username }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% elif selected_dept == 'GLOBAL_IT' %}
+                <div class="bg-white rounded-xl border border-purple-200 shadow-sm p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="p-2 bg-purple-100 text-purple-600 rounded">💻</div>
+                        <div><h2 class="text-lg font-bold text-slate-800">IT Provisioning</h2><p class="text-xs text-slate-500">Route by Account Group.</p></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        {% for r in it_routes %}
+                        <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm group hover:border-purple-300 transition">
+                            <div class="flex justify-between mb-2">
+                                <span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold font-mono">{{ r.account_group }}</span>
+                                <form method="POST"><input type="hidden" name="delete_it_id" value="{{ r.id }}"><button class="text-slate-300 hover:text-red-500">×</button></form>
+                            </div>
+                            <form method="POST">
+                                <input type="hidden" name="update_logic_type" value="it_route"><input type="hidden" name="rule_id" value="{{ r.id }}">
+                                <select name="new_email" onchange="this.form.submit()" class="w-full rounded border-slate-200 text-xs py-1.5">
+                                    {% for u in users if u.department == 'IT' or u.email == r.it_assignee_email %}
+                                        <option value="{{ u.email }}" {% if u.email == r.it_assignee_email %}selected{% endif %}>{{ u.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                        </div>
+                        {% endfor %}
+                        <div class="bg-purple-50 p-4 rounded-lg border-2 border-dashed border-purple-200 flex flex-col justify-center">
+                            <form method="POST" class="space-y-2">
+                                <input type="hidden" name="logic_view" value="GLOBAL_IT">
+                                <input type="text" name="new_account_group" placeholder="Account Grp" class="w-full rounded border-purple-300 text-xs py-1.5" required>
+                                <select name="it_email" class="w-full rounded border-purple-300 text-xs py-1.5" required>
+                                    <option value="">Agent...</option>
+                                    {% for u in users if u.department == 'IT' %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}
+                                </select>
+                                <button class="w-full bg-purple-600 text-white py-1.5 rounded text-xs font-bold shadow-sm">Add</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
             </div>
-            {% endif %}
+        </div>
+
+        <div x-show="activeTab === 'users'" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h3 class="font-bold text-sm text-slate-700 uppercase">System Users</h3>
+                <span class="bg-white px-2 py-0.5 rounded text-[10px] font-bold border border-slate-200 text-slate-500">{{ users|length }} Active</span>
+            </div>
+            <table class="w-full text-xs">
+                <thead class="bg-white text-slate-400 border-b border-slate-100">
+                    <tr>
+                        <th class="px-6 py-3 text-left uppercase">User</th>
+                        <th class="px-6 py-3 text-left uppercase">Email</th>
+                        <th class="px-6 py-3 text-left uppercase">Role / Dept</th>
+                        <th class="px-6 py-3 text-left uppercase">Category</th> <th class="px-6 py-3 text-right"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for u in users %}
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-3 font-bold text-slate-700">{{ u.username }}</td>
+                        <td class="px-6 py-3 font-mono text-slate-500">{{ u.email }}</td>
+                        <td class="px-6 py-3">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                <span class="w-1.5 h-1.5 rounded-full {% if u.role=='admin' %}bg-rose-500{% else %}bg-indigo-500{% endif %}"></span>
+                                {{ u.department }} • {{ u.role }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-3 text-slate-500">
+                            {% if u.assigned_category %}
+                            <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 font-bold text-[10px]">{{ u.assigned_category }}</span>
+                            {% else %}
+                            <span class="text-slate-300">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-3 text-right">
+                            <form method="POST" class="inline">
+                                <input type="hidden" name="delete_user_id" value="{{ u.id }}">
+                                <button class="text-slate-400 hover:text-red-500 font-bold text-[10px] uppercase tracking-wider border border-slate-200 px-2 py-1 rounded hover:bg-rose-50 hover:border-rose-200 transition">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             
-            {% endif %}
-        {% endif %}
+            <div class="bg-slate-50 p-4 border-t border-slate-200">
+                <form method="POST" class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+                    <div class="md:col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Name</label>
+                        <input type="text" name="new_user_name" class="w-full rounded border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                    </div>
+                    <div class="md:col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Email</label>
+                        <input type="email" name="new_user_email" class="w-full rounded border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                    </div>
+                    <div class="md:col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Dept</label>
+                        <select name="user_dept" class="w-full rounded border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            {% for d in departments %}<option>{{ d.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Role</label>
+                        <select name="user_role" class="w-full rounded border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="initiator">Initiator</option>
+                            <option value="approver">Approver</option>
+                        </select>
+                    </div>
+                    
+                    <div class="md:col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Category (Opt)</label>
+                        <input type="text" name="user_category" placeholder="e.g. Stationery" class="w-full rounded border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
 
+                    <button class="bg-indigo-600 text-white px-4 py-2 rounded-md font-bold text-xs shadow-sm hover:bg-indigo-700 transition h-[34px]">Add User</button>
+                </form>
+            </div>
+        </div>
+
+        <div x-show="activeTab === 'masters'" class="flex justify-center py-16">
+            <div class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm text-center w-full max-w-md">
+                <div class="mx-auto w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4">📂</div>
+                <h3 class="font-bold text-slate-900">Master Data Import</h3>
+                <p class="text-xs text-slate-500 mb-6">Upload CSV to update Banks, Incoterms, etc.</p>
+                <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-4">
+                    <input type="file" name="master_import_file" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <button class="bg-blue-600 text-white py-2 rounded text-xs font-bold shadow-sm hover:bg-blue-700">Upload Data</button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <div x-show="showDeptModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display: none;">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-80">
+            <h3 class="font-bold text-slate-800 mb-4">New Department</h3>
+            <form method="POST">
+                <input type="text" name="new_dept_name" class="w-full rounded border-slate-300 text-sm py-2 mb-4" placeholder="Name" required autofocus>
+                <div class="flex justify-end gap-2">
+                    <button type="button" @click="showDeptModal = false" class="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancel</button>
+                    <button class="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded shadow-sm hover:bg-indigo-700">Create</button>
+                </div>
+            </form>
+        </div>
     </div>
+
 </div>
 
-<div id="updateEmailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"><div class="bg-white rounded-xl p-6 w-96"><h3 class="font-bold text-lg mb-4">Update Email</h3><form method="POST"><input type="hidden" name="active_tab" value="logic"><input type="hidden" name="logic_view" value="{{ logic_view if logic_view else '' }}"><input type="hidden" name="update_logic_type" id="updateType"><input type="hidden" name="rule_id" id="updateId"><input type="email" name="new_email" id="updateEmailInput" required class="w-full border border-gray-300 p-2 rounded mb-4"><div class="flex justify-end gap-2"><button type="button" onclick="document.getElementById('updateEmailModal').classList.add('hidden')" class="text-gray-500">Cancel</button><button class="bg-blue-600 text-white px-4 py-2 rounded">Update</button></div></form></div></div>
-
 <script>
-    function openLogicEditModal(type, id, currentEmail) {
-        document.getElementById('updateType').value = type;
-        document.getElementById('updateId').value = id;
-        document.getElementById('updateEmailInput').value = currentEmail;
-        document.getElementById('updateEmailModal').classList.remove('hidden');
-    }
-    const list = document.getElementById('stepsList');
-    if (list) {
-        new Sortable(list, {
-            animation: 150, ghostClass: 'bg-blue-50', handle: '.cursor-move',
-            onEnd: function (evt) {
-                let order = []; list.querySelectorAll('tr').forEach(row => order.push(row.getAttribute('data-id')));
-                list.querySelectorAll('.step-number').forEach((span, index) => { span.innerText = index + 1; });
-                fetch('/admin/reorder_steps', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ step_ids: order }) });
-            }
-        });
-    }
+    document.addEventListener('DOMContentLoaded', () => {
+        // Sortable
+        const el = document.getElementById('stepList');
+        if (el) Sortable.create(el, { animation: 150, handle: '.cursor-move', ghostClass: 'bg-green-50', onEnd: (evt) => {
+            const order = Array.from(document.querySelectorAll('.step-item')).map(item => item.dataset.id);
+            fetch("{{ url_for('admin.reorder_steps') }}", { method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step_ids: order }) }).then(() => {
+                document.querySelectorAll('.step-number').forEach((div, index) => div.innerText = index + 1);
+            });
+        }});
+
+        // Charts
+        const commonOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
+        
+        const deptCtx = document.getElementById('deptChart');
+        if(deptCtx) {
+            new Chart(deptCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: {{ stats.dept_labels | tojson }},
+                    datasets: [{ data: {{ stats.dept_volumes | tojson }}, backgroundColor: '#6366f1', borderRadius: 4, barThickness: 20 }]
+                },
+                options: { ...commonOptions, scales: { y: { beginAtZero: true, grid: { borderDash: [2, 2] } }, x: { grid: { display: false } } } }
+            });
+        }
+
+        const statusCtx = document.getElementById('statusChart');
+        if(statusCtx) {
+            new Chart(statusCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Done', 'Reject', 'Pending', 'Draft'],
+                    datasets: [{
+                        data: [{{ stats.completed }}, {{ stats.rejected }}, {{ stats.pending }}, {{ stats.total - (stats.completed + stats.rejected + stats.pending) }}],
+                        backgroundColor: ['#10b981', '#f43f5e', '#f59e0b', '#cbd5e1'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: { ...commonOptions, cutout: '75%' }
+            });
+        }
+    });
 </script>
 {% endblock %}

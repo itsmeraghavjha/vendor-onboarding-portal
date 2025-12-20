@@ -123,8 +123,6 @@ class VendorRequest(db.Model):
     msme_number = db.Column(db.String(50))
     msme_file_path = db.Column(db.String(200))
     
-    # REMOVED LEGACY TDS COLUMNS FROM HERE
-    
     # Bank
     bank_name = db.Column(db.String(100))
     bank_account_holder_name = db.Column(db.String(100))
@@ -160,7 +158,7 @@ class VendorRequest(db.Model):
                 'end': t.end_date,
                 'recipient': t.recipient_type,
                 'reason': t.exemption_reason,
-                'subject': '1'  # Assuming subject is always checked if record exists
+                'subject': '1' 
             }
             for t in self.tax_details if t.tax_category == 'WHT'
         ]
@@ -176,7 +174,7 @@ class VendorRequest(db.Model):
                 'start': t.start_date,
                 'end': t.end_date,
                 'thresh': t.threshold,
-                'type': t.tax_category  # Can store type if needed
+                'type': t.tax_category
             }
             for t in self.tax_details if t.tax_category == '194Q'
         ]
@@ -210,3 +208,17 @@ class MockEmail(db.Model):
     body = db.Column(db.Text)
     link = db.Column(db.String(500))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+# --- NEW: Audit Log Model ---
+class AuditLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    vendor_request_id = db.Column(db.Integer, db.ForeignKey('vendor_request.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Nullable for system actions
+    
+    action = db.Column(db.String(50), nullable=False) # e.g., 'APPROVED_TAX', 'REJECTED'
+    details = db.Column(db.String(255)) # e.g., "Comments: Invalid GST No"
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref='audit_logs')
+    vendor_request = db.relationship('VendorRequest', backref='audit_logs')
