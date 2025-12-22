@@ -470,15 +470,88 @@
             </div>
         </div>
 
-        <div x-show="activeTab === 'masters'" class="flex justify-center py-16">
-            <div class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm text-center w-full max-w-md">
-                <div class="mx-auto w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4">📂</div>
-                <h3 class="font-bold text-slate-900">Master Data Import</h3>
-                <p class="text-xs text-slate-500 mb-6">Upload CSV to update Banks, Incoterms, etc.</p>
-                <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-4">
-                    <input type="file" name="master_import_file" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                    <button class="bg-blue-600 text-white py-2 rounded text-xs font-bold shadow-sm hover:bg-blue-700">Upload Data</button>
-                </form>
+        <div x-show="activeTab === 'masters'" class="space-y-6">
+            <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">Master Data Management</h3>
+                        <p class="text-xs text-gray-500 mt-1">Select a category to view or edit records.</p>
+                    </div>
+                    
+                    <div class="mt-4 md:mt-0">
+                        <form method="GET" action="{{ url_for('admin.admin_workflow') }}" class="flex items-center">
+                            <input type="hidden" name="active_tab" value="masters">
+                            <select name="master_slug" onchange="this.form.submit()" 
+                                    class="block w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md shadow-sm">
+                                <option value="" disabled {{ 'selected' if not selected_master_slug else '' }}>-- Select Data Type --</option>
+                                {% for slug, label in master_types.items() %}
+                                    <option value="{{ slug }}" {{ 'selected' if selected_master_slug == slug else '' }}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                    </div>
+                </div>
+
+                {% if selected_master_slug %}
+                    <div class="flex justify-between items-center mb-4 border-t pt-4 border-gray-100">
+                        <h4 class="font-bold text-gray-700">{{ master_types[selected_master_slug] }} Records</h4>
+                        
+                        <a href="{{ url_for('masters.save_item', slug=selected_master_slug) }}" 
+                           class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-4 rounded transition">
+                            + Add New Item
+                        </a>
+                    </div>
+
+                    <div class="overflow-x-auto border rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Code</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Label / Description</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for item in master_items %}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono font-bold text-gray-700">{{ item.code }}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">{{ item.label }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ 'bg-green-100 text-green-800' if item.is_active else 'bg-red-100 text-red-800' }}">
+                                            {{ 'Active' if item.is_active else 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <a href="{{ url_for('masters.save_item', slug=selected_master_slug, id=item.id) }}" 
+                                           class="text-indigo-600 hover:text-indigo-900 mr-4 font-bold">Edit</a>
+                                        
+                                        <form action="{{ url_for('masters.delete_item', id=item.id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete {{ item.code }}?');">
+                                            <button type="submit" class="text-red-600 hover:text-red-900 font-bold">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="px-6 py-10 text-center text-gray-400 italic">
+                                        No records found. Click "Add New Item" to create one.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No Data Selected</h3>
+                        <p class="mt-1 text-sm text-gray-500">Please select a Data Type from the dropdown above to manage records.</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
 

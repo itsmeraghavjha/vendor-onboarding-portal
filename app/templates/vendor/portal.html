@@ -16,8 +16,6 @@
         .border-heritage { border-color: #009C49; }
         .hover-bg-heritage:hover { background-color: #007a3a; }
         .ring-heritage:focus { --tw-ring-color: #009C49; }
-        
-        /* THE MAGIC TRICK: Accent Color for Radios/Checkboxes */
         .accent-heritage { accent-color: #009C49; }
         
         /* Standardized Input Styling */
@@ -39,14 +37,10 @@
             border-color: #009C49;
             box-shadow: 0 0 0 3px rgba(0, 156, 73, 0.1);
         }
-        
-        /* Error State Styling */
         .std-input:invalid:not(:placeholder-shown) {
             border-color: #ef4444;
             background-color: #fef2f2;
         }
-
-        /* File Input Styling */
         input[type="file"].std-input { padding: 0.25rem; }
         input[type="file"]::file-selector-button {
             height: 100%;
@@ -65,8 +59,6 @@
         }
         input[type="file"]::file-selector-button:hover { background-color: #e5e7eb; }
         textarea.std-input { height: auto; padding-top: 0.5rem; }
-
-        /* Animation */
         .step-panel { display: none; }
         .step-panel.active { display: block; animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -97,15 +89,8 @@
             <div class="text-3xl">⚠️</div>
             <div>
                 <h3 class="text-lg font-bold text-yellow-800">Action Required: Correction Needed</h3>
-                <p class="text-sm text-yellow-700 mt-1">
-                    The reviewer has returned your application with the following instruction:
-                </p>
-                <div class="mt-3 bg-white bg-opacity-60 p-3 rounded border border-yellow-200 text-gray-800 font-medium italic">
-                    "{{ req.last_query }}"
-                </div>
-                <p class="text-xs text-yellow-600 mt-2 font-bold">
-                    Please make the necessary changes and re-submit your application.
-                </p>
+                <p class="text-sm text-yellow-700 mt-1">Reviewer instruction: "{{ req.last_query }}"</p>
+                <p class="text-xs text-yellow-600 mt-2 font-bold">Please make the necessary changes and re-submit.</p>
             </div>
         </div>
     </div>
@@ -118,23 +103,16 @@
         constitution: '{{ form.constitution.data or '' }}',
         
         validateAndNext(currentStep) {
-            // Get the current step container
             const container = document.getElementById('step_' + currentStep);
-            
-            // Find all inputs within this step
             const inputs = container.querySelectorAll('input, select, textarea');
             let valid = true;
-            
-            // Check validity of each input
-            // We use a classic loop to break and focus on the first error
             for (const input of inputs) {
                 if (!input.checkValidity()) {
-                    input.reportValidity(); // Shows browser's native error bubble
+                    input.reportValidity();
                     valid = false;
                     break; 
                 }
             }
-            
             if (valid) {
                 this.step = currentStep + 1;
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -145,32 +123,22 @@
         <div class="mb-10 max-w-3xl mx-auto">
             <div class="flex items-center justify-between relative">
                 <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10"></div>
-                <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-heritage -z-10 transition-all duration-500" 
-                     :style="'width: ' + ((step-1)*50) + '%'"></div>
-
+                <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-heritage -z-10 transition-all duration-500" :style="'width: ' + ((step-1)*50) + '%'"></div>
+                
                 <div class="flex flex-col items-center bg-gray-50 px-2 cursor-pointer" @click="if(step > 1) step = 1">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm"
-                         :class="step >= 1 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">
-                        <span x-show="step > 1">✓</span>
-                        <span x-show="step <= 1">1</span>
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm" :class="step >= 1 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">
+                        <span x-show="step > 1">✓</span><span x-show="step <= 1">1</span>
                     </div>
-                    <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 1 ? 'text-gray-900' : 'text-gray-400'">Organization</span>
+                    <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 1 ? 'text-gray-900' : 'text-gray-400'">Org Details</span>
                 </div>
-
                 <div class="flex flex-col items-center bg-gray-50 px-2 cursor-pointer" @click="if(step > 2) step = 2">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm"
-                         :class="step >= 2 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">
-                        <span x-show="step > 2">✓</span>
-                        <span x-show="step <= 2">2</span>
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm" :class="step >= 2 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">
+                        <span x-show="step > 2">✓</span><span x-show="step <= 2">2</span>
                     </div>
                     <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 2 ? 'text-gray-900' : 'text-gray-400'">Compliance</span>
                 </div>
-
                 <div class="flex flex-col items-center bg-gray-50 px-2 cursor-pointer">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm"
-                         :class="step >= 3 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">
-                        3
-                    </div>
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm" :class="step >= 3 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">3</div>
                     <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 3 ? 'text-gray-900' : 'text-gray-400'">Banking</span>
                 </div>
             </div>
@@ -203,12 +171,12 @@
                     </div>
                     <div class="md:col-span-5">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Legal Name <span class="text-red-500">*</span></label>
-                        <input type="text" name="legal_name" value="{{ req.vendor_name_basic }}" required
-                               class="std-input font-medium focus:ring-heritage" placeholder="Enter Legal Name as per PAN">
+                        <input type="text" name="legal_name" value="{{ req.vendor_name_basic }}" required maxlength="35"
+                               class="std-input font-medium focus:ring-heritage" placeholder="As per PAN (Max 35 chars)">
                     </div>
                     <div class="md:col-span-5">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Trade Name (If Different)</label>
-                        {{ form.trade_name(class="std-input", placeholder="Doing Business As...") }}
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Trade Name</label>
+                        {{ form.trade_name(class="std-input", placeholder="If different (Max 35 chars)", maxlength="35") }}
                     </div>
                     <div class="md:col-span-6">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Constitution <span class="text-red-500">*</span></label>
@@ -217,8 +185,7 @@
                     <div class="md:col-span-6" x-show="constitution.toLowerCase().includes('company')" x-transition>
                         <label class="block text-xs font-bold text-blue-600 uppercase mb-1">CIN Number <span class="text-red-500">*</span></label>
                         <input type="text" name="cin_no" class="std-input bg-blue-50 border-blue-200 text-blue-800 font-mono uppercase" 
-                               maxlength="21" placeholder="L12345MH2020PLC123456" 
-                               :required="constitution.toLowerCase().includes('company')">
+                               maxlength="21" placeholder="L12345MH2020PLC123456" :required="constitution.toLowerCase().includes('company')">
                     </div>
                 </div>
 
@@ -227,23 +194,23 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Name <span class="text-red-500">*</span></label>
-                            {{ form.contact_name(class="std-input") }}
+                            {{ form.contact_name(class="std-input", maxlength="35") }}
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Designation <span class="text-red-500">*</span></label>
-                            {{ form.designation(class="std-input") }}
+                            {{ form.designation(class="std-input", maxlength="35") }}
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Mobile No. <span class="text-red-500">*</span></label>
-                            {{ form.mobile_1(class="std-input", type="tel", pattern="[0-9]{10}", maxlength="10", placeholder="10 Digit Number") }}
+                            {{ form.mobile_1(class="std-input", type="tel", pattern="[0-9]{10}", maxlength="16", placeholder="10 Digit Number") }}
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Alternate Mobile No.</label>
-                            {{ form.mobile_2(class="std-input", type="tel", pattern="[0-9]{10}", maxlength="10", placeholder="Optional") }}
+                            {{ form.mobile_2(class="std-input", type="tel", pattern="[0-9]{10}", maxlength="16", placeholder="Optional") }}
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Landline No.</label>
-                            {{ form.landline(class="std-input", placeholder="Optional") }}
+                            {{ form.landline(class="std-input", maxlength="31", placeholder="Optional") }}
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Products / Service Data <span class="text-red-500">*</span></label>
@@ -253,18 +220,18 @@
                 </div>
 
                 <div class="mb-6">
-                     <h3 class="text-sm font-bold text-gray-800 uppercase mb-3">Registered Address</h3>
+                     <h3 class="text-sm font-bold text-gray-800 uppercase mb-3">Registered Address <span class="text-red-500">*</span> </h3>
                      <div class="space-y-3">
-                        {{ form.street_1(class="std-input", placeholder="Street 1 (Max 60 chars)", maxlength="60") }}
+                        {{ form.street_1(class="std-input", placeholder="Street 1 (Max 35 chars)", maxlength="35", required=True) }}
                         <div class="grid grid-cols-2 gap-3">
                             {{ form.street_2(class="std-input", placeholder="Street 2 (Max 40 chars)", maxlength="40") }}
                             {{ form.street_3(class="std-input", placeholder="Street 3 (Max 40 chars)", maxlength="40") }}
                             {{ form.street_4(class="std-input", placeholder="Street 4 (Max 40 chars)", maxlength="40") }}
                         </div>
                         <div class="grid grid-cols-3 gap-3">
-                            {{ form.city(class="std-input", placeholder="City") }}
-                            {{ form.pincode(class="std-input", placeholder="Pincode", type="text", pattern="[0-9]{6}", maxlength="6", oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);") }}
-                            {{ form.state(class="std-input") }}
+                            {{ form.city(class="std-input", placeholder="City (Max 40 chars)", maxlength="40", required=True) }}
+                            {{ form.pincode(class="std-input", placeholder="Pincode", type="text", pattern="[0-9]{6}", maxlength="10", required=True, oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);") }}
+                            {{ form.state(class="std-input", required=True) }}
                         </div>
                      </div>
                 </div>
@@ -301,8 +268,8 @@
                                    placeholder="15 Digit GSTIN" :required="gstReg === 'YES'">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Certificate <span class="text-red-500">*</span></label>
-                            <input type="file" name="gst_file" class="std-input" :required="gstReg === 'YES' && '{{ req.gst_file_path }}' === 'None'">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Certificate <span class="text-red-500">*</span> <span class="text-[10px] font-normal text-gray-400 normal-case">(PDF, JPG, PNG)</span></label>
+                            <input type="file" name="gst_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" :required="gstReg === 'YES' && '{{ req.gst_file_path }}' === 'None'">
                         </div>
                     </div>
                      <div x-show="gstReg === 'NO'" class="pt-4 border-t border-gray-200">
@@ -320,8 +287,8 @@
                             {{ form.pan_no(class="std-input uppercase font-mono", maxlength="10", pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}", placeholder="10 Digit PAN") }}
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload PAN Card <span class="text-red-500">*</span></label>
-                            {{ form.pan_file(class="std-input", **{'required': True if not req.pan_file_path else False}) }}
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload PAN Card <span class="text-red-500">*</span> <span class="text-[10px] font-normal text-gray-400 normal-case">(PDF, JPG, PNG)</span></label>
+                            {{ form.pan_file(class="std-input", accept=".pdf, .png, .jpg, .jpeg", **{'required': True if not req.pan_file_path else False}) }}
                         </div>
                     </div>
                 </div>
@@ -342,15 +309,15 @@
                     <div x-show="msmeReg === 'YES'" class="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-gray-100 pt-4">
                         <div>
                              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Udyam Number <span class="text-red-500">*</span></label>
-                             <input type="text" name="msme_number" class="std-input uppercase" maxlength="20" :required="msmeReg === 'YES'">
+                             <input type="text" name="msme_number" class="std-input uppercase" maxlength="40" :required="msmeReg === 'YES'">
                         </div>
                         <div>
                              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Type <span class="text-red-500">*</span></label>
                              {{ form.msme_type(class="std-input") }}
                         </div>
                         <div class="col-span-2">
-                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Certificate <span class="text-red-500">*</span></label>
-                             <input type="file" name="msme_file" class="std-input" :required="msmeReg === 'YES' && '{{ req.msme_file_path }}' === 'None'">
+                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Certificate <span class="text-red-500">*</span> <span class="text-[10px] font-normal text-gray-400 normal-case">(PDF, JPG, PNG)</span></label>
+                             <input type="file" name="msme_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" :required="msmeReg === 'YES' && '{{ req.msme_file_path }}' === 'None'">
                         </div>
                     </div>
                      <div x-show="msmeReg === 'NO'" class="pt-4 border-t border-gray-200">
@@ -369,8 +336,8 @@
                             {{ form.tds_cert_no(class="std-input") }}
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Upload Document</label>
-                            {{ form.tds_file(class="std-input") }}
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Upload Document <span class="text-[10px] font-normal text-gray-400 normal-case">(PDF, JPG, PNG)</span></label>
+                            {{ form.tds_file(class="std-input", accept=".pdf, .png, .jpg, .jpeg") }}
                         </div>
                     </div>
                 </div>
@@ -390,19 +357,19 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Bank Name <span class="text-red-500">*</span></label>
-                        {{ form.bank_name(class="std-input") }}
+                        {{ form.bank_name(class="std-input", maxlength="60") }}
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Account Holder Name <span class="text-red-500">*</span></label>
-                        {{ form.holder_name(class="std-input") }}
+                        {{ form.holder_name(class="std-input", maxlength="60") }}
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Account Number <span class="text-red-500">*</span></label>
-                        {{ form.acc_no(class="std-input mb-3", placeholder="Enter Account No", type="password") }}
-                        {{ form.acc_no_confirm(class="std-input", placeholder="Confirm Account No") }}
+                        {{ form.acc_no(class="std-input mb-3", placeholder="Enter Account No", type="password", maxlength="18") }}
+                        {{ form.acc_no_confirm(class="std-input", placeholder="Confirm Account No", maxlength="18") }}
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">IFSC Code <span class="text-red-500">*</span></label>
@@ -414,9 +381,9 @@
                      <div class="flex items-start gap-4">
                         <div class="p-2 bg-blue-100 text-blue-600 rounded-full"><span class="text-xl">📎</span></div>
                         <div class="w-full">
-                            <label class="block text-sm font-bold text-gray-800 mb-1">Upload Cancelled Cheque / Passbook <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-bold text-gray-800 mb-1">Upload Cancelled Cheque / Passbook <span class="text-red-500">*</span> <span class="text-xs font-normal text-gray-500 ml-1">(PDF, JPG, PNG)</span></label>
                             <p class="text-xs text-gray-500 mb-3">Ensure Account Name, Number & IFSC are visible.</p>
-                            {{ form.bank_file(class="std-input", **{'required': True if not req.bank_proof_file_path else False}) }}
+                            {{ form.bank_file(class="std-input", accept=".pdf, .png, .jpg, .jpeg", **{'required': True if not req.bank_proof_file_path else False}) }}
                         </div>
                      </div>
                 </div>

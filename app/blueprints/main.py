@@ -16,31 +16,70 @@ main_bp = Blueprint('main', __name__)
 def index(): 
     return redirect(url_for('auth.login'))
 
+# In app/blueprints/main.py
+
+# In app/blueprints/main.py
+
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
-    all_reqs = VendorRequest.query.order_by(VendorRequest.created_at.desc()).all()
-    my_items = []
-    
+    # 1. Fetch Requests based on Role
     if current_user.role == 'admin':
-        my_items = all_reqs
+        all_reqs = VendorRequest.query.order_by(VendorRequest.created_at.desc()).all()
     elif current_user.role == 'initiator':
-        my_items = [r for r in all_reqs if r.initiator_id == current_user.id]
+        all_reqs = VendorRequest.query.filter_by(initiator_id=current_user.id).order_by(VendorRequest.created_at.desc()).all()
     else:
-        for r in all_reqs:
-            if r.status in ['DRAFT', 'REJECTED', 'COMPLETED']: continue
-            pending_email, stage_name = get_next_approver_email(r)
-            if pending_email and current_user.email:
-                if pending_email.strip().lower() == current_user.email.strip().lower():
-                    my_items.append(r)
+        if current_user.department in ['Finance', 'IT', 'HR']:
+            all_reqs = VendorRequest.query.order_by(VendorRequest.created_at.desc()).all()
+        else:
+            all_reqs = VendorRequest.query.filter_by(initiator_dept=current_user.department).order_by(VendorRequest.created_at.desc()).all()
 
+    # 2. Identify "Action Required" items (Only for Approvers, NOT Admin)
+    pending_items = []
+    
+    for r in all_reqs:
+        r.pending_action = False 
+        
+        if r.status in ['DRAFT', 'REJECTED', 'COMPLETED']:
+            continue
+            
+        pending_email, stage_name = get_next_approver_email(r)
+        
+        # Check if current user is the blocker
+        if pending_email and current_user.email:
+            if pending_email.strip().lower() == current_user.email.strip().lower():
+                r.pending_action = True
+                pending_items.append(r)
+        
+        # REMOVED: The admin override block "if role == admin: pending_action = True" 
+
+    # 3. Calculate Stats
+    stats = {
+        'total': len(all_reqs),
+        'action_required': len(pending_items),
+        'completed': sum(1 for r in all_reqs if r.status == 'COMPLETED'),
+        'rejected': sum(1 for r in all_reqs if r.status == 'REJECTED'),
+        # 'in_process' means anything NOT finished
+        'in_process': sum(1 for r in all_reqs if r.status not in ['DRAFT', 'COMPLETED', 'REJECTED']),
+        
+        # Detailed Breakdown for trackers
+        'stuck_dept': sum(1 for r in all_reqs if r.current_dept_flow == 'DEPT' and r.status == 'PENDING_APPROVAL'),
+        'stuck_finance': sum(1 for r in all_reqs if r.current_dept_flow == 'FINANCE' and r.status == 'PENDING_APPROVAL'),
+        'stuck_it': sum(1 for r in all_reqs if r.current_dept_flow == 'IT' and r.status == 'PENDING_APPROVAL'),
+    }
+
+    # 4. Categories for Initiator Modal
     dept_categories = []
     if current_user.department:
         rules = CategoryRouting.query.filter_by(department=current_user.department).all()
         dept_categories = sorted(list(set([r.category_name for r in rules])))
         if not dept_categories: dept_categories = ["General Goods", "Services"]
 
-    return render_template('main/dashboard.html', requests=my_items, dept_categories=dept_categories, all_requests=all_reqs)
+    return render_template('main/dashboard.html', 
+                           requests=all_reqs, 
+                           stats=stats,
+                           dept_categories=dept_categories)
+
 
 @main_bp.route('/create_request', methods=['POST'])
 @login_required

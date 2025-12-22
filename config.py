@@ -17,8 +17,10 @@ class Config:
 
     # 3. Uploads
     UPLOAD_FOLDER = os.path.join(basedir, 'app', 'static', 'uploads')
-    ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
+    ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'} 
+    
+    # Keep your size limit, it's perfect
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
     # 4. Email Configuration
     MAIL_SERVER = os.environ.get('MAIL_SERVER') or 'smtp.gmail.com'
@@ -33,3 +35,4 @@ class Config:
     # 6. Celery Configuration
     CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL') or 'redis://localhost:6379/0'
     CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND') or 'redis://localhost:6379/0'
+    CELERY_TASK_ALWAYS_EAGER = False

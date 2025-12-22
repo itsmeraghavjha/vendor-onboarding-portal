@@ -7,6 +7,9 @@ from .models import User
 from dotenv import load_dotenv
 from .celery_utils import init_celery
 
+from flask import Flask, flash, redirect, url_for, request
+from werkzeug.exceptions import RequestEntityTooLarge
+
 # 3. Load .env file before app creation
 load_dotenv()
 
@@ -38,11 +41,26 @@ def create_app(config_class=Config):
     from .blueprints.auth import auth_bp
     from .blueprints.admin import admin_bp
     from .blueprints.vendor import vendor_bp
+    from .blueprints.masters import masters_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(vendor_bp, url_prefix='/vendor')
+    app.register_blueprint(masters_bp, url_prefix='/admin/masters')
+
+
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_file_too_large(e):
+        flash("File upload error: One of your files is larger than 16MB.", "error")
+        
+        # FIX: Redirect back to the FORM (Referrer), not the Dashboard.
+        # This keeps the vendor on their portal page.
+        if request.referrer:
+            return redirect(request.referrer)
+            
+        return redirect(request.url)
 
     # Create DB Tables
     # Note: With Flask-Migrate, you typically use 'flask db upgrade' instead of this,

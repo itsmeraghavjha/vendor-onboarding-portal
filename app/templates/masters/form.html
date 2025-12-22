@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto mt-10 mb-20">
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <a href="{{ url_for('admin.admin_workflow', active_tab='masters', master_slug=slug) }}" 
+               class="text-xs font-bold text-gray-500 hover:text-green-600 transition flex items-center gap-1">
+                <span>←</span> BACK TO LIST
+            </a>
+            <h1 class="text-2xl font-bold text-gray-800 mt-2">{{ 'Edit' if item else 'Add New' }} {{ title }}</h1>
+        </div>
+    </div>
+
+    <form method="POST" class="bg-white shadow-lg rounded-xl p-8 border border-gray-200">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}"/>
+
+        <div class="grid grid-cols-1 gap-6">
+            
+            <div>
+                <label for="code" class="block text-sm font-bold text-gray-700 mb-1">
+                    Code / Value <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="code" id="code" 
+                       value="{{ item.code if item else '' }}" required
+                       class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 h-11 px-4 border transition font-mono text-gray-800"
+                       placeholder="e.g. 1010, HDFC, T1">
+                <p class="text-xs text-gray-400 mt-1">The internal unique identifier.</p>
+            </div>
+
+            <div>
+                <label for="label" class="block text-sm font-bold text-gray-700 mb-1">
+                    Label / Description <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="label" id="label" 
+                       value="{{ item.label if item else '' }}" required
+                       class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 h-11 px-4 border transition"
+                       placeholder="e.g. HDFC Bank, Exemption u/s 194Q">
+                <p class="text-xs text-gray-400 mt-1">This is what users see in dropdowns.</p>
+            </div>
+
+            <div>
+                <label for="parent_code" class="block text-sm font-bold text-gray-700 mb-1">
+                    Parent Code <span class="text-gray-400 font-normal">(Optional)</span>
+                </label>
+                <input type="text" name="parent_code" id="parent_code" 
+                       value="{{ item.parent_code if item and item.parent_code else '' }}"
+                       class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 h-11 px-4 border transition"
+                       placeholder="e.g. IN (for Country), IA (for Tax Type)">
+                <p class="text-xs text-gray-400 mt-1">Used for grouping or dependent logic.</p>
+            </div>
+
+            <div class="flex items-center mt-2 p-3 bg-gray-50 rounded border border-gray-100">
+                <input type="checkbox" name="is_active" id="is_active" 
+                       {{ 'checked' if not item or item.is_active else '' }}
+                       class="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer">
+                <label for="is_active" class="ml-3 block text-sm font-bold text-gray-700 cursor-pointer select-none">
+                    Is Active?
+                </label>
+            </div>
+        </div>
+
+        {% if extra_fields %}
+        <div class="mt-10 pt-8 border-t border-gray-100">
+            <h3 class="text-sm font-bold text-gray-900 mb-6 uppercase tracking-wide flex items-center">
+                <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs mr-2 border border-blue-200">Extended Data</span>
+                Configuration Details
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
+                {% for key, value in extra_fields.items() %}
+                <div>
+                    <label for="extra_{{ key }}" class="block text-xs font-bold text-gray-500 mb-1 capitalize tracking-wide">
+                        {{ key.replace('_', ' ') }}
+                    </label>
+                    <input type="text" name="{{ key }}" id="extra_{{ key }}" 
+                           value="{{ value }}"
+                           class="w-full border-gray-300 bg-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 h-10 px-3 border transition text-sm">
+                </div>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-gray-400 mt-3 text-right">
+                * These fields are stored dynamically in the JSON column.
+            </p>
+        </div>
+        {% endif %}
+
+        <div class="mt-10 flex justify-end items-center space-x-3 pt-6 border-t border-gray-100">
+            <a href="{{ url_for('admin.admin_workflow', active_tab='masters', master_slug=slug) }}" 
+               class="px-5 py-2.5 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition">
+                Cancel
+            </a>
+            <button type="submit" 
+                    class="px-8 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition shadow-green-200">
+                {{ 'Save Changes' if item else 'Create Record' }}
+            </button>
+        </div>
+
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-8">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Master Data Management</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for slug, title in master_types.items() %}
+        <a href="{{ url_for('masters.list_items', slug=slug) }}" 
+           class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-green-500 transition group">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-gray-700 group-hover:text-green-600">{{ title }}</h3>
+                <span class="text-gray-300 group-hover:text-green-500">→</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-2 uppercase tracking-wide">Manage {{ title }}</p>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

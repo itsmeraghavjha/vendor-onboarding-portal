@@ -44,13 +44,33 @@ class Department(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
 
+# class MasterData(db.Model):
+#     id = db.Column(db.Integer, primary_key=True)
+#     category = db.Column(db.String(50), nullable=False)
+#     code = db.Column(db.String(50), nullable=False)
+#     label = db.Column(db.String(200), nullable=False)
+#     parent_code = db.Column(db.String(50)) 
+#     is_active = db.Column(db.Boolean, default=True)
+
+
+# In app/models.py
+
 class MasterData(db.Model):
+    __tablename__ = 'master_data'
+    
     id = db.Column(db.Integer, primary_key=True)
-    category = db.Column(db.String(50), nullable=False)
-    code = db.Column(db.String(50), nullable=False)
-    label = db.Column(db.String(200), nullable=False)
-    parent_code = db.Column(db.String(50)) 
+    category = db.Column(db.String(50), index=True)
+    code = db.Column(db.String(100), index=True)
+    label = db.Column(db.String(255))
+    parent_code = db.Column(db.String(100), index=True, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+
+    # --- ADD THIS LINE ---
+    data = db.Column(db.JSON, nullable=True) 
+    # ---------------------
+
+    def __repr__(self):
+        return f"<Master {self.category}: {self.code}>"
 
 class CategoryRouting(db.Model):
     id = db.Column(db.Integer, primary_key=True)

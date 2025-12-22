@@ -1,135 +1,236 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="max-w-7xl mx-auto">
+<div class="max-w-7xl mx-auto pb-12" x-data="{ 
+    activeTab: '{{ 'process' if current_user.role == 'admin' else ('tasks' if stats.action_required > 0 else 'process') }}', 
+    searchQuery: '' 
+}">
     
-    <div class="flex justify-between items-end mb-8">
+    <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p class="text-gray-500 mt-1">
-                Welcome, {{ current_user.username }} 
-                <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded ml-2 font-bold uppercase">{{ current_user.department }}</span>
+            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Vendor Onboarding</h1>
+            <p class="text-gray-500 mt-1 flex items-center gap-2">
+                Welcome, <span class="font-bold text-gray-700">{{ current_user.username }}</span>
+                <span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border border-gray-200 tracking-wide">{{ current_user.department }}</span>
             </p>
         </div>
         
         {% if current_user.role == 'initiator' %}
             <button onclick="document.getElementById('newReqModal').classList.remove('hidden')" 
-                    class="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 shadow-md font-bold flex items-center transition transform hover:-translate-y-0.5">
-                <span class="text-xl mr-2 leading-none">+</span> Initiate Onboarding
+                    class="bg-heritage text-white px-5 py-2.5 rounded-lg hover:bg-green-800 shadow-lg shadow-green-200 font-bold flex items-center transition transform hover:-translate-y-0.5">
+                <span class="text-xl mr-2 leading-none">+</span> Initiate Request
             </button>
         {% endif %}
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Request ID</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type / Category</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Current Stage</th>
-                    <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for req in requests %}
-                <tr class="hover:bg-gray-50 transition">
-                    
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500 font-bold">
-                        {{ req.request_id }}
-                    </td>
-                    
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-bold text-gray-900">{{ req.vendor_name_basic }}</div>
-                        <div class="text-xs text-gray-500">{{ req.vendor_email }}</div>
-                    </td>
-                    
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        {% if req.vendor_type == 'Standard' %}
-                            <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-200 font-medium">
-                                Standard Flow
-                            </span>
-                        {% else %}
-                            <span class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded border border-blue-100 font-bold">
-                                {{ req.vendor_type }}
-                            </span>
-                        {% endif %}
-                    </td>
-                    
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        {% if req.status == 'COMPLETED' %}
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-green-100 text-green-800 border border-green-200">
-                                Active
-                            </span>
-                        {% elif req.status == 'REJECTED' %}
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-red-100 text-red-800 border border-red-200">
-                                Rejected
-                            </span>
-                        {% else %}
-                            <div class="flex flex-col">
-                                <span class="text-xs font-bold text-orange-600 uppercase">
-                                    {{ req.current_dept_flow.replace('_', ' ') }}
-                                </span>
-                                {% if req.finance_stage %}
-                                    <span class="text-[10px] text-gray-400 mt-0.5">
-                                        Step: {{ req.finance_stage }}
-                                    </span>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    </td>
-                    
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="{{ url_for('main.review_request', req_id=req.id) }}" class="text-green-600 hover:text-green-900 font-bold hover:underline">
-                            View Details &rarr;
-                        </a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-gray-400 bg-gray-50">
-                        <div class="text-4xl mb-2">📭</div>
-                        <p>No active requests found.</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="grid grid-cols-1 {{ 'md:grid-cols-3' if current_user.role == 'admin' else 'md:grid-cols-4' }} gap-4 mb-8">
+        
+        {% if current_user.role != 'admin' %}
+        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between group hover:border-orange-300 transition cursor-pointer"
+             @click="activeTab = 'tasks'" :class="activeTab === 'tasks' ? 'ring-2 ring-orange-400' : ''">
+            <div>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">My Actions</p>
+                <h3 class="text-2xl font-bold text-gray-800 mt-1">{{ stats.action_required }}</h3>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-lg">⚡</div>
+        </div>
+        {% endif %}
+
+        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between group hover:border-blue-300 transition cursor-pointer"
+             @click="activeTab = 'process'" :class="activeTab === 'process' ? 'ring-2 ring-blue-400' : ''">
+            <div>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">In Progress</p>
+                <h3 class="text-2xl font-bold text-gray-800 mt-1">{{ stats.in_process }}</h3>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">⏳</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between group hover:border-green-300 transition cursor-pointer"
+             @click="activeTab = 'completed'" :class="activeTab === 'completed' ? 'ring-2 ring-green-400' : ''">
+            <div>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Completed</p>
+                <h3 class="text-2xl font-bold text-gray-800 mt-1">{{ stats.completed }}</h3>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center font-bold text-lg">✓</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between group hover:border-red-300 transition cursor-pointer"
+             @click="activeTab = 'rejected'" :class="activeTab === 'rejected' ? 'ring-2 ring-red-400' : ''">
+            <div>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Rejected</p>
+                <h3 class="text-2xl font-bold text-gray-800 mt-1">{{ stats.rejected }}</h3>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-lg">✕</div>
+        </div>
     </div>
 
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px]">
+        
+        <div class="px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50/50">
+            
+            <div class="flex bg-gray-200/50 p-1 rounded-lg overflow-x-auto max-w-full">
+                {% if current_user.role != 'admin' %}
+                <button @click="activeTab = 'tasks'" 
+                        :class="activeTab === 'tasks' ? 'bg-white text-orange-600 shadow-sm font-bold' : 'text-gray-500 font-medium hover:text-gray-700'"
+                        class="px-4 py-1.5 text-xs rounded-md transition-all duration-200 flex items-center gap-2 whitespace-nowrap">
+                    <span>⚡ My Tasks</span>
+                    {% if stats.action_required > 0 %}
+                    <span class="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full text-[9px]">{{ stats.action_required }}</span>
+                    {% endif %}
+                </button>
+                {% endif %}
+
+                <button @click="activeTab = 'process'" 
+                        :class="activeTab === 'process' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 font-medium hover:text-gray-700'"
+                        class="px-4 py-1.5 text-xs rounded-md transition-all duration-200 flex items-center gap-2 whitespace-nowrap">
+                    <span>⏳ Pending</span>
+                    <span class="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full text-[9px]">{{ stats.in_process }}</span>
+                </button>
+
+                <button @click="activeTab = 'completed'" 
+                        :class="activeTab === 'completed' ? 'bg-white text-green-600 shadow-sm font-bold' : 'text-gray-500 font-medium hover:text-gray-700'"
+                        class="px-4 py-1.5 text-xs rounded-md transition-all duration-200 flex items-center gap-2 whitespace-nowrap">
+                    <span>✓ Completed</span>
+                    <span class="bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full text-[9px]">{{ stats.completed }}</span>
+                </button>
+
+                <button @click="activeTab = 'rejected'" 
+                        :class="activeTab === 'rejected' ? 'bg-white text-red-600 shadow-sm font-bold' : 'text-gray-500 font-medium hover:text-gray-700'"
+                        class="px-4 py-1.5 text-xs rounded-md transition-all duration-200 flex items-center gap-2 whitespace-nowrap">
+                    <span>✕ Rejected</span>
+                    <span class="bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full text-[9px]">{{ stats.rejected }}</span>
+                </button>
+            </div>
+
+            <div class="relative w-full md:w-64">
+                <input type="text" x-model="searchQuery" placeholder="Search..." 
+                       class="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-xs focus:ring-green-500 focus:border-green-500 transition shadow-sm">
+                <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Request ID</th>
+                        <th class="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Vendor Details</th>
+                        <th class="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type / Dept</th>
+                        <th class="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Status</th>
+                        <th class="px-6 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200 text-sm">
+                    {% for req in requests %}
+                    <tr x-show="(
+                            (activeTab === 'tasks' && '{{ req.pending_action }}' === 'True') ||
+                            (activeTab === 'process' && '{{ req.status }}' !== 'COMPLETED' && '{{ req.status }}' !== 'REJECTED' && '{{ req.status }}' !== 'DRAFT') ||
+                            (activeTab === 'completed' && '{{ req.status }}' === 'COMPLETED') ||
+                            (activeTab === 'rejected' && '{{ req.status }}' === 'REJECTED')
+                        ) && (
+                            '{{ req.request_id }}'.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            '{{ req.vendor_name_basic }}'.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            '{{ req.status }}'.toLowerCase().includes(searchQuery.toLowerCase())
+                        )"
+                        class="hover:bg-gray-50 transition group {{ 'bg-orange-50/30' if req.pending_action else '' }}">
+                        
+                        <td class="px-6 py-4 whitespace-nowrap font-mono text-xs font-bold text-gray-500">
+                            {{ req.request_id }}
+                            {% if req.pending_action %}
+                                <span class="block text-[9px] text-orange-600 uppercase font-bold mt-1">Action Req</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-bold text-gray-900 group-hover:text-green-700 transition">{{ req.vendor_name_basic }}</div>
+                            <div class="text-xs text-gray-400">{{ req.vendor_email }}</div>
+                        </td>
+                        
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded border border-gray-200 font-bold uppercase tracking-wide">
+                                    {{ req.initiator_dept }}
+                                </span>
+                                <span class="text-xs text-gray-500">{{ req.vendor_type }}</span>
+                            </div>
+                        </td>
+                        
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if req.status == 'COMPLETED' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">
+                                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
+                                    Active / Completed
+                                </span>
+                            {% elif req.status == 'REJECTED' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+                                    Rejected
+                                </span>
+                            {% else %}
+                                <div class="flex flex-col">
+                                    <span class="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                                        <span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+                                        {{ req.current_dept_flow.replace('_', ' ') }}
+                                    </span>
+                                    
+                                    {% if req.current_dept_flow == 'FINANCE' %}
+                                        <span class="text-[10px] text-blue-500 font-medium pl-3">↳ {{ req.finance_stage.replace('_', ' ') }}</span>
+                                    {% elif req.current_dept_flow == 'DEPT' %}
+                                        <span class="text-[10px] text-blue-500 font-medium pl-3">↳ Level {{ req.current_step_number }} Review</span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <a href="{{ url_for('main.review_request', req_id=req.id) }}" 
+                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-bold rounded shadow-sm text-white 
+                               {{ 'bg-green-600 hover:bg-green-700' if req.pending_action else 'bg-gray-400 hover:bg-gray-500' }} transition">
+                                {{ 'Review' if req.pending_action else 'Track' }} &rarr;
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr x-show="activeTab === 'tasks' && stats.action_required === 0">
+                        <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                            <div class="text-4xl mb-2">🎉</div>
+                            <p class="text-sm font-medium">You're all caught up! No pending actions.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div x-show="$el.querySelectorAll('tbody tr[style*=\'display: table-row\']').length === 0" class="hidden px-6 py-12 text-center text-gray-400">
+            <p>No requests found matching your search.</p>
+        </div>
+    </div>
 </div>
 
 <div id="newReqModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        
-        <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="document.getElementById('newReqModal').classList.add('hidden')"></div>
-
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
+        <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" onclick="document.getElementById('newReqModal').classList.add('hidden')"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
         <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
-            <div class="bg-green-600 px-6 py-4">
-                <h3 class="text-lg leading-6 font-bold text-white" id="modal-title">Initiate New Vendor</h3>
+            <div class="bg-heritage px-6 py-4">
+                <h3 class="text-lg leading-6 font-bold text-white">Initiate New Vendor</h3>
                 <p class="text-green-100 text-xs mt-1">Send an invitation link to the vendor.</p>
             </div>
-            
             <form action="{{ url_for('main.create_request') }}" method="POST" class="p-6 space-y-5">
-                
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Vendor Company Name</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Vendor Company Name (Legal Name)</label>
                     <input type="text" name="vendor_name" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
                 </div>
-                
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">Vendor Email Address</label>
                     <input type="email" name="vendor_email" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
                 </div>
-                
                 {% if current_user.assigned_category %}
                     <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned Category</label>
                         <input type="text" value="{{ current_user.assigned_category }}" disabled class="w-full bg-white border border-gray-200 rounded p-2 text-gray-700 font-bold">
                         <input type="hidden" name="vendor_type" value="{{ current_user.assigned_category }}">
                     </div>
-
                 {% elif dept_categories %}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">Select Category</label>
@@ -139,24 +240,12 @@
                             {% endfor %}
                         </select>
                     </div>
-
                 {% else %}
                     <input type="hidden" name="vendor_type" value="Standard">
-                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <label class="block text-xs font-bold text-blue-800 uppercase mb-1">Department Flow</label>
-                        <div class="text-sm font-medium text-blue-900 flex items-center">
-                            <span class="mr-2">⚡</span> Standard Workflow ({{ current_user.department }})
-                        </div>
-                    </div>
                 {% endif %}
-
                 <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                    <button type="button" onclick="document.getElementById('newReqModal').classList.add('hidden')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-bold hover:bg-gray-50 transition">
-                        Cancel
-                    </button>
-                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-sm transition">
-                        Send Invite &rarr;
-                    </button>
+                    <button type="button" onclick="document.getElementById('newReqModal').classList.add('hidden')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-bold hover:bg-gray-50 transition">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-heritage text-white rounded-lg font-bold hover:bg-green-800 shadow-sm transition">Send Invite &rarr;</button>
                 </div>
             </form>
         </div>
