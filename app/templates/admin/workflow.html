@@ -1,3 +1,6 @@
+
+
+
 {% extends "base.html" %}
 
 {% block content %}
@@ -89,39 +92,6 @@
                 </div>
             </div>
 
-            <div>
-                <h3 class="font-bold text-slate-800 text-sm mb-4 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> Pipeline Bottlenecks
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div class="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center hover:shadow-sm transition">
-                        <p class="text-[10px] font-bold text-orange-400 uppercase">Phase 1: Dept</p>
-                        <h4 class="text-3xl font-bold text-orange-600 my-1">{{ stats.bottlenecks.dept }}</h4>
-                        <p class="text-[10px] text-orange-400">Stuck at Internal</p>
-                    </div>
-                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center hover:shadow-sm transition">
-                        <p class="text-[10px] font-bold text-blue-400 uppercase">Fin: Bill Passing</p>
-                        <h4 class="text-3xl font-bold text-blue-600 my-1">{{ stats.bottlenecks.bill }}</h4>
-                        <p class="text-[10px] text-blue-400">Stuck at Basic Check</p>
-                    </div>
-                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center hover:shadow-sm transition">
-                        <p class="text-[10px] font-bold text-blue-400 uppercase">Fin: Treasury</p>
-                        <h4 class="text-3xl font-bold text-blue-600 my-1">{{ stats.bottlenecks.treasury }}</h4>
-                        <p class="text-[10px] text-blue-400">Stuck at Bank Check</p>
-                    </div>
-                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center hover:shadow-sm transition">
-                        <p class="text-[10px] font-bold text-blue-400 uppercase">Fin: Tax Team</p>
-                        <h4 class="text-3xl font-bold text-blue-600 my-1">{{ stats.bottlenecks.tax }}</h4>
-                        <p class="text-[10px] text-blue-400">Stuck at TDS/GST</p>
-                    </div>
-                    <div class="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center hover:shadow-sm transition">
-                        <p class="text-[10px] font-bold text-purple-400 uppercase">Phase 3: IT</p>
-                        <h4 class="text-3xl font-bold text-purple-600 my-1">{{ stats.bottlenecks.it }}</h4>
-                        <p class="text-[10px] text-purple-400">Stuck at SAP ID</p>
-                    </div>
-                </div>
-            </div>
-
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <h4 class="font-bold text-slate-800 text-sm mb-6">Request Volume by Department</h4>
@@ -170,7 +140,6 @@
         </div>
 
         <div x-show="activeTab === 'logic'" class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
-            
             <div class="w-full lg:w-64 flex-shrink-0 bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden shadow-sm h-full">
                 <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Business Units</span>
@@ -206,7 +175,6 @@
             <div class="flex-1 overflow-y-auto pr-1 pb-20 custom-scrollbar space-y-6 h-full">
 
                 {% if selected_dept not in ['GLOBAL_FINANCE', 'GLOBAL_IT'] %}
-                
                 <div class="flex items-end justify-between border-b border-slate-200 pb-3">
                     <div>
                         <h2 class="text-xl font-bold text-slate-900">{{ selected_dept }}</h2>
@@ -398,6 +366,26 @@
                 <h3 class="font-bold text-sm text-slate-700 uppercase">System Users</h3>
                 <span class="bg-white px-2 py-0.5 rounded text-[10px] font-bold border border-slate-200 text-slate-500">{{ users|length }} Active</span>
             </div>
+
+            <div class="px-6 py-3 bg-white border-b border-slate-100 flex gap-4">
+                <div class="relative flex-1">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                    <input type="text" id="userSearchInput" onkeyup="filterUsers()" 
+                           placeholder="Search users..." 
+                           class="w-full pl-9 pr-4 py-1.5 text-xs rounded border-slate-200 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="w-48">
+                    <select id="roleFilterInput" onchange="filterUsers()" class="w-full py-1.5 text-xs rounded border-slate-200 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="initiator">Initiator</option>
+                        <option value="approver">Approver</option>
+                        <option value="finance">Finance Team</option>
+                        <option value="it">IT Team</option>
+                    </select>
+                </div>
+            </div>
+
             <table class="w-full text-xs">
                 <thead class="bg-white text-slate-400 border-b border-slate-100">
                     <tr>
@@ -407,7 +395,7 @@
                         <th class="px-6 py-3 text-left uppercase">Category</th> <th class="px-6 py-3 text-right"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-50">
+                <tbody id="userTableBody" class="divide-y divide-slate-50">
                     {% for u in users %}
                     <tr class="hover:bg-slate-50 transition">
                         <td class="px-6 py-3 font-bold text-slate-700">{{ u.username }}</td>
@@ -459,12 +447,10 @@
                             <option value="approver">Approver</option>
                         </select>
                     </div>
-                    
                     <div class="md:col-span-1">
                         <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Category (Opt)</label>
                         <input type="text" name="user_category" placeholder="e.g. Stationery" class="w-full rounded border-slate-300 text-xs py-2 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
-
                     <button class="bg-indigo-600 text-white px-4 py-2 rounded-md font-bold text-xs shadow-sm hover:bg-indigo-700 transition h-[34px]">Add User</button>
                 </form>
             </div>
@@ -477,17 +463,13 @@
                         <h3 class="text-lg font-bold text-gray-800">Master Data Management</h3>
                         <p class="text-xs text-gray-500 mt-1">Select a category to view or edit records.</p>
                     </div>
-                    
                     <div class="mt-4 md:mt-0">
                         <form method="GET" action="{{ url_for('admin.admin_workflow') }}" class="flex items-center">
                             <input type="hidden" name="active_tab" value="masters">
-                            <select name="master_slug" onchange="this.form.submit()" 
-                                    class="block w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md shadow-sm">
+                            <select name="master_slug" onchange="this.form.submit()" class="block w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md shadow-sm">
                                 <option value="" disabled {{ 'selected' if not selected_master_slug else '' }}>-- Select Data Type --</option>
                                 {% for slug, label in master_types.items() %}
-                                    <option value="{{ slug }}" {{ 'selected' if selected_master_slug == slug else '' }}>
-                                        {{ label }}
-                                    </option>
+                                    <option value="{{ slug }}" {{ 'selected' if selected_master_slug == slug else '' }}>{{ label }}</option>
                                 {% endfor %}
                             </select>
                         </form>
@@ -497,13 +479,8 @@
                 {% if selected_master_slug %}
                     <div class="flex justify-between items-center mb-4 border-t pt-4 border-gray-100">
                         <h4 class="font-bold text-gray-700">{{ master_types[selected_master_slug] }} Records</h4>
-                        
-                        <a href="{{ url_for('masters.save_item', slug=selected_master_slug) }}" 
-                           class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-4 rounded transition">
-                            + Add New Item
-                        </a>
+                        <a href="{{ url_for('masters.save_item', slug=selected_master_slug) }}" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-4 rounded transition">+ Add New Item</a>
                     </div>
-
                     <div class="overflow-x-auto border rounded-lg">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -525,29 +502,20 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <a href="{{ url_for('masters.save_item', slug=selected_master_slug, id=item.id) }}" 
-                                           class="text-indigo-600 hover:text-indigo-900 mr-4 font-bold">Edit</a>
-                                        
+                                        <a href="{{ url_for('masters.save_item', slug=selected_master_slug, id=item.id) }}" class="text-indigo-600 hover:text-indigo-900 mr-4 font-bold">Edit</a>
                                         <form action="{{ url_for('masters.delete_item', id=item.id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete {{ item.code }}?');">
                                             <button type="submit" class="text-red-600 hover:text-red-900 font-bold">Delete</button>
                                         </form>
                                     </td>
                                 </tr>
                                 {% else %}
-                                <tr>
-                                    <td colspan="4" class="px-6 py-10 text-center text-gray-400 italic">
-                                        No records found. Click "Add New Item" to create one.
-                                    </td>
-                                </tr>
+                                <tr><td colspan="4" class="px-6 py-10 text-center text-gray-400 italic">No records found. Click "Add New Item" to create one.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 {% else %}
                     <div class="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
                         <h3 class="mt-2 text-sm font-medium text-gray-900">No Data Selected</h3>
                         <p class="mt-1 text-sm text-gray-500">Please select a Data Type from the dropdown above to manage records.</p>
                     </div>
@@ -573,8 +541,31 @@
 </div>
 
 <script>
+    function filterUsers() {
+        const search = document.getElementById('userSearchInput').value.toLowerCase();
+        const roleFilter = document.getElementById('roleFilterInput').value.toLowerCase();
+        const rows = document.getElementById('userTableBody').getElementsByTagName('tr');
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const nameText = row.cells[0]?.textContent.toLowerCase() || '';
+            const emailText = row.cells[1]?.textContent.toLowerCase() || '';
+            const roleText = row.cells[2]?.textContent.toLowerCase() || '';
+            const catText = row.cells[3]?.textContent.toLowerCase() || '';
+            
+            const matchesSearch = (nameText + emailText + roleText + catText).includes(search);
+            
+            let matchesRole = true;
+            if (roleFilter) {
+                if (roleFilter === 'finance') matchesRole = roleText.includes('finance') || emailText.includes('bill') || emailText.includes('treasury');
+                else matchesRole = roleText.includes(roleFilter);
+            }
+
+            row.style.display = (matchesSearch && matchesRole) ? "" : "none";
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        // Sortable
         const el = document.getElementById('stepList');
         if (el) Sortable.create(el, { animation: 150, handle: '.cursor-move', ghostClass: 'bg-green-50', onEnd: (evt) => {
             const order = Array.from(document.querySelectorAll('.step-item')).map(item => item.dataset.id);
@@ -583,7 +574,6 @@
             });
         }});
 
-        // Charts
         const commonOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
         
         const deptCtx = document.getElementById('deptChart');
