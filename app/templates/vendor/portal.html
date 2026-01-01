@@ -101,7 +101,8 @@
         gstReg: '{{ form.gst_reg.data or 'NO' }}', 
         msmeReg: '{{ form.msme_reg.data or 'NO' }}',
         constitution: '{{ form.constitution.data or '' }}',
-        
+        submitting: false,
+
         validateAndNext(currentStep) {
             const container = document.getElementById('step_' + currentStep);
             const inputs = container.querySelectorAll('input, select, textarea');
@@ -116,6 +117,14 @@
             if (valid) {
                 this.step = currentStep + 1;
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        },
+
+        submitForm(e) {
+            const form = document.querySelector('form');
+            // If HTML5 validation passes, show spinner and disable button
+            if (form.checkValidity()) {
+                this.submitting = true;
             }
         }
     }">
@@ -139,7 +148,7 @@
                 </div>
                 <div class="flex flex-col items-center bg-gray-50 px-2 cursor-pointer">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm" :class="step >= 3 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">3</div>
-                    <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 3 ? 'text-gray-900' : 'text-gray-400'">Banking</span>
+                    <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 3 ? 'text-gray-900' : 'text-gray-400'">Finalize</span>
                 </div>
             </div>
         </div>
@@ -155,7 +164,9 @@
             {% endif %}
         {% endwith %}
 
-        <form method="POST" enctype="multipart/form-data" class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden relative" novalidate>
+        <form method="POST" enctype="multipart/form-data" 
+              @submit="submitForm"
+              class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden relative" novalidate>
             {{ form.hidden_tag() }}
             
             <div id="step_1" class="step-panel p-8" :class="{ 'active': step === 1 }">
@@ -350,8 +361,8 @@
 
             <div id="step_3" class="step-panel p-8" :class="{ 'active': step === 3 }">
                 <div class="mb-8 border-b border-gray-100 pb-4">
-                    <h2 class="text-2xl font-bold text-gray-900">Bank Details</h2>
-                    <p class="text-sm text-gray-500">Secure payment information.</p>
+                    <h2 class="text-2xl font-bold text-gray-900">Bank Details & Consent</h2>
+                    <p class="text-sm text-gray-500">Secure payment information and legal declarations.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -388,9 +399,42 @@
                      </div>
                 </div>
 
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-8">
+                    <div class="flex items-start gap-4">
+                        <div class="pt-0.5">
+                            {{ form.agree_consent(class="accent-heritage w-5 h-5 cursor-pointer rounded border-gray-300", required=True) }}
+                        </div>
+                        <div>
+                            <label for="agree_consent" class="block text-sm font-bold text-gray-900 cursor-pointer mb-1">
+                                Data Privacy Consent (DPDP Act, 2023) <span class="text-red-500">*</span>
+                            </label>
+                            <p class="text-xs text-gray-600 leading-relaxed text-justify">
+                                By proceeding, I hereby freely, specifically, and unequivocally consent to <strong>Heritage Foods Limited</strong> collecting, storing, using, and processing my personal data and, where applicable, the personal data of authorized representatives, for purposes including vendor onboarding, contract management, payments, statutory and regulatory compliance, audits, and related business operations.
+                            </p>
+                            <p class="text-xs text-gray-600 leading-relaxed text-justify mt-2">
+                                I acknowledge that such processing shall be carried out in accordance with the <strong>Digital Personal Data Protection Act, 2023</strong>, and the <strong>Heritage Foods Limited Privacy Policy</strong>. I understand that I may exercise my rights as a Data Principal, including access, correction, erasure, and grievance redressal, in the manner provided therein, subject to applicable legal and contractual obligations.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex justify-between pt-4 border-t border-gray-100">
-                    <button type="button" @click="step = 2" class="text-gray-600 font-bold hover:text-gray-900 h-11 flex items-center">&larr; Back</button>
-                    <button type="submit" class="bg-heritage text-white px-10 py-2.5 rounded-lg font-bold shadow-lg hover:bg-green-700 cursor-pointer transition transform hover:-translate-y-0.5 h-11 flex items-center">Submit Application</button>
+                    <button type="button" @click="step = 2" class="text-gray-600 font-bold hover:text-gray-900 h-11 flex items-center" :disabled="submitting">
+                        &larr; Back
+                    </button>
+
+                    <button type="submit" 
+                            class="bg-heritage text-white px-10 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition transform"
+                            :class="{ 'opacity-50 cursor-not-allowed': submitting, 'hover:bg-green-700 hover:-translate-y-0.5': !submitting }"
+                            :disabled="submitting">
+                        
+                        <svg x-show="submitting" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+
+                        <span x-text="submitting ? 'Processing...' : 'Submit Application'"></span>
+                    </button>
                 </div>
             </div>
 

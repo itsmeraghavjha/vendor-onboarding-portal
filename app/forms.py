@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, RadioField
+from flask_wtf.file import FileField, FileAllowed, FileRequired
+from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, RadioField, BooleanField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional
 
 # --- Custom Validator for Conditional Logic ---
@@ -19,6 +19,8 @@ class RequiredIf(DataRequired):
         else:
             Optional()(form, field)
 
+# --- AUTH FORMS ---
+
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
@@ -33,12 +35,13 @@ class ResetPasswordForm(FlaskForm):
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Reset Password')
 
+# --- VENDOR PORTAL FORMS ---
+
 class VendorOnboardingForm(FlaskForm):
     # Step 1: General
     title = SelectField('Title', choices=[('Mr', 'Mr'), ('Ms', 'Ms'), ('M/s', 'M/s'), ('Dr', 'Dr')], validators=[DataRequired()])
     trade_name = StringField('Trade Name')
     
-    # UPDATED: Added 'Individual' and 'Other'
     constitution = SelectField('Constitution', choices=[
         ('Individual', 'Individual'),
         ('Proprietorship', 'Proprietorship'), 
@@ -52,7 +55,7 @@ class VendorOnboardingForm(FlaskForm):
         ('Other', 'Other')
     ], validators=[DataRequired()])
     
-    cin_no = StringField('CIN Number') 
+    cin_no = StringField('CIN Number', filters=[lambda x: x.upper() if x else None]) 
     
     contact_name = StringField('Contact Person', validators=[DataRequired()])
     designation = StringField('Designation', validators=[DataRequired()])
@@ -71,20 +74,38 @@ class VendorOnboardingForm(FlaskForm):
 
     # Step 2: Tax & Compliance
     gst_reg = RadioField('GST Registered?', choices=[('YES', 'Yes'), ('NO', 'No')], validators=[DataRequired()])
-    gst_no = StringField('GST Number', validators=[RequiredIf('gst_reg')])
-    gst_file = FileField('Upload GST', validators=[FileAllowed(['pdf', 'jpg', 'png'], 'Images/PDF only!')])
+    
+    # Auto-uppercase GST Number
+    gst_no = StringField('GST Number', 
+                         validators=[RequiredIf('gst_reg')], 
+                         filters=[lambda x: x.upper() if x else None])
+    
+    gst_file = FileField('Upload GST', validators=[
+        FileAllowed(['pdf', 'jpg', 'png'], 'Images/PDF only!'),
+        RequiredIf('gst_reg')
+    ])
 
-    pan_no = StringField('PAN Number', validators=[DataRequired(), Length(min=10, max=10)])
-    pan_file = FileField('Upload PAN', validators=[FileAllowed(['pdf', 'jpg', 'png'])])
+    # Auto-uppercase PAN Number
+    pan_no = StringField('PAN Number', 
+                         validators=[DataRequired(), Length(min=10, max=10)], 
+                         filters=[lambda x: x.upper() if x else None])
+    
+    pan_file = FileField('Upload PAN', validators=[
+        FileAllowed(['pdf', 'jpg', 'png']),
+        FileRequired(message="PAN Document is required")
+    ])
 
     msme_reg = RadioField('MSME Registered?', choices=[('YES', 'Yes'), ('NO', 'No')], validators=[DataRequired()])
-    msme_number = StringField('Udyam No', validators=[RequiredIf('msme_reg')])
+    msme_number = StringField('Udyam No', validators=[RequiredIf('msme_reg')], filters=[lambda x: x.upper() if x else None])
     msme_type = SelectField('MSME Type', choices=[
         ('', '--'), ('Manufacturing Micro', 'Manufacturing Micro'), ('Manufacturing Small', 'Manufacturing Small'),
         ('Manufacturing Medium', 'Manufacturing Medium'), ('Services Micro', 'Services Micro'),
         ('Services Small', 'Services Small'), ('Services Medium', 'Services Medium')
     ])
-    msme_file = FileField('Upload MSME', validators=[FileAllowed(['pdf', 'jpg', 'png'])])
+    msme_file = FileField('Upload MSME', validators=[
+        FileAllowed(['pdf', 'jpg', 'png']),
+        RequiredIf('msme_reg')
+    ])
 
     tds_cert_no = StringField('TDS Cert No')
     tds_file = FileField('Upload TDS', validators=[FileAllowed(['pdf', 'jpg', 'png'])])
@@ -94,7 +115,16 @@ class VendorOnboardingForm(FlaskForm):
     holder_name = StringField('Account Holder Name', validators=[DataRequired()])
     acc_no = StringField('Account Number', validators=[DataRequired()])
     acc_no_confirm = StringField('Confirm Account Number', validators=[DataRequired(), EqualTo('acc_no', message='Account numbers must match')])
-    ifsc = StringField('IFSC Code', validators=[DataRequired()])
-    bank_file = FileField('Upload Cheque/Passbook', validators=[FileAllowed(['pdf', 'jpg', 'png'])])
+    
+    # Auto-uppercase IFSC
+    ifsc = StringField('IFSC Code', 
+                       validators=[DataRequired()], 
+                       filters=[lambda x: x.upper() if x else None])
+    
+    bank_file = FileField('Upload Cheque/Passbook', validators=[
+        FileAllowed(['pdf', 'jpg', 'png']),
+        FileRequired(message="Bank Proof is required")
+    ])
 
+    agree_consent = BooleanField('Data Privacy Consent', validators=[DataRequired()])
     submit = SubmitField('Submit Application')
