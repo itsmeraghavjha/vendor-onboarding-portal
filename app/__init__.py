@@ -1,16 +1,12 @@
-from flask import Flask
+from flask import Flask, flash, redirect, url_for, request
 from config import Config
-# 1. Added 'migrate' to imports
-from .extensions import db, login_manager, mail, migrate, celery
+# 1. Add 'csrf' to the imports
+from .extensions import db, login_manager, mail, migrate, celery, csrf 
 from .models import User
-# 2. Added dotenv to load environment variables
 from dotenv import load_dotenv
 from .celery_utils import init_celery
-
-from flask import Flask, flash, redirect, url_for, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
-# 3. Load .env file before app creation
 load_dotenv()
 
 def create_app(config_class=Config):
@@ -21,17 +17,17 @@ def create_app(config_class=Config):
     db.init_app(app)
     mail.init_app(app)
     login_manager.init_app(app)
-    # 4. Initialize Migrate
-    migrate.init_app(app, db) 
+    migrate.init_app(app, db)
+    
+    # 2. IMPORTANT: Initialize CSRF Protection
+    csrf.init_app(app) 
 
     # Initialize Celery
     init_celery(app, celery)
     
-    # Configure Login Manager
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'info'
 
-    # --- CRITICAL FIX: USER LOADER ---
     @login_manager.user_loader
     def load_user(user_id):
         return db.session.get(User, int(user_id))
@@ -49,22 +45,13 @@ def create_app(config_class=Config):
     app.register_blueprint(vendor_bp, url_prefix='/vendor')
     app.register_blueprint(masters_bp, url_prefix='/admin/masters')
 
-
-
     @app.errorhandler(RequestEntityTooLarge)
     def handle_file_too_large(e):
         flash("File upload error: One of your files is larger than 16MB.", "error")
-        
-        # FIX: Redirect back to the FORM (Referrer), not the Dashboard.
-        # This keeps the vendor on their portal page.
         if request.referrer:
             return redirect(request.referrer)
-            
         return redirect(request.url)
 
-    # Create DB Tables
-    # Note: With Flask-Migrate, you typically use 'flask db upgrade' instead of this,
-    # but keeping it here is fine for development to ensure tables exist.
     with app.app_context():
         db.create_all()
 

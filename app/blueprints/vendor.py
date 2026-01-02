@@ -20,7 +20,11 @@ def vendor_portal(token):
 
     form = VendorOnboardingForm()
     states = MasterData.query.filter_by(category='REGION').all()
-    form.state.choices = [(s.code, s.label) for s in states]
+    
+    # FIX 3: Inject blank option for State dropdown
+    state_choices = [(s.code, s.label) for s in states]
+    state_choices.insert(0, ('', '-- Select State --'))
+    form.state.choices = state_choices
 
     # Pre-fill (GET)
     if request.method == 'GET':
@@ -96,12 +100,10 @@ def vendor_portal(token):
             # 2. Tax & Compliance - Backend Uppercase Enforcement
             req.gst_registered = form.gst_reg.data
             if form.gst_reg.data == 'YES':
-                # Force Uppercase to fix validation/verification errors
                 req.gst_number = form.gst_no.data.strip().upper()
                 if form.gst_file.data:
                     req.gst_file_path = save_file(form.gst_file.data, 'GST')
 
-            # Force Uppercase for PAN
             req.pan_number = form.pan_no.data.strip().upper()
             if form.pan_file.data:
                 req.pan_file_path = save_file(form.pan_file.data, 'PAN')
@@ -136,7 +138,6 @@ def vendor_portal(token):
             req.bank_name = form.bank_name.data
             req.bank_account_holder_name = form.holder_name.data
             req.bank_account_no = form.acc_no.data
-            # Force Uppercase for IFSC
             req.bank_ifsc = form.ifsc.data.strip().upper()
             
             if form.bank_file.data:
@@ -154,20 +155,25 @@ def vendor_portal(token):
             if initiator:
                 send_status_email(req, initiator.email, "Vendor Submitted (Ready for Review)")
 
-            # --- POST-REDIRECT-GET PATTERN ---
-            # Redirect to the same URL to clear POST data
             return redirect(url_for('vendor.vendor_portal', token=token))
 
         except Exception as e:
             db.session.rollback()
             flash(f"System Error: {str(e)}", "error")
-            return redirect(request.url)
+            # FIX 4: Do not redirect on exception; render template to preserve data
+            return render_template('vendor/portal.html', req=req, form=form, initial_step=3)
     
-    # If validation fails, flash specific errors
+    # FIX 5: Handle step persistence on validation errors (e.g., Bank mismatch)
+    initial_step = 1
     if form.errors:
+        if any(key in form.errors for key in ['bank_name', 'acc_no', 'acc_no_confirm', 'ifsc', 'bank_file']):
+            initial_step = 3
+        elif any(key in form.errors for key in ['gst_no', 'pan_no', 'msme_number', 'gst_file']):
+            initial_step = 2
+        
         for field, errors in form.errors.items():
             for error in errors:
-                # Map field names to human-readable names if needed
                 flash(f"Error in {field}: {error}", "error")
 
-    return render_template('vendor/portal.html', req=req, form=form)
+    # Pass initial_step to template
+    return render_template('vendor/portal.html', req=req, form=form, initial_step=initial_step)

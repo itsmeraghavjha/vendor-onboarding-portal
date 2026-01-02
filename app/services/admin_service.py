@@ -260,8 +260,26 @@ def manage_logic_rules(form):
     db.session.commit()
 
 def manage_users_and_masters(form):
-    """Handles User and Master Data creation/deletion."""
-    if 'new_user_email' in form:
+    """Handles User and Master Data creation, editing, and deletion."""
+    
+    # 1. DELETE USER
+    if 'delete_user_id' in form:
+        u = db.session.get(User, form['delete_user_id'])
+        if u: db.session.delete(u)
+        
+    # 2. EDIT USER (FIX: Added explicit edit handling)
+    elif 'edit_user_id' in form and form['edit_user_id']:
+        u = db.session.get(User, form['edit_user_id'])
+        if u:
+            u.username = form['new_user_name']
+            u.email = form['new_user_email'].strip().lower()
+            u.role = form['user_role']
+            u.department = form['user_dept']
+            u.assigned_category = form.get('user_category', '').strip() or None
+            # Note: Password is NOT reset on edit for security/UX reasons.
+
+    # 3. CREATE NEW USER
+    elif 'new_user_email' in form:
         email = form['new_user_email'].strip().lower()
         if not User.query.filter_by(email=email).first():
             u = User(
@@ -269,14 +287,9 @@ def manage_users_and_masters(form):
                 email=email, 
                 role=form['user_role'], 
                 department=form['user_dept'],
-                # --- NEW: Capture Category ---
                 assigned_category=form.get('user_category', '').strip() or None
             )
             u.set_password('pass123')
             db.session.add(u)
     
-    elif 'delete_user_id' in form:
-        u = db.session.get(User, form['delete_user_id'])
-        if u: db.session.delete(u)
-        
     db.session.commit()

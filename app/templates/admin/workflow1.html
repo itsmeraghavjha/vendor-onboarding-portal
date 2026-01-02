@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    /* 1. Base Premium Styles */
+    :root { font-family: 'Inter', sans-serif; }
+    body { background-color: #F8FAFC; color: #334155; }
+    
+    /* 2. Inputs & Selects */
+    .input-clean, .select-clean {
+        appearance: none; -webkit-appearance: none; -moz-appearance: none;
+        display: block; background-color: white; border: 1px solid #E2E8F0;
+        border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.875rem;
+        line-height: 1.25rem; color: #334155; transition: all 0.15s;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+    }
+    .input-clean:focus, .select-clean:focus {
+        border-color: #009C49; outline: none; box-shadow: 0 0 0 3px rgba(0, 156, 73, 0.1);
+    }
+    .select-clean {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center; background-repeat: no-repeat;
+        background-size: 1.25em 1.25em; padding-right: 2.25rem;
+    }
+
+    /* 3. Action Buttons */
+    .btn-icon { padding: 0.35rem; border-radius: 0.375rem; color: #94A3B8; transition: all 0.2s; }
+    .btn-icon:hover { background-color: #F1F5F9; color: #475569; }
+    .btn-icon.danger:hover { background-color: #FEF2F2; color: #DC2626; }
+    .btn-icon.primary:hover { background-color: #F0FDF4; color: #16A34A; }
+
+    /* 4. Loader */
+    .loading-overlay {
+        position: fixed; inset: 0; background: rgba(255,255,255,0.5); 
+        backdrop-filter: blur(2px); z-index: 100; display: none;
+        align-items: center; justify-content: center;
+    }
+    [x-cloak] { display: none !important; }
+    
+    .custom-scroll::-webkit-scrollbar { width: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb { background-color: #CBD5E1; border-radius: 20px; }
+</style>
+
+<div class="min-h-screen flex flex-col" 
+     x-data="adminData()" 
+     x-init="initAll()"
+     @keydown.escape="closeModals()">
+
+    <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
+        <div class="mx-auto max-w-[1600px] px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-md bg-[#009C49] flex items-center justify-center text-white shadow-sm">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold text-gray-900 leading-none">Admin Console</h1>
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Configuration</p>
+                </div>
+            </div>
+
+            <nav class="flex items-center p-1 bg-gray-100 rounded-lg border border-gray-200">
+                <template x-for="tab in tabs">
+                    <button @click="switchTab(tab.id)" 
+                        :class="activeTab === tab.id ? 'bg-white text-[#009C49] shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 font-medium'" 
+                        class="px-4 py-1.5 rounded-md text-xs transition-all duration-200" x-text="tab.label">
+                    </button>
+                </template>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1 mx-auto w-full max-w-[1600px] p-6 pb-20 relative" id="spa-content">
+        <div id="loading-spinner" class="loading-overlay">
+            <svg class="animate-spin h-8 w-8 text-[#009C49]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        </div>
+
+        <div data-spa-view class="space-y-6">
+
+            <div x-show="activeTab === 'dashboard'" class="space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    {% for title, val, sub, color in [('Avg Cycle Time', stats.avg_cycle_time, 'days', 'blue'), ('Total Requests', stats.total, 'all time', 'purple'), ('Rejection Rate', ((stats.rejected / stats.total) * 100) | round(1) if stats.total > 0 else 0, '%', 'red'), ('Action Pending', stats.pending, 'requests', 'amber')] %}
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
+                        <dt class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{{ title }}</dt>
+                        <dd class="mt-2 flex items-baseline gap-2">
+                            <span class="text-2xl font-bold text-gray-800">{{ val }}</span>
+                            <span class="text-[10px] font-bold text-{{ color }}-600 bg-{{ color }}-50 px-2 py-0.5 rounded-full">{{ sub }}</span>
+                        </dd>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-wide">Pending Bottlenecks</h3>
+                    <div class="grid grid-cols-5 gap-4">
+                        {% for label, count, bg, text in [('Initiator', stats.bottlenecks.dept, 'orange', 'orange'), ('Bill Passing', stats.bottlenecks.bill, 'blue', 'blue'), ('Treasury', stats.bottlenecks.treasury, 'indigo', 'indigo'), ('Tax Team', stats.bottlenecks.tax, 'teal', 'teal'), ('IT Dept', stats.bottlenecks.it, 'purple', 'purple')] %}
+                        <div class="text-center p-3 rounded-lg bg-{{ bg }}-50 border border-{{ bg }}-100">
+                            <div class="text-2xl font-bold text-{{ text }}-700 leading-none">{{ count }}</div>
+                            <div class="text-[10px] font-bold uppercase text-{{ text }}-600 mt-1 opacity-80">{{ label }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 class="text-xs font-bold text-gray-500 uppercase mb-4">Volume by Dept</h3>
+                        <div class="h-64"><canvas id="deptChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 class="text-xs font-bold text-gray-500 uppercase mb-2">Status</h3>
+                        <div class="h-64 flex justify-center"><canvas id="statusChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="activeTab === 'users'" class="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div class="sticky top-0 z-10 bg-white border-b border-gray-200 px-5 py-4 rounded-t-xl">
+                    <div class="flex items-center justify-between gap-6 flex-nowrap">
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                            <div class="relative w-64 shrink-0">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></span>
+                                <input type="text" id="userSearchInput" onkeyup="filterUsers()" placeholder="Search users..." class="input-clean pl-9 h-10 text-sm w-full">
+                            </div>
+                            <select id="deptFilterInput" onchange="filterUsers()" class="input-clean select-clean h-10 w-48 text-xs font-bold shrink-0"><option value="">All Departments</option>{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
+                            <select id="roleFilterInput" onchange="filterUsers()" class="input-clean select-clean h-10 w-36 text-xs font-bold shrink-0"><option value="">All Roles</option><option value="initiator">Initiator</option><option value="approver">Approver</option></select>
+                        </div>
+                        
+                        <button @click="openUserModal()" class="shrink-0 flex items-center gap-2 bg-[#009C49] hover:bg-[#007A3A] text-white text-xs font-bold px-5 py-2.5 rounded-lg shadow-sm transition-all hover:-translate-y-0.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Add User
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 border-b border-gray-100">
+                            <tr>
+                                <th class="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">User Profile</th>
+                                <th class="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Department</th>
+                                <th class="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Role</th>
+                                <th class="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Category Logic</th>
+                                <th class="px-6 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody" class="divide-y divide-gray-100">
+                            {% for u in users %}
+                            <tr class="group hover:bg-gray-50/80 transition-colors">
+                                <td class="px-6 py-3.5">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 uppercase">{{ u.username[:2] }}</div>
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-800">{{ u.username }}</p>
+                                            <p class="text-xs text-gray-400">{{ u.email }}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-3.5"><span class="px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs font-bold border border-gray-200">{{ u.department }}</span></td>
+                                <td class="px-6 py-3.5">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border
+                                    {% if u.role == 'admin' %}bg-red-50 text-red-600 border-red-100{% elif u.role == 'approver' %}bg-blue-50 text-blue-600 border-blue-100{% else %}bg-green-50 text-green-600 border-green-100{% endif %}">
+                                        {{ u.role }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-3.5 text-xs text-gray-500">{{ u.assigned_category or '—' }}</td>
+                                <td class="px-6 py-3.5 text-right">
+                                    <div class="flex justify-end gap-2">
+                                        <button @click="editUser('{{ u.id }}', '{{ u.username }}', '{{ u.email }}', '{{ u.department }}', '{{ u.role }}', '{{ u.assigned_category }}')" class="btn-icon primary" title="Edit">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                        </button>
+                                        <form method="POST" class="spa-form inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <input type="hidden" name="delete_user_id" value="{{ u.id }}">
+                                            <button class="btn-icon danger" title="Delete">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div id="noResultsMsg" class="hidden h-32 flex flex-col items-center justify-center text-gray-400 text-sm">No users match your filters.</div>
+                </div>
+            </div>
+
+            <div x-show="activeTab === 'logic'" class="flex gap-6 items-start">
+                
+                <aside class="w-64 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col shrink-0 sticky top-24">
+                    <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <span class="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Departments</span>
+                        <button @click="showDeptModal = true" class="text-xs font-bold text-[#009C49] hover:bg-green-50 px-2 py-1 rounded transition">+ Add</button>
+                    </div>
+                    <div class="p-2 space-y-1 overflow-y-auto max-h-[70vh] custom-scroll">
+                        {% for d in departments %}
+                        <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept=d.name) }}" class="spa-link block px-3 py-2 rounded-lg text-xs font-bold transition-colors {% if selected_dept == d.name %}bg-gray-800 text-white shadow-md{% else %}text-gray-500 hover:bg-gray-50 text-gray-600{% endif %}">{{ d.name }}</a>
+                        {% endfor %}
+                        <div class="my-2 border-t border-gray-100 mx-2"></div>
+                        <div class="px-2 text-[9px] font-bold uppercase text-gray-400 mb-1">Global Teams</div>
+                        <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept='GLOBAL_FINANCE') }}" class="spa-link block px-3 py-2 rounded-lg text-xs font-bold {% if selected_dept == 'GLOBAL_FINANCE' %}bg-blue-600 text-white shadow-md{% else %}text-gray-500 hover:bg-blue-50 hover:text-blue-600{% endif %}">Finance Team</a>
+                        <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept='GLOBAL_IT') }}" class="spa-link block px-3 py-2 rounded-lg text-xs font-bold {% if selected_dept == 'GLOBAL_IT' %}bg-purple-600 text-white shadow-md{% else %}text-gray-500 hover:bg-purple-50 hover:text-purple-600{% endif %}">IT Team</a>
+                    </div>
+                </aside>
+
+                <div class="flex-1 space-y-6">
+                    {% if selected_dept not in ['GLOBAL_FINANCE', 'GLOBAL_IT'] %}
+                    
+                    <h2 class="text-xl font-bold text-gray-800">{{ selected_dept }} Configuration</h2>
+
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+                            <span class="flex h-5 w-5 items-center justify-center rounded bg-blue-100 text-[10px] font-bold text-blue-700">A</span>
+                            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wide">Category Routing Matrix</h3>
+                        </div>
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-5 py-2 text-[10px] font-bold text-gray-400 uppercase">Category</th>
+                                    <th class="px-5 py-2 text-[10px] font-bold text-gray-400 uppercase">L1 Manager</th>
+                                    <th class="px-5 py-2 text-[10px] font-bold text-gray-400 uppercase">L2 Head</th>
+                                    <th class="w-16"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                {% for rule in dept_matrix_rules %}
+                                <tr class="group hover:bg-gray-50">
+                                    <td class="px-5 py-2 text-xs font-bold text-gray-700 bg-gray-50/50">{{ rule.category_name }}</td>
+                                    <td class="px-5 py-2">
+                                        <form method="POST" class="spa-form">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <input type="hidden" name="update_logic_type" value="cat_l1"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ rule.id }}">
+                                            <select name="new_email" onchange="this.form.requestSubmit()" class="input-clean select-clean text-xs py-1.5 h-8 bg-transparent border-transparent hover:border-gray-300 focus:bg-white"><option value="">Select...</option>{% for u in users %}{% if (u.department == selected_dept and u.username not in excluded_users) or u.email == rule.l1_manager_email %}<option value="{{ u.email }}" {% if u.email == rule.l1_manager_email %}selected{% endif %}>{{ u.username }}</option>{% endif %}{% endfor %}</select>
+                                        </form>
+                                    </td>
+                                    <td class="px-5 py-2">
+                                        <form method="POST" class="spa-form">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <input type="hidden" name="update_logic_type" value="cat_l2"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ rule.id }}">
+                                            <select name="new_email" onchange="this.form.requestSubmit()" class="input-clean select-clean text-xs py-1.5 h-8 bg-transparent border-transparent hover:border-gray-300 focus:bg-white"><option value="">Select...</option>{% for u in users %}{% if (u.department == selected_dept and u.username not in excluded_users) or u.email == rule.l2_head_email %}<option value="{{ u.email }}" {% if u.email == rule.l2_head_email %}selected{% endif %}>{{ u.username }}</option>{% endif %}{% endfor %}</select>
+                                        </form>
+                                    </td>
+                                    <td class="px-5 py-2 text-right">
+                                        <form method="POST" class="spa-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="delete_rule_id" value="{{ rule.id }}"><button class="btn-icon danger"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                <tr class="bg-gray-50/50">
+                                    <form method="POST" class="spa-form">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <input type="hidden" name="logic_view" value="{{ selected_dept }}">
+                                        <td class="px-4 py-2"><input type="text" name="new_category_name" placeholder="New Category" class="input-clean text-xs h-8" required></td>
+                                        <td class="px-4 py-2"><select name="l1_email" class="input-clean select-clean text-xs h-8" required><option value="">Select L1...</option>{% for u in users if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}</select></td>
+                                        <td class="px-4 py-2"><select name="l2_email" class="input-clean select-clean text-xs h-8" required><option value="">Select L2...</option>{% for u in users if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}</select></td>
+                                        <td class="px-4 py-2 text-center"><button class="bg-[#009C49] text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-[#007A3A] transition">Add</button></td>
+                                    </form>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+                            <span class="flex h-5 w-5 items-center justify-center rounded bg-green-100 text-[10px] font-bold text-green-700">B</span>
+                            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wide">Linear Approval Chain</h3>
+                        </div>
+                        <div class="p-5">
+                            <div id="stepList" class="space-y-3 mb-5">
+                                {% for step in dept_linear_steps %}
+                                <div class="step-item flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-white hover:border-[#009C49] transition group" data-id="{{ step.id }}">
+                                    <div class="cursor-move text-gray-300 hover:text-gray-600"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg></div>
+                                    <div class="h-6 w-6 rounded bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 step-number">{{ loop.index }}</div>
+                                    <div class="w-48">
+                                        <div class="text-[10px] font-bold uppercase text-gray-400">Role Title</div>
+                                        <div class="font-bold text-sm text-gray-700">{{ step.role_label }}</div>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="text-[10px] font-bold uppercase text-gray-400 mb-1">Assigned User</div>
+                                        <form method="POST" class="spa-form">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <input type="hidden" name="update_logic_type" value="step"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ step.id }}">
+                                            <select name="new_email" class="input-clean select-clean text-xs py-1.5 h-9" onchange="this.form.requestSubmit()">
+                                                {% for u in users %}{% if (u.department == selected_dept and u.username not in excluded_users) or u.email == step.approver_email %}<option value="{{ u.email }}" {% if u.email == step.approver_email %}selected{% endif %}>{{ u.username }}</option>{% endif %}{% endfor %}
+                                            </select>
+                                        </form>
+                                    </div>
+                                    <form method="POST" class="spa-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="delete_step_id" value="{{ step.id }}">
+                                        <button class="btn-icon danger" title="Remove Step"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4">
+                                <form method="POST" class="spa-form flex gap-4 items-end">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="logic_view" value="{{ selected_dept }}">
+                                    <div class="flex-1">
+                                        <label class="text-[10px] font-bold uppercase text-gray-400 mb-1 block">New Role Title</label>
+                                        <input type="text" name="new_step_role" placeholder="e.g. Factory Head" class="input-clean text-xs" required>
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="text-[10px] font-bold uppercase text-gray-400 mb-1 block">Assign User</label>
+                                        <select name="new_step_email" class="input-clean select-clean text-xs" required>
+                                            <option value="">Select User...</option>
+                                            {% for u in users %}{% if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endif %}{% endfor %}
+                                        </select>
+                                    </div>
+                                    <button class="bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold px-5 py-2 rounded-lg shadow-sm transition">Add Step</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% elif selected_dept == 'GLOBAL_FINANCE' %}
+                    <div class="bg-white rounded-xl border border-blue-100 shadow-sm p-6">
+                        <h3 class="font-bold text-lg text-blue-900 mb-6 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+                            Finance Approval Chain
+                        </h3>
+                        <div class="space-y-3">
+                            {% for u in finance_users %}
+                            <div class="flex items-center gap-4 p-4 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-blue-200 transition">
+                                <div class="h-8 w-8 rounded bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-700">{{ loop.index }}</div>
+                                <div class="w-64">
+                                    <span class="text-[10px] font-bold uppercase text-gray-400 block">Team Role</span>
+                                    <span class="font-bold text-gray-700">{{ u.username }}</span>
+                                </div>
+                                <div class="flex-1">
+                                    <span class="text-[10px] font-bold uppercase text-gray-400 block mb-1">Email Group</span>
+                                    <form method="POST" class="spa-form">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <input type="hidden" name="update_logic_type" value="finance_user"><input type="hidden" name="rule_id" value="{{ u.id }}">
+                                        <select name="new_email" onchange="this.form.requestSubmit()" class="input-clean select-clean text-xs py-1.5">
+                                            {% for user in users if user.department == 'Finance' or user.email == u.email %}<option value="{{ user.email }}" {% if user.email == u.email %}selected{% endif %}>{{ user.username }}</option>{% endfor %}
+                                        </select>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    {% elif selected_dept == 'GLOBAL_IT' %}
+                    <div class="bg-white rounded-xl border border-purple-100 shadow-sm p-6">
+                        <h3 class="font-bold text-lg text-purple-900 mb-6 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg></span>
+                            IT Account Routing
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {% for r in it_routes %}
+                            <div class="flex items-center justify-between p-4 rounded-lg border border-gray-200 bg-white hover:border-purple-200 transition">
+                                <span class="font-mono text-xs font-bold bg-purple-50 text-purple-700 px-2 py-1 rounded border border-purple-100">{{ r.account_group }}</span>
+                                <form method="POST" class="spa-form flex-1 mx-4">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="update_logic_type" value="it_route"><input type="hidden" name="rule_id" value="{{ r.id }}">
+                                    <select name="new_email" onchange="this.form.requestSubmit()" class="input-clean select-clean text-xs py-1.5 border-transparent hover:border-gray-300">
+                                        {% for u in users if u.department == 'IT' or u.email == r.it_assignee_email %}<option value="{{ u.email }}" {% if u.email == r.it_assignee_email %}selected{% endif %}>{{ u.username }}</option>{% endfor %}
+                                    </select>
+                                </form>
+                                <form method="POST" class="spa-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/><input type="hidden" name="delete_it_id" value="{{ r.id }}"><button class="btn-icon danger"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></form>
+                            </div>
+                            {% endfor %}
+                            <div class="p-4 rounded-lg border border-dashed border-purple-200 bg-purple-50/50 flex flex-col justify-center">
+                                <form method="POST" class="spa-form flex gap-3">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="logic_view" value="GLOBAL_IT">
+                                    <div class="w-32">
+                                        <label class="text-[10px] font-bold uppercase text-gray-400 mb-1 block">SAP Code</label>
+                                        <input type="text" name="new_account_group" placeholder="e.g. ZDOM" class="input-clean text-xs" required>
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="text-[10px] font-bold uppercase text-gray-400 mb-1 block">Assign Agent</label>
+                                        <select name="it_email" class="input-clean select-clean text-xs" required>
+                                            <option value="">Select Agent...</option>
+                                            {% for u in users if u.department == 'IT' %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="flex items-end">
+                                        <button class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition">Add</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div x-show="activeTab === 'masters'" class="space-y-6">
+                <div class="flex gap-6 items-start h-[calc(100vh-140px)]">
+                    <aside class="w-64 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col shrink-0">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 text-[10px] font-bold uppercase text-gray-500 tracking-wider">Master Data</div>
+                        <div class="flex-1 p-2 space-y-0.5 overflow-y-auto custom-scroll">
+                            {% for slug, label in master_types.items() %}
+                            <a href="{{ url_for('admin.admin_workflow', active_tab='masters', master_slug=slug) }}" 
+                            class="spa-link block px-3 py-2 rounded-md text-xs font-bold transition-all
+                            {% if selected_master_slug == slug %}bg-gray-800 text-white shadow-sm{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+                                {{ label }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </aside>
+
+                    <div class="flex-1 h-full flex flex-col rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+                        {% if selected_master_slug %}
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-white">
+                            <h3 class="font-bold text-lg text-gray-800">{{ master_types[selected_master_slug] }}</h3>
+                            <a href="{{ url_for('masters.save_item', slug=selected_master_slug) }}" class="spa-link bg-[#009C49] hover:bg-[#007A3A] text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition">+ Add Item</a>
+                        </div>
+                        <div class="flex-1 overflow-y-auto custom-scroll">
+                            <table class="w-full text-left">
+                                <thead class="sticky top-0 bg-white shadow-sm z-10">
+                                    <tr>
+                                        <th class="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Code</th>
+                                        <th class="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Description</th>
+                                        <th class="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider w-24">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    {% for item in master_items %}
+                                    <tr class="group hover:bg-gray-50">
+                                        <td class="px-6 py-3 font-mono font-bold text-xs text-gray-600">{{ item.code }}</td>
+                                        <td class="px-6 py-3 text-sm text-gray-700">{{ item.label }}</td>
+                                        <td class="px-6 py-3">
+                                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase
+                                            {{ 'bg-green-50 text-green-700' if item.is_active else 'bg-red-50 text-red-700' }}">
+                                                <span class="h-1.5 w-1.5 rounded-full {{ 'bg-green-500' if item.is_active else 'bg-red-500' }}"></span> {{ 'Active' if item.is_active else 'Inactive' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-3 text-right">
+                                            <div class="flex justify-end gap-1">
+                                                <a href="{{ url_for('masters.save_item', slug=selected_master_slug, id=item.id) }}" class="spa-link btn-icon primary" title="Edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></a>
+                                                <form action="{{ url_for('masters.delete_item', id=item.id) }}" method="POST" class="spa-form inline" onsubmit="return confirm('Delete?');">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <button class="btn-icon danger" title="Delete"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="h-full flex flex-col items-center justify-center text-gray-300">
+                            <svg class="h-16 w-16 opacity-20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                            <p class="font-bold text-sm uppercase tracking-wider">Select a Master Type</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div x-show="activeTab === 'sap'" class="h-full flex items-center justify-center">
+                <div class="max-w-lg w-full bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                    <div class="mb-8 flex items-center gap-4">
+                        <div class="h-12 w-12 rounded-xl bg-green-50 text-[#009C49] flex items-center justify-center"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></div>
+                        <div><h2 class="text-xl font-bold text-gray-800">SAP Export</h2><p class="text-xs text-gray-500 font-medium">Generate CSV for ERP import.</p></div>
+                    </div>
+                    <form action="{{ url_for('admin.export_sap_data') }}" method="get" class="space-y-5">
+                        <div class="grid grid-cols-2 gap-5">
+                            <div><label class="text-[10px] font-bold uppercase text-gray-400 mb-1.5 block">From Date</label><input type="date" name="start_date" class="input-clean h-11"></div>
+                            <div><label class="text-[10px] font-bold uppercase text-gray-400 mb-1.5 block">To Date</label><input type="date" name="end_date" class="input-clean h-11"></div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-gray-400 mb-1.5 block">Request Status</label>
+                            <select name="status" class="input-clean select-clean h-11 font-medium"><option value="ALL">All Requests</option><option value="COMPLETED" selected>Completed Only (Recommended)</option></select>
+                        </div>
+                        <div class="pt-2">
+                            <button class="w-full bg-[#009C49] hover:bg-[#007A3A] text-white font-bold py-3 rounded-lg shadow-lg shadow-green-100 text-sm transition transform hover:-translate-y-0.5">Download Report</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div> </main>
+
+    <div x-show="showDeptModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/30 backdrop-blur-sm transition-opacity" style="display: none;" x-transition.opacity>
+        <div class="w-80 rounded-xl bg-white p-6 shadow-2xl transform transition-all" @click.away="showDeptModal = false">
+            <h3 class="mb-5 text-lg font-bold text-gray-800">New Department</h3>
+            <form method="POST" class="spa-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="text" name="new_dept_name" class="input-clean mb-6 h-11" placeholder="Department Name" required autofocus>
+                <div class="flex justify-end gap-3">
+                    <button type="button" @click="showDeptModal = false" class="px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                    <button class="bg-[#009C49] px-5 py-2 text-xs font-bold text-white rounded-lg shadow-sm hover:bg-[#007A3A]">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div x-show="showUserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/30 backdrop-blur-sm transition-opacity" style="display: none;" x-transition.opacity>
+        <div class="w-full max-w-md rounded-xl bg-white p-8 shadow-2xl transform transition-all" @click.away="showUserModal = false">
+            <h3 class="mb-6 text-xl font-bold text-gray-800" x-text="modalTitle"></h3>
+            <form method="POST" class="spa-form space-y-5" @submit="closeModals()">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="edit_user_id" x-model="userForm.id">
+                <div class="grid grid-cols-2 gap-5">
+                    <div class="col-span-2"><label class="text-[10px] font-bold uppercase text-gray-400 mb-1">Full Name</label><input type="text" name="new_user_name" x-model="userForm.name" class="input-clean h-10" required></div>
+                    <div class="col-span-2"><label class="text-[10px] font-bold uppercase text-gray-400 mb-1">Email Address</label><input type="email" name="new_user_email" x-model="userForm.email" class="input-clean h-10" required></div>
+                    <div><label class="text-[10px] font-bold uppercase text-gray-400 mb-1">Department</label><select name="user_dept" x-model="userForm.dept" class="input-clean select-clean h-10">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select></div>
+                    <div><label class="text-[10px] font-bold uppercase text-gray-400 mb-1">Role</label><select name="user_role" x-model="userForm.role" class="input-clean select-clean h-10"><option value="initiator">Initiator</option><option value="approver">Approver</option></select></div>
+                    <div class="col-span-2"><label class="text-[10px] font-bold uppercase text-gray-400 mb-1">Category Logic (Optional)</label><input type="text" name="user_category" x-model="userForm.category" class="input-clean h-10" placeholder="e.g. IT Hardware"></div>
+                </div>
+                <div class="flex justify-end gap-3 mt-8 border-t border-gray-100 pt-5">
+                    <button type="button" @click="showUserModal = false" class="px-5 py-2.5 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                    <button class="bg-[#009C49] px-8 py-2.5 text-xs font-bold text-white rounded-lg shadow-lg shadow-green-100 hover:bg-[#007A3A] hover:-translate-y-0.5 transition">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('adminData', () => ({
+            activeTab: new URLSearchParams(window.location.search).get('active_tab') || '{{ activeTab }}' || 'dashboard',
+            
+            tabs: [
+                {id: 'dashboard', label: 'Dashboard'},
+                {id: 'logic', label: 'Workflow Rules'},
+                {id: 'users', label: 'Users'},
+                {id: 'masters', label: 'Master Data'},
+                {id: 'sap', label: 'Reports'}
+            ],
+            showDeptModal: false, showUserModal: false, modalTitle: '',
+            userForm: { id: '', name: '', email: '', dept: '', role: '', category: '' },
+            
+            switchTab(id) { 
+                this.activeTab = id; 
+                const url = new URL(window.location);
+                url.searchParams.set('active_tab', id);
+                window.history.pushState({}, '', url);
+            },
+            
+            openUserModal() { this.userForm = {id:'', name:'', email:'', dept:'', role:'initiator', category:''}; this.modalTitle = 'New User'; this.showUserModal = true; },
+            editUser(id, name, email, dept, role, cat) { this.userForm = {id, name, email, dept, role, category: cat === 'None' ? '' : cat}; this.modalTitle = 'Edit User'; this.showUserModal = true; },
+            closeModals() { this.showUserModal = false; this.showDeptModal = false; },
+            
+            initAll() { 
+                const params = new URLSearchParams(window.location.search);
+                if(params.has('active_tab')) {
+                    this.activeTab = params.get('active_tab');
+                }
+                this.initCharts(); 
+                this.initSortable(); 
+            },
+            
+            initSortable() {
+                const el = document.getElementById('stepList');
+                if (el) {
+                    Sortable.create(el, { 
+                        animation: 150, 
+                        handle: '.cursor-move', 
+                        onEnd: (evt) => {
+                            const order = Array.from(document.querySelectorAll('.step-item')).map(item => item.dataset.id);
+                            const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '{{ csrf_token() }}';
+                            
+                            fetch("{{ url_for('admin.reorder_steps') }}", { 
+                                method: "POST", 
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': csrfToken 
+                                }, 
+                                body: JSON.stringify({ step_ids: order }) 
+                            }).then(() => {
+                                document.querySelectorAll('.step-number').forEach((div, index) => div.innerText = index + 1);
+                            });
+                        }
+                    });
+                }
+            },
+            
+            initCharts() {
+                // Global chart registry to destroy old instances and prevent flicker
+                window.adminCharts = window.adminCharts || {};
+                
+                setTimeout(() => {
+                    const commonOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
+                    
+                    const deptCtx = document.getElementById('deptChart');
+                    if(deptCtx) {
+                        if (window.adminCharts.dept) window.adminCharts.dept.destroy();
+                        window.adminCharts.dept = new Chart(deptCtx.getContext('2d'), { type: 'bar', data: { labels: {{ stats.dept_labels | tojson }}, datasets: [{ data: {{ stats.dept_volumes | tojson }}, backgroundColor: '#009C49', borderRadius: 4, barThickness: 24 }] }, options: { ...commonOptions, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, border: { display: false } } } } });
+                    }
+                    
+                    const statusCtx = document.getElementById('statusChart');
+                    if(statusCtx) {
+                        if (window.adminCharts.status) window.adminCharts.status.destroy();
+                        window.adminCharts.status = new Chart(statusCtx.getContext('2d'), { type: 'doughnut', data: { labels: ['Done', 'Reject', 'Pending', 'Draft'], datasets: [{ data: [{{ stats.completed }}, {{ stats.rejected }}, {{ stats.pending }}, {{ stats.total - (stats.completed + stats.rejected + stats.pending) }}], backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#e2e8f0'], borderWidth: 0 }] }, options: { ...commonOptions, cutout: '75%' } });
+                    }
+                }, 50);
+            }
+        }));
+    });
+
+    // --- OPTIMIZED SPA HANDLER ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const loader = document.getElementById('loading-spinner');
+        
+        // 1. Intercept Forms with class 'spa-form'
+        document.body.addEventListener('submit', async (e) => {
+            if (e.target.classList.contains('spa-form')) {
+                e.preventDefault();
+                const scrollY = window.scrollY; // Preserve scroll
+                loader.style.display = 'flex';
+                
+                try {
+                    const formData = new FormData(e.target);
+                    const res = await fetch(window.location.href, { method: 'POST', body: formData });
+                    
+                    if (!res.ok) throw new Error('Server Error'); 
+                    
+                    const html = await res.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    
+                    // SURGICAL REPLACEMENT: Only swap the dynamic container
+                    const newView = doc.querySelector('[data-spa-view]');
+                    const currentView = document.querySelector('[data-spa-view]');
+                    if (newView && currentView) {
+                        currentView.replaceWith(newView);
+                    }
+                    
+                    // Restore State
+                    window.scrollTo(0, scrollY);
+                    const alpine = document.querySelector('[x-data]')?.__x?.$data;
+                    if(alpine) {
+                        alpine.initCharts();
+                        alpine.initSortable();
+                    }
+                    
+                } catch(err) { 
+                    console.error(err); 
+                    window.location.reload(); 
+                } 
+                finally { loader.style.display = 'none'; }
+            }
+        });
+
+        // 2. Intercept Links with class 'spa-link'
+        document.body.addEventListener('click', async (e) => {
+            const link = e.target.closest('a.spa-link');
+            if (link) {
+                e.preventDefault();
+                
+                const url = link.href;
+                // Guard: Don't re-fetch same URL
+                if (url === window.location.href) return;
+
+                const scrollY = window.scrollY;
+                loader.style.display = 'flex';
+                
+                window.history.pushState({}, '', url); 
+                
+                try {
+                    const res = await fetch(url);
+                    const html = await res.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    
+                    // SURGICAL REPLACEMENT
+                    const newView = doc.querySelector('[data-spa-view]');
+                    const currentView = document.querySelector('[data-spa-view]');
+                    if (newView && currentView) {
+                        currentView.replaceWith(newView);
+                    }
+                    
+                    // Restore State
+                    window.scrollTo(0, scrollY);
+                    const alpine = document.querySelector('[x-data]')?.__x?.$data;
+                    if(alpine) {
+                        alpine.initCharts();
+                        alpine.initSortable();
+                    }
+                } catch(err) { window.location.href = url; } 
+                finally { loader.style.display = 'none'; }
+            }
+        });
+    });
+    
+    // Filter Logic
+    function filterUsers() {
+        const search = document.getElementById('userSearchInput').value.toLowerCase();
+        const dept = document.getElementById('deptFilterInput').value.toLowerCase();
+        const role = document.getElementById('roleFilterInput').value.toLowerCase();
+        const rows = document.getElementById('userTableBody').getElementsByTagName('tr');
+        let hasResults = false;
+        
+        for (let row of rows) {
+            const text = row.innerText.toLowerCase();
+            const visible = text.includes(search) && (dept === '' || text.includes(dept)) && (role === '' || text.includes(role));
+            row.style.display = visible ? '' : 'none';
+            if (visible) hasResults = true;
+        }
+        document.getElementById('noResultsMsg').style.display = hasResults ? 'none' : 'flex';
+    }
+</script>
+{% endblock %}

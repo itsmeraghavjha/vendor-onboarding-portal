@@ -4,775 +4,564 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-{% set excluded_users = ['Bill Passing Team', 'Treasury Team', 'Tax Team', 'IT Admin', 'IT Provisioning'] %}
+<style>
+    /* Base & Typography */
+    :root { font-family: 'Inter', sans-serif; }
+    [x-cloak] { display: none !important; }
+    
+    /* Utilities */
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* Custom Scrollbar for data tables */
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+    
+    /* Tier-1 Form Elements */
+    .input-group { @apply relative flex items-center; }
+    .input-field { @apply block w-full rounded-lg border-slate-200 py-2.5 text-sm text-slate-700 shadow-sm transition-all focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-slate-50 disabled:text-slate-500; }
+    .select-field { @apply block w-full rounded-lg border-slate-200 py-2.5 text-sm text-slate-700 shadow-sm transition-all focus:border-emerald-500 focus:ring-emerald-500; }
+    
+    /* Button Variants */
+    .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-emerald-200 transition-all hover:bg-emerald-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 active:scale-95; }
+    .btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2 active:scale-95; }
+    .btn-danger { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition-all hover:bg-red-100; }
+    
+    /* Card & Surface Styles */
+    .glass-header { @apply sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md supports-[backdrop-filter]:bg-white/60; }
+    .card { @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md; }
+    
+    /* Table Styles */
+    .modern-table thead th { @apply border-b border-slate-200 bg-slate-50/50 px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500; }
+    .modern-table tbody td { @apply whitespace-nowrap border-b border-slate-100 px-6 py-4 text-sm text-slate-600; }
+    .modern-table tbody tr { @apply transition-colors hover:bg-slate-50/80; }
+    
+    /* Status Badges */
+    .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
+    .badge-success { @apply bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20; }
+    .badge-warning { @apply bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20; }
+    .badge-danger { @apply bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20; }
+    .badge-neutral { @apply bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-500/10; }
+</style>
 
-<div class="min-h-screen bg-gray-50/50 font-sans text-gray-600"
-     x-data="{ 
-        activeTab: '{{ activeTab }}', 
-        showDeptModal: false, 
-        showUserModal: false,
-        modalTitle: 'Add New Member',
-        userForm: { id: '', name: '', email: '', dept: '', role: '', category: '' }
-     }">
+<script>
+    // Pass Jinja Data safely
+    const APP = {{ app_data | tojson }};
+    async function apiRequest(payload) {
+        const res = await fetch('/admin/api/update', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(payload) 
+        });
+        return await res.json();
+    }
+</script>
 
-    <header class="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/90 backdrop-blur-md shadow-sm">
-        <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center gap-4">
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#009C49] text-white shadow-lg shadow-green-100">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                </div>
-                <div>
-                    <h1 class="text-base font-bold leading-tight text-gray-900">Admin Console</h1>
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Configuration & Settings</p>
-                </div>
+<div class="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-100 selection:text-emerald-900" x-data="adminApp()" x-cloak>
+
+    <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
+        <template x-for="t in toasts" :key="t.id">
+            <div x-show="t.visible" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="translate-y-2 opacity-0"
+                 x-transition:enter-end="translate-y-0 opacity-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="flex items-center gap-3 rounded-lg bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-xl shadow-slate-900/10 pointer-events-auto ring-1 ring-white/10">
+                <svg class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span x-text="t.msg"></span>
             </div>
+        </template>
+    </div>
 
-            <nav class="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-                {% for tab_id, label, icon in [
-                    ('dashboard', 'Analytics', 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'),
-                    ('logic', 'Workflow', 'M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z'),
-                    ('users', 'Team', 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'),
-                    ('masters', 'Master Data', 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4')
-                ] %}
-                <button @click="activeTab = '{{ tab_id }}'" 
-                    :class="activeTab === '{{ tab_id }}' ? 'bg-white text-[#009C49] shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'" 
-                    class="flex items-center gap-2 rounded-md px-4 py-2 text-xs font-bold transition-all duration-200">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ icon }}"></path></svg>
-                    {{ label }}
-                </button>
-                {% endfor %}
-            </nav>
+    <header class="glass-header">
+        <div class="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center gap-8">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-600/20">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-sm font-bold text-slate-900 tracking-tight">Admin Console</h1>
+                        <p class="text-[10px] font-medium text-slate-500 uppercase tracking-wider">System Config</p>
+                    </div>
+                </div>
+
+                <div class="h-6 w-px bg-slate-200"></div>
+                
+                <nav class="flex gap-1">
+                    <template x-for="tab in tabs" :key="tab.id">
+                        <button @click="activeTab = tab.id" 
+                            class="group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            :class="activeTab === tab.id ? 'text-emerald-700 bg-emerald-50/50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+                            <span x-html="tab.icon" class="h-4 w-4 transition-colors" :class="activeTab === tab.id ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'"></span>
+                            <span x-text="tab.label"></span>
+                            <div x-show="activeTab === tab.id" layoutId="tab-underline" class="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-emerald-500"></div>
+                        </button>
+                    </template>
+                </nav>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                 <button class="relative rounded-full bg-slate-50 p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                    <span class="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                 </button>
+                 <div class="h-8 w-8 overflow-hidden rounded-full ring-2 ring-slate-100 cursor-pointer hover:ring-emerald-200 transition-all">
+                     <svg class="h-full w-full bg-slate-100 p-1 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                 </div>
+            </div>
         </div>
     </header>
 
-    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main class="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8 h-[calc(100vh-64px)] overflow-hidden">
+        
+        <div x-show="activeTab === 'dashboard'" class="h-full overflow-y-auto custom-scroll pr-2" x-transition.opacity.duration.300ms>
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="card p-5 group hover:border-emerald-200 transition-colors">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Cycle Time</p>
+                            <span class="rounded-lg bg-blue-50 p-2 text-blue-600 group-hover:bg-blue-100 transition-colors"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></span>
+                        </div>
+                        <div class="mt-4 flex items-baseline gap-2">
+                            <h3 class="text-3xl font-bold text-slate-900 tracking-tight" x-text="stats.avg_cycle_time"></h3>
+                            <span class="text-sm font-medium text-slate-500">days avg</span>
+                        </div>
+                        <div class="mt-2 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div class="h-full w-[70%] rounded-full bg-blue-500"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="card p-5 group hover:border-purple-200 transition-colors">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Volume</p>
+                            <span class="rounded-lg bg-purple-50 p-2 text-purple-600 group-hover:bg-purple-100 transition-colors"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></span>
+                        </div>
+                        <div class="mt-4 flex items-baseline gap-2">
+                            <h3 class="text-3xl font-bold text-slate-900 tracking-tight" x-text="stats.total"></h3>
+                            <span class="text-xs font-bold uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">+12% vs last mo</span>
+                        </div>
+                         <div class="mt-2 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div class="h-full w-[45%] rounded-full bg-purple-500"></div>
+                        </div>
+                    </div>
 
-        <div x-show="activeTab === 'dashboard'" x-transition.opacity.duration.300ms class="space-y-6">
+                    <div class="card p-5 group hover:border-red-200 transition-colors">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Rejected</p>
+                            <span class="rounded-lg bg-red-50 p-2 text-red-600 group-hover:bg-red-100 transition-colors"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></span>
+                        </div>
+                        <h3 class="mt-4 text-3xl font-bold text-slate-900 tracking-tight" x-text="stats.rejected"></h3>
+                         <div class="mt-2 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div class="h-full w-[15%] rounded-full bg-red-500"></div>
+                        </div>
+                    </div>
+
+                    <div class="card bg-amber-50/50 p-5 ring-1 ring-amber-200/50">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-bold uppercase tracking-wider text-amber-700">Action Required</p>
+                            <span class="animate-pulse rounded-lg bg-amber-100 p-2 text-amber-600"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></span>
+                        </div>
+                        <h3 class="mt-4 text-3xl font-bold text-amber-700 tracking-tight" x-text="stats.pending"></h3>
+                         <div class="mt-2 h-1 w-full rounded-full bg-amber-200/50 overflow-hidden">
+                            <div class="h-full w-[60%] rounded-full bg-amber-500"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <div class="card col-span-2 p-6">
+                        <div class="mb-6 flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-slate-900">Request Volume by Department</h4>
+                            <select class="text-xs border-none bg-slate-50 rounded-md py-1 px-2 text-slate-500 outline-none"><option>Last 30 Days</option></select>
+                        </div>
+                        <div class="h-64 w-full"><canvas id="deptChart"></canvas></div>
+                    </div>
+                    <div class="card p-6">
+                         <div class="mb-6 flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-slate-900">Pipeline Health</h4>
+                        </div>
+                        <div class="relative h-64 w-full"><canvas id="statusChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="activeTab === 'logic'" x-data="workflowApp()" class="flex h-full gap-6 overflow-hidden" x-transition.opacity.duration.300ms>
             
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
-                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <div class="mb-4 flex items-start justify-between">
-                        <div class="rounded-lg bg-blue-50 p-2 text-blue-600"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Avg Time</span>
-                    </div>
-                    <div class="flex items-baseline gap-1">
-                        <h3 class="text-3xl font-bold tracking-tight text-gray-900">{{ stats.avg_cycle_time }}</h3>
-                        <span class="text-sm font-semibold text-gray-500">days</span>
-                    </div>
-                    <div class="mt-4 h-1.5 w-full rounded-full bg-gray-100"><div class="h-1.5 rounded-full bg-blue-500" style="width: 65%"></div></div>
-                </div>
-
-                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <div class="mb-4 flex items-start justify-between">
-                        <div class="rounded-lg bg-purple-50 p-2 text-purple-600"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Requests</span>
-                    </div>
-                    <h3 class="text-3xl font-bold tracking-tight text-gray-900">{{ stats.total }}</h3>
-                    <p class="mt-1 flex items-center gap-1 text-xs font-bold text-[#009C49]"><span>↑</span> Active Pipeline</p>
-                </div>
-
-                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <div class="mb-4 flex items-start justify-between">
-                        <div class="rounded-lg bg-red-50 p-2 text-red-600"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Rejections</span>
-                    </div>
-                    <div class="flex items-baseline gap-1">
-                        <h3 class="text-3xl font-bold tracking-tight text-gray-900">
-                            {% if stats.total > 0 %}{{ ((stats.rejected / stats.total) * 100) | round(1) }}{% else %}0{% endif %}<span class="text-lg text-gray-400">%</span>
-                        </h3>
-                    </div>
-                    <div class="mt-4 h-1.5 w-full rounded-full bg-gray-100"><div class="h-1.5 rounded-full bg-red-500" style="width: {{ ((stats.rejected / stats.total) * 100) if stats.total > 0 else 0 }}%"></div></div>
-                </div>
-
-                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <div class="mb-4 flex items-start justify-between">
-                        <div class="rounded-lg bg-amber-50 p-2 text-amber-600"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Pending</span>
-                    </div>
-                    <h3 class="text-3xl font-bold tracking-tight text-gray-900">{{ stats.pending }}</h3>
-                    <p class="mt-1 text-xs font-bold text-amber-600">Needs Action</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <div class="col-span-2 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <h4 class="mb-6 text-sm font-bold text-gray-800">Request Volume by Department</h4>
-                    <div class="h-64 w-full">
-                        <canvas id="deptChart"></canvas>
+            <div class="w-64 shrink-0 flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="border-b border-slate-100 bg-slate-50/50 p-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Departments</span>
+                        <button @click="showDeptModal=true" class="rounded p-1 hover:bg-slate-200 text-slate-400 hover:text-emerald-600 transition"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg></button>
                     </div>
                 </div>
-                <div class="flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <h4 class="mb-2 text-sm font-bold text-gray-800">Pipeline Health</h4>
-                    <div class="relative flex-1 min-h-[200px]">
-                        <canvas id="statusChart"></canvas>
-                        <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-3xl font-bold text-gray-900">{{ stats.completed }}</span>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Completed</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div class="mb-4 flex items-center justify-between">
-                    <div>
-                        <h4 class="text-sm font-bold text-gray-800">SAP Master Data Export</h4>
-                        <p class="text-xs text-gray-500">Download validated vendor data compatible with SAP ERP.</p>
-                    </div>
-                    <div class="rounded-lg bg-gray-100 p-2 text-gray-400"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></div>
-                </div>
-                <form action="{{ url_for('admin.export_sap_data') }}" method="get" class="flex flex-col items-end gap-4 rounded-lg border border-gray-200 bg-gray-50/50 p-4 md:flex-row">
-                    <div class="w-full flex-1 space-y-1">
-                        <label class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Date Range</label>
-                        <div class="flex gap-2">
-                            <input type="date" name="start_date" class="w-full rounded-md border-gray-300 py-2 text-xs font-medium focus:border-[#009C49] focus:ring-[#009C49]">
-                            <input type="date" name="end_date" class="w-full rounded-md border-gray-300 py-2 text-xs font-medium focus:border-[#009C49] focus:ring-[#009C49]">
-                        </div>
-                    </div>
-                    <div class="w-full space-y-1 md:w-48">
-                        <label class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Status</label>
-                        <select name="status" class="w-full rounded-md border-gray-300 py-2 text-xs font-medium focus:border-[#009C49] focus:ring-[#009C49]">
-                            <option value="ALL">All Requests</option>
-                            <option value="COMPLETED">Completed Only</option>
-                            <option value="PENDING_APPROVAL">Pending Approval</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="h-[38px] w-full rounded-md bg-gray-900 px-6 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-black md:w-auto">
-                        Download .CSV
+                <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scroll">
+                    <template x-for="d in departments" :key="d">
+                        <button @click="loadDept(d)" 
+                            :class="currentDept === d ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'"
+                            class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-all group">
+                            <span x-text="d"></span>
+                            <div x-show="currentDept === d" layoutId="active-dept-dot" class="h-2 w-2 rounded-full bg-emerald-500 shadow-sm"></div>
+                        </button>
+                    </template>
+                    
+                    <div class="my-4 border-t border-slate-100 mx-2"></div>
+                    <div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">System Workflows</div>
+                    
+                    <button @click="loadDept('GLOBAL_FINANCE')" :class="currentDept==='GLOBAL_FINANCE'?'bg-blue-50 text-blue-700 font-semibold ring-1 ring-blue-200':'text-slate-500 hover:bg-slate-50'" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition mb-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> Finance Team
                     </button>
-                </form>
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'logic'" class="flex h-[calc(100vh-140px)] flex-col gap-6 lg:flex-row">
-            <div class="flex h-full w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:w-64 lg:shrink-0">
-                <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 p-4">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Business Units</span>
-                    <button @click="showDeptModal = true" class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#009C49] shadow-sm ring-1 ring-gray-200 transition hover:bg-green-50 hover:text-green-700">
-                        <svg class="h-3 w-3" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
+                    <button @click="loadDept('GLOBAL_IT')" :class="currentDept==='GLOBAL_IT'?'bg-purple-50 text-purple-700 font-semibold ring-1 ring-purple-200':'text-slate-500 hover:bg-slate-50'" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition">
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> IT Provisioning
                     </button>
                 </div>
-                
-                <div class="custom-scrollbar flex-1 space-y-1 overflow-y-auto p-2">
-                    {% for d in departments %}
-                    <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept=d.name) }}" 
-                       class="flex items-center justify-between rounded-md px-3 py-2 text-xs font-medium transition-all duration-200
-                       {% if selected_dept == d.name %}bg-green-50 font-bold text-[#009C49] ring-1 ring-green-100{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                        {{ d.name }}
-                        {% if selected_dept == d.name %}<div class="h-1.5 w-1.5 rounded-full bg-[#009C49]"></div>{% endif %}
-                    </a>
-                    {% endfor %}
-                    
-                    <div class="mx-2 my-3 border-t border-gray-100"></div>
-                    <div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">Central Teams</div>
-                    
-                    <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept='GLOBAL_FINANCE') }}" 
-                       class="flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-all duration-200
-                       {% if selected_dept == 'GLOBAL_FINANCE' %}bg-green-50 font-bold text-[#009C49] ring-1 ring-green-100{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                        <span class="text-sm">💰</span> Finance Team
-                    </a>
-                    <a href="{{ url_for('admin.admin_workflow', active_tab='logic', selected_dept='GLOBAL_IT') }}" 
-                       class="flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-all duration-200
-                       {% if selected_dept == 'GLOBAL_IT' %}bg-purple-50 font-bold text-purple-700 ring-1 ring-purple-200{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                        <span class="text-sm">💻</span> IT Team
-                    </a>
-                </div>
             </div>
 
-            <div class="custom-scrollbar h-full flex-1 space-y-6 overflow-y-auto pr-1 pb-20">
-
-                {% if selected_dept not in ['GLOBAL_FINANCE', 'GLOBAL_IT'] %}
-                <div class="flex items-end justify-between border-b border-gray-200 pb-4">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-gray-900">{{ selected_dept }}</h2>
-                        <p class="mt-1 text-sm text-gray-500">Configure approval chains and rules for this unit.</p>
+            <div class="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm custom-scroll">
+                <div class="sticky top-0 z-20 border-b border-slate-100 bg-white/95 backdrop-blur px-8 py-6 flex items-center justify-between">
+                     <div>
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-xl font-bold text-slate-900" x-text="currentDept.replace('GLOBAL_', '').replace('_', ' ')"></h2>
+                            <span class="badge badge-success">Active</span>
+                        </div>
+                        <p class="mt-1 text-sm text-slate-500">Configure routing logic and approval matrices.</p>
                     </div>
-                    <span class="rounded bg-gray-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-500 ring-1 ring-inset ring-gray-200">{{ selected_dept }}</span>
+                    <div x-show="loading" class="flex items-center gap-2 text-sm text-emerald-600 font-medium animate-pulse">
+                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Saving...
+                    </div>
                 </div>
 
-                <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <div class="flex items-center gap-2 border-b border-gray-200 bg-gray-50/80 px-5 py-3 backdrop-blur-sm">
-                        <div class="flex h-5 w-5 items-center justify-center rounded bg-blue-100 text-[10px] font-bold text-blue-700">A</div>
-                        <h3 class="text-xs font-bold uppercase tracking-wide text-gray-700">Category Routing Matrix</h3>
-                    </div>
-                    <table class="w-full text-xs">
-                        <thead class="bg-white text-gray-400">
-                            <tr>
-                                <th class="border-b border-gray-100 px-5 py-3 text-left font-bold uppercase tracking-wider">Category</th>
-                                <th class="border-b border-gray-100 px-5 py-3 text-left font-bold uppercase tracking-wider">L1 Manager</th>
-                                <th class="border-b border-gray-100 px-5 py-3 text-left font-bold uppercase tracking-wider">L2 Dept Head</th>
-                                <th class="border-b border-gray-100 px-5 py-3"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-50">
-                            {% for rule in dept_matrix_rules %}
-                            <tr class="group transition hover:bg-gray-50">
-                                <td class="px-5 py-3 font-bold text-gray-700">{{ rule.category_name }}</td>
-                                <td class="px-5 py-3">
-                                    <form method="POST">
-                                        <input type="hidden" name="update_logic_type" value="cat_l1"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ rule.id }}">
-                                        <select name="new_email" onchange="this.form.submit()" class="w-full rounded border-0 bg-transparent py-1.5 pl-0 text-xs font-medium text-gray-600 focus:ring-0 group-hover:bg-white group-hover:pl-2 group-hover:ring-1 group-hover:ring-gray-200">
-                                            <option value="">Select...</option>
-                                            {% for u in users %}
-                                                {% if (u.department == selected_dept and u.username not in excluded_users) or u.email == rule.l1_manager_email %}
-                                                <option value="{{ u.email }}" {% if u.email == rule.l1_manager_email %}selected{% endif %}>{{ u.username }}</option>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </select>
-                                    </form>
-                                </td>
-                                <td class="px-5 py-3">
-                                    <form method="POST">
-                                        <input type="hidden" name="update_logic_type" value="cat_l2"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ rule.id }}">
-                                        <select name="new_email" onchange="this.form.submit()" class="w-full rounded border-0 bg-transparent py-1.5 pl-0 text-xs font-medium text-gray-600 focus:ring-0 group-hover:bg-white group-hover:pl-2 group-hover:ring-1 group-hover:ring-gray-200">
-                                            <option value="">Select...</option>
-                                            {% for u in users %}
-                                                {% if (u.department == selected_dept and u.username not in excluded_users) or u.email == rule.l2_head_email %}
-                                                <option value="{{ u.email }}" {% if u.email == rule.l2_head_email %}selected{% endif %}>{{ u.username }}</option>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </select>
-                                    </form>
-                                </td>
-                                <td class="px-5 py-3 text-right"><form method="POST"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="delete_rule_id" value="{{ rule.id }}"><button class="px-2 font-bold text-gray-300 transition hover:text-red-600">×</button></form></td>
-                            </tr>
-                            {% endfor %}
-                            <tr class="bg-gray-50/50">
-                                <form method="POST">
-                                    <input type="hidden" name="logic_view" value="{{ selected_dept }}">
-                                    <td class="px-5 py-2"><input type="text" name="new_category_name" placeholder="New Category" class="w-full rounded-md border-gray-300 py-1.5 text-xs focus:border-[#009C49] focus:ring-[#009C49] bg-white"></td>
-                                    <td class="px-5 py-2"><select name="l1_email" class="w-full rounded-md border-gray-300 py-1.5 text-xs focus:border-[#009C49] focus:ring-[#009C49] bg-white" required><option value="">Select L1...</option>{% for u in users if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}</select></td>
-                                    <td class="px-5 py-2"><select name="l2_email" class="w-full rounded-md border-gray-300 py-1.5 text-xs focus:border-[#009C49] focus:ring-[#009C49] bg-white" required><option value="">Select L2...</option>{% for u in users if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}</select></td>
-                                    <td class="px-5 py-2 text-right"><button class="rounded bg-[#009C49] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-green-700">Add</button></td>
-                                </form>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <div class="flex items-center gap-2 border-b border-gray-200 bg-gray-50/80 px-5 py-3 backdrop-blur-sm">
-                        <div class="flex h-5 w-5 items-center justify-center rounded bg-[#009C49]/10 text-[10px] font-bold text-[#009C49]">B</div>
-                        <h3 class="text-xs font-bold uppercase tracking-wide text-gray-700">Linear Approval Steps</h3>
-                    </div>
-                    <div class="p-5">
-                        <div id="stepList" class="mb-4 space-y-2">
-                            {% for step in dept_linear_steps %}
-                            <div class="step-item group flex cursor-move items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-all hover:border-[#009C49] hover:shadow-md" data-id="{{ step.id }}">
-                                <div class="cursor-grab px-1 text-gray-300 group-hover:text-[#009C49]"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg></div>
-                                <div class="step-number flex h-6 w-6 items-center justify-center rounded bg-gray-100 text-xs font-bold text-gray-500">{{ loop.index }}</div>
-                                <div class="flex-1">
-                                    <p class="text-[10px] font-bold uppercase text-gray-400">Role</p>
-                                    <p class="text-xs font-bold text-gray-800">{{ step.role_label }}</p>
+                <div class="p-8 space-y-10">
+                    <template x-if="viewType === 'STANDARD'">
+                        <div class="space-y-10">
+                            
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                                    <div class="h-6 w-6 rounded bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs">A</div>
+                                    <h3 class="font-bold text-slate-900">Routing Matrix</h3>
                                 </div>
-                                <div class="flex-[2]">
-                                    <p class="text-[10px] font-bold uppercase text-gray-400">Assignee</p>
-                                    <form method="POST">
-                                        <input type="hidden" name="update_logic_type" value="step"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="rule_id" value="{{ step.id }}">
-                                        <select name="new_email" class="h-7 w-full rounded border-gray-200 bg-gray-50 py-1 text-xs transition focus:bg-white focus:border-[#009C49] focus:ring-[#009C49]" onchange="this.form.submit()">
-                                            {% for u in users %}
-                                                {% if (u.department == selected_dept and u.username not in excluded_users) or u.email == step.approver_email %}
-                                                <option value="{{ u.email }}" {% if u.email == step.approver_email %}selected{% endif %}>{{ u.username }}</option>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </select>
-                                    </form>
+                                <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                                    <table class="w-full text-left modern-table">
+                                        <thead><tr><th class="w-1/3">Category</th><th class="w-1/3">L1 Manager</th><th class="w-1/3">L2 Head</th><th class="w-10"></th></tr></thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <template x-for="r in matrix" :key="r.id">
+                                                <tr class="group">
+                                                    <td class="font-medium text-slate-900" x-text="r.category"></td>
+                                                    <td class="p-2"><select @change="update('matrix_l1', r.id, $event.target.value)" class="select-field border-transparent bg-transparent focus:bg-white hover:bg-slate-50"><option value="">Select...</option><template x-for="u in users"><option :value="u.email" :selected="u.email===r.l1_email" x-text="u.username"></option></template></select></td>
+                                                    <td class="p-2"><select @change="update('matrix_l2', r.id, $event.target.value)" class="select-field border-transparent bg-transparent focus:bg-white hover:bg-slate-50"><option value="">Select...</option><template x-for="u in users"><option :value="u.email" :selected="u.email===r.l2_email" x-text="u.username"></option></template></select></td>
+                                                    <td class="text-right pr-4"><button @click="delRule('category', r.id)" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></button></td>
+                                                </tr>
+                                            </template>
+                                            <tr class="bg-slate-50">
+                                                <td class="p-3 pl-6"><input x-model="newCat.name" placeholder="+ Add Category" class="bg-transparent text-sm focus:outline-none w-full"></td>
+                                                <td class="p-2"><select x-model="newCat.l1" class="select-field py-1 text-xs"><option value="">L1 Manager</option><template x-for="u in users"><option :value="u.email" x-text="u.username"></option></template></select></td>
+                                                <td class="p-2"><select x-model="newCat.l2" class="select-field py-1 text-xs"><option value="">L2 Head</option><template x-for="u in users"><option :value="u.email" x-text="u.username"></option></template></select></td>
+                                                <td class="p-2 pr-4 text-right"><button @click="addCat()" class="btn-primary py-1 px-2 h-8 w-8 rounded-full">+</button></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
-                                <form method="POST"><input type="hidden" name="logic_view" value="{{ selected_dept }}"><input type="hidden" name="delete_step_id" value="{{ step.id }}"><button class="p-2 text-gray-300 hover:text-red-600"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></form>
                             </div>
-                            {% endfor %}
-                        </div>
-                        <form method="POST" class="flex items-end gap-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
-                            <input type="hidden" name="logic_view" value="{{ selected_dept }}">
-                            <div class="flex-1 space-y-1">
-                                <label class="text-[10px] font-bold uppercase text-gray-400">New Role Name</label>
-                                <input type="text" name="new_step_role" placeholder="e.g. Factory Head" class="w-full rounded-md border-gray-300 py-1.5 text-xs focus:border-[#009C49] focus:ring-[#009C49]" required>
-                            </div>
-                            <div class="flex-1 space-y-1">
-                                <label class="text-[10px] font-bold uppercase text-gray-400">Assign User</label>
-                                <select name="new_step_email" class="w-full rounded-md border-gray-300 py-1.5 text-xs focus:border-[#009C49] focus:ring-[#009C49]" required>
-                                    <option value="">Select...</option>
-                                    {% for u in users %}{% if u.department == selected_dept and u.username not in excluded_users %}<option value="{{ u.email }}">{{ u.username }}</option>{% endif %}{% endfor %}
-                                </select>
-                            </div>
-                            <button class="h-[32px] rounded-md bg-[#009C49] px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-green-700">+ Step</button>
-                        </form>
-                    </div>
-                </div>
 
-                {% elif selected_dept == 'GLOBAL_FINANCE' %}
-                <div class="rounded-xl border border-blue-200 bg-white p-6 shadow-sm">
-                    <div class="mb-6 flex items-center gap-3">
-                        <div class="rounded-lg bg-blue-100 p-2 text-blue-600">💰</div>
-                        <div><h2 class="text-lg font-bold text-gray-800">Finance Configuration</h2><p class="text-xs text-gray-500">Sequential approval workflow.</p></div>
-                    </div>
-                    <div class="space-y-4">
-                        {% for u in finance_users %}
-                        <div class="flex items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">{{ loop.index }}</div>
-                            <div class="w-48"><p class="text-[10px] font-bold uppercase text-gray-400">Stage</p><p class="font-bold text-gray-800">{{ u.username }}</p></div>
-                            <div class="flex-1">
-                                <form method="POST">
-                                    <input type="hidden" name="update_logic_type" value="finance_user"><input type="hidden" name="rule_id" value="{{ u.id }}">
-                                    <label class="text-[10px] font-bold uppercase text-gray-400">Assigned Agent</label>
-                                    <select name="new_email" onchange="this.form.submit()" class="mt-1 w-full rounded-md border-gray-300 py-2 text-xs focus:border-[#009C49] focus:ring-[#009C49]">
-                                        {% for user in users if user.department == 'Finance' or user.email == u.email %}
-                                            <option value="{{ user.email }}" {% if user.email == u.email %}selected{% endif %}>{{ user.username }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </form>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                {% elif selected_dept == 'GLOBAL_IT' %}
-                <div class="rounded-xl border border-purple-200 bg-white p-6 shadow-sm">
-                    <div class="mb-6 flex items-center gap-3">
-                        <div class="rounded-lg bg-purple-100 p-2 text-purple-600">💻</div>
-                        <div><h2 class="text-lg font-bold text-gray-800">IT Provisioning</h2><p class="text-xs text-gray-500">Route by Account Group.</p></div>
-                    </div>
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        {% for r in it_routes %}
-                        <div class="group rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-purple-300 hover:shadow-md">
-                            <div class="mb-2 flex justify-between">
-                                <span class="rounded bg-purple-100 px-2 py-0.5 font-mono text-[10px] font-bold text-purple-700">{{ r.account_group }}</span>
-                                <form method="POST"><input type="hidden" name="delete_it_id" value="{{ r.id }}"><button class="text-gray-300 hover:text-red-500">×</button></form>
-                            </div>
-                            <form method="POST">
-                                <input type="hidden" name="update_logic_type" value="it_route"><input type="hidden" name="rule_id" value="{{ r.id }}">
-                                <select name="new_email" onchange="this.form.submit()" class="w-full rounded-md border-gray-200 py-1.5 text-xs focus:border-[#009C49] focus:ring-[#009C49]">
-                                    {% for u in users if u.department == 'IT' or u.email == r.it_assignee_email %}
-                                        <option value="{{ u.email }}" {% if u.email == r.it_assignee_email %}selected{% endif %}>{{ u.username }}</option>
-                                    {% endfor %}
-                                </select>
-                            </form>
-                        </div>
-                        {% endfor %}
-                        <div class="flex flex-col justify-center rounded-lg border-2 border-dashed border-purple-200 bg-purple-50 p-4">
-                            <form method="POST" class="space-y-2">
-                                <input type="hidden" name="logic_view" value="GLOBAL_IT">
-                                <input type="text" name="new_account_group" placeholder="Account Grp" class="w-full rounded-md border-purple-300 py-1.5 text-xs focus:border-[#009C49] focus:ring-[#009C49]" required>
-                                <select name="it_email" class="w-full rounded-md border-purple-300 py-1.5 text-xs focus:border-[#009C49] focus:ring-[#009C49]" required>
-                                    <option value="">Agent...</option>
-                                    {% for u in users if u.department == 'IT' %}<option value="{{ u.email }}">{{ u.username }}</option>{% endfor %}
-                                </select>
-                                <button class="w-full rounded-md bg-purple-600 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-purple-700">Add</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'users'" class="flex h-[calc(100vh-140px)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-300">
-            <div class="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 py-5">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-800">Team Management</h3>
-                    <p class="mt-1 text-xs text-gray-500">Manage system access, roles, and assignments.</p>
-                </div>
-                <button 
-                    @click="
-                        userForm = { id: '', name: '', email: '', dept: '', role: 'initiator', category: '' }; 
-                        modalTitle = 'Add New Member'; 
-                        showUserModal = true
-                    " 
-                    class="flex items-center gap-2 rounded-lg bg-[#009C49] px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-green-100 transition-all hover:bg-[#007A3A] hover:shadow-lg">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    Add Member
-                </button>
-            </div>
-
-            <div class="flex shrink-0 flex-col gap-3 border-b border-gray-100 bg-gray-50/50 px-6 py-4 md:flex-row">
-                <div class="relative flex-[2]">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></span>
-                    <input type="text" id="userSearchInput" onkeyup="filterUsers()" 
-                           placeholder="Search users..." 
-                           class="w-full rounded-lg border-gray-200 py-2.5 pl-10 pr-4 text-xs font-medium shadow-sm transition focus:border-[#009C49] focus:ring-[#009C49]">
-                </div>
-                
-                <div class="flex flex-1 gap-3">
-                    <div class="relative w-full">
-                        <select id="deptFilterInput" onchange="filterUsers()" class="w-full appearance-none rounded-lg border-gray-200 bg-white py-2.5 pl-3 pr-8 text-xs font-medium shadow-sm transition focus:border-[#009C49] focus:ring-[#009C49]">
-                            <option value="">All Departments</option>
-                            {% for d in departments %}
-                                <option value="{{ d.name }}">{{ d.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
-
-                    <div class="relative w-full">
-                        <select id="roleFilterInput" onchange="filterUsers()" class="w-full appearance-none rounded-lg border-gray-200 bg-white py-2.5 pl-3 pr-8 text-xs font-medium shadow-sm transition focus:border-[#009C49] focus:ring-[#009C49]">
-                            <option value="">All Roles</option>
-                            <option value="admin">Admin</option>
-                            <option value="initiator">Initiator</option>
-                            <option value="approver">Approver</option>
-                            <option value="finance">Finance Team</option>
-                            <option value="it">IT Team</option>
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="custom-scrollbar flex-1 overflow-y-auto bg-white">
-                <table class="w-full text-left text-xs">
-                    <thead class="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-gray-500 backdrop-blur-sm">
-                        <tr>
-                            <th onclick="sortTable(0)" class="group cursor-pointer select-none px-6 py-4 font-bold uppercase tracking-wider hover:bg-gray-100 hover:text-[#009C49]">
-                                User <span class="ml-1 inline-block text-gray-300 opacity-0 transition group-hover:opacity-100">↓</span>
-                            </th>
-                            <th onclick="sortTable(1)" class="group cursor-pointer select-none px-6 py-4 font-bold uppercase tracking-wider hover:bg-gray-100 hover:text-[#009C49]">
-                                Email <span class="ml-1 inline-block text-gray-300 opacity-0 transition group-hover:opacity-100">↓</span>
-                            </th>
-                            <th onclick="sortTable(2)" class="group cursor-pointer select-none px-6 py-4 font-bold uppercase tracking-wider hover:bg-gray-100 hover:text-[#009C49]">
-                                Department <span class="ml-1 inline-block text-gray-300 opacity-0 transition group-hover:opacity-100">↓</span>
-                            </th>
-                            <th onclick="sortTable(3)" class="group cursor-pointer select-none px-6 py-4 font-bold uppercase tracking-wider hover:bg-gray-100 hover:text-[#009C49]">
-                                Role <span class="ml-1 inline-block text-gray-300 opacity-0 transition group-hover:opacity-100">↓</span>
-                            </th>
-                            <th onclick="sortTable(4)" class="group cursor-pointer select-none px-6 py-4 font-bold uppercase tracking-wider hover:bg-gray-100 hover:text-[#009C49]">
-                                Category <span class="ml-1 inline-block text-gray-300 opacity-0 transition group-hover:opacity-100">↓</span>
-                            </th>
-                            <th class="px-6 py-4 text-right font-bold uppercase tracking-wider"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="userTableBody" class="divide-y divide-gray-50">
-                        {% for u in users %}
-                        <tr class="group transition duration-150 hover:bg-gray-50">
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 font-bold text-gray-500 ring-2 ring-white group-hover:bg-[#009C49]/10 group-hover:text-[#009C49]">
-                                        {{ u.username[:1].upper() }}
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                                    <div class="h-6 w-6 rounded bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs">B</div>
+                                    <h3 class="font-bold text-slate-900">Sequential Approval Chain</h3>
+                                </div>
+                                
+                                <div class="relative pl-4">
+                                    <div class="absolute left-[34px] top-4 bottom-12 w-0.5 bg-slate-200"></div>
+                                    
+                                    <div id="stepList" class="space-y-6">
+                                        <template x-for="(s, i) in steps" :key="s.id">
+                                            <div :data-id="s.id" class="step-item group relative flex items-center gap-6">
+                                                <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-slate-50 bg-white font-bold text-slate-600 shadow-sm ring-1 ring-slate-200 group-hover:border-emerald-50 group-hover:text-emerald-600 group-hover:ring-emerald-500 transition-all" x-text="i+1"></div>
+                                                
+                                                <div class="flex-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-emerald-400 hover:shadow-md">
+                                                    <div class="flex items-center gap-4">
+                                                        <div class="cursor-grab text-slate-300 hover:text-slate-600" title="Drag to reorder">
+                                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+                                                        </div>
+                                                        <div class="w-1/3">
+                                                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Role Name</p>
+                                                            <p class="font-bold text-slate-900" x-text="s.role"></p>
+                                                        </div>
+                                                        <div class="flex-1">
+                                                             <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assignee</p>
+                                                             <select @change="update('step_user', s.id, $event.target.value)" class="select-field mt-1 py-1 bg-slate-50 border-none"><template x-for="u in users"><option :value="u.email" :selected="u.email===s.email" x-text="u.username"></option></template></select>
+                                                        </div>
+                                                        <button @click="delRule('step', s.id)" class="rounded-full p-2 text-slate-300 hover:bg-red-50 hover:text-red-600 transition-colors"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
-                                    <div class="font-bold text-gray-700 group-hover:text-gray-900">{{ u.username }}</div>
+                                    
+                                    <div class="mt-6 flex items-center gap-6 relative">
+                                         <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-slate-50 bg-emerald-50 text-emerald-600 shadow-sm ring-1 ring-emerald-200">+</div>
+                                         <div class="flex-1 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4 transition-colors hover:border-emerald-400 hover:bg-emerald-50/10">
+                                            <div class="flex gap-4">
+                                                <input x-model="newStep.role" placeholder="Role Name (e.g. CFO)" class="input-field bg-white">
+                                                <select x-model="newStep.email" class="select-field bg-white"><option value="">Assign User...</option><template x-for="u in users"><option :value="u.email" x-text="u.username"></option></template></select>
+                                                <button @click="addStep()" class="btn-primary whitespace-nowrap">Add Step</button>
+                                            </div>
+                                         </div>
+                                    </div>
                                 </div>
-                            </td>
-                            <td class="px-6 py-4 font-mono text-gray-500">{{ u.email }}</td>
-                            
-                            <td class="px-6 py-4">
-                                <span class="inline-flex items-center rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-bold text-gray-600 shadow-sm">
-                                    {{ u.department }}
-                                </span>
-                            </td>
+                            </div>
 
-                            <td class="px-6 py-4">
-                                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold 
-                                    {% if u.role=='admin' %} bg-red-50 text-red-700 ring-1 ring-inset ring-red-200
-                                    {% elif u.role=='approver' %} bg-green-50 text-green-700 ring-1 ring-inset ring-green-200
-                                    {% else %} bg-[#009C49]/10 text-[#009C49] ring-1 ring-inset ring-[#009C49]/30 {% endif %}">
-                                    {{ u.role|upper }}
-                                </span>
-                            </td>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
 
-                            <td class="px-6 py-4 text-gray-500">
-                                {% if u.assigned_category %}
-                                <span class="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 ring-1 ring-inset ring-blue-100">{{ u.assigned_category }}</span>
-                                {% else %}
-                                <span class="text-gray-300">—</span>
-                                {% endif %}
-                            </td>
-                            
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex justify-end gap-2">
-                                    <button 
-                                        type="button"
-                                        @click="
-                                            userForm = { 
-                                                id: '{{ u.id }}', 
-                                                name: '{{ u.username }}', 
-                                                email: '{{ u.email }}', 
-                                                dept: '{{ u.department }}', 
-                                                role: '{{ u.role }}', 
-                                                category: '{{ u.assigned_category if u.assigned_category else '' }}' 
-                                            };
-                                            modalTitle = 'Edit Member';
-                                            showUserModal = true
-                                        "
-                                        class="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#009C49] shadow-sm transition hover:bg-[#009C49]/5 hover:border-[#009C49]/30">
-                                        Edit
-                                    </button>
-
-                                    <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to remove this user?');">
-                                        <input type="hidden" name="delete_user_id" value="{{ u.id }}">
-                                        <button class="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 shadow-sm transition hover:bg-red-50 hover:border-red-200 hover:text-red-600">Remove</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
+        <div x-show="activeTab === 'users'" x-data="userApp()" class="flex h-full flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" x-transition.opacity>
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50/30">
+                <div class="flex gap-4">
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <input x-model="search" placeholder="Search members..." class="input-field w-64 pl-9">
+                    </div>
+                    <select x-model="deptFilter" class="select-field w-40"><option value="">All Depts</option><template x-for="d in departments"><option :value="d" x-text="d"></option></template></select>
+                </div>
+                <button @click="open()" class="btn-primary">+ Add Member</button>
+            </div>
+            
+            <div class="flex-1 overflow-auto custom-scroll">
+                <table class="w-full text-left modern-table">
+                    <thead class="sticky top-0 z-10"><tr><th class="pl-8">Name</th><th>Role</th><th>Department</th><th class="text-right pr-8">Actions</th></tr></thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <template x-for="u in filtered" :key="u.id">
+                            <tr class="group">
+                                <td class="pl-8 py-4">
+                                    <div class="flex items-center gap-4">
+                                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-600 ring-2 ring-white transition group-hover:bg-emerald-100 group-hover:text-emerald-700" x-text="u.username.substring(0,2).toUpperCase()"></div>
+                                        <div>
+                                            <div class="font-bold text-slate-900" x-text="u.username"></div>
+                                            <div class="text-xs text-slate-500" x-text="u.email"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge" :class="u.role==='admin'?'badge-danger':(u.role==='approver'?'badge-neutral':'badge-success')" x-text="u.role"></span>
+                                </td>
+                                <td class="text-slate-600 font-medium" x-text="u.department||'—'"></td>
+                                <td class="text-right pr-8">
+                                    <div class="opacity-0 transition-opacity group-hover:opacity-100 flex justify-end gap-2">
+                                        <button @click="open(u)" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-emerald-600"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+                                        <button @click="del(u.id)" class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
-                <div id="noResultsMsg" class="hidden flex-col items-center justify-center py-16 text-center">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-50 text-gray-300">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+
+            <div x-show="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm" x-cloak x-transition.opacity>
+                <div class="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl ring-1 ring-slate-900/5" @click.away="showModal=false" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+                    <div class="mb-6 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-900" x-text="form.id ? 'Edit Team Member' : 'Invite New Member'"></h3>
+                        <button @click="showModal=false" class="text-slate-400 hover:text-slate-600">✕</button>
                     </div>
-                    <h3 class="mt-2 text-sm font-bold text-gray-900">No users found</h3>
-                    <p class="text-xs text-gray-500">Try adjusting your filters or search terms.</p>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-semibold text-slate-500">Full Name</label><input x-model="form.name" class="input-field mt-1"></div>
+                            <div><label class="text-xs font-semibold text-slate-500">Email Address</label><input x-model="form.email" class="input-field mt-1"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-semibold text-slate-500">Department</label><select x-model="form.dept" class="select-field mt-1"><template x-for="d in departments"><option :value="d" x-text="d"></option></template></select></div>
+                            <div><label class="text-xs font-semibold text-slate-500">Role</label><select x-model="form.role" class="select-field mt-1"><option value="initiator">Initiator</option><option value="approver">Approver</option><option value="admin">System Admin</option></select></div>
+                        </div>
+                    </div>
+                    <div class="mt-8 flex justify-end gap-3 border-t border-slate-100 pt-6">
+                        <button @click="showModal=false" class="btn-secondary">Cancel</button>
+                        <button @click="save()" class="btn-primary">Save Changes</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div x-show="activeTab === 'masters'" class="space-y-6">
-            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div class="flex flex-col items-center justify-between gap-4 border-b border-gray-100 bg-gray-50/50 p-6 md:flex-row">
+        <div x-show="activeTab === 'masters'" x-data="masterApp()" class="flex h-full rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" x-transition.opacity>
+            <div class="w-64 border-r border-slate-200 bg-slate-50/50 py-6">
+                <div class="px-6 pb-4 text-xs font-bold uppercase tracking-wider text-slate-400">Master Data</div>
+                <template x-for="t in types" :key="t.slug">
+                    <button @click="loadType(t.slug)" 
+                        :class="currentSlug === t.slug ? 'border-emerald-500 bg-white text-emerald-700 shadow-sm' : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                        class="block w-full border-l-4 px-6 py-3 text-left text-sm font-medium transition-all" x-text="t.label"></button>
+                </template>
+            </div>
+            <div class="flex-1 flex flex-col bg-white">
+                <div class="flex items-center justify-between border-b border-slate-200 px-8 py-5">
                     <div>
-                        <h3 class="text-lg font-bold text-gray-800">Master Data Management</h3>
-                        <p class="mt-1 text-xs text-gray-500">Centralized control for system dropdowns and configurations.</p>
+                         <h3 class="font-bold text-slate-900" x-text="currentLabel || 'Configuration'"></h3>
+                         <p class="text-xs text-slate-500 mt-1">Manage system drop-down values</p>
                     </div>
-                    <form method="GET" action="{{ url_for('admin.admin_workflow') }}" class="flex w-full items-center md:w-auto">
-                        <input type="hidden" name="active_tab" value="masters">
-                        <select name="master_slug" onchange="this.form.submit()" class="block w-full rounded-lg border-gray-200 py-2.5 pl-3 pr-10 text-sm focus:border-[#009C49] focus:ring-[#009C49] md:w-64">
-                            <option value="" disabled {{ 'selected' if not selected_master_slug else '' }}>-- Select Data Type --</option>
-                            {% for slug, label in master_types.items() %}
-                                <option value="{{ slug }}" {{ 'selected' if selected_master_slug == slug else '' }}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
+                   
+                    <div x-show="currentSlug" class="flex gap-3">
+                        <input x-model="search" placeholder="Search values..." class="input-field w-64">
+                        <button @click="open()" class="btn-primary">+ Add New</button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-auto custom-scroll">
+                     <template x-if="!currentSlug">
+                         <div class="flex h-full flex-col items-center justify-center text-slate-400">
+                             <svg class="h-16 w-16 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4"/></svg>
+                             <p class="mt-4 text-sm">Select a category from the sidebar</p>
+                         </div>
+                     </template>
+                     <table class="w-full text-left modern-table" x-show="currentSlug">
+                        <thead class="sticky top-0 bg-white shadow-sm z-10"><tr><th class="pl-8">Code</th><th>Label</th><th class="text-right pr-8">Status</th></tr></thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="item in filteredItems" :key="item.id">
+                                <tr class="group">
+                                    <td class="pl-8 font-mono text-xs font-medium text-slate-500" x-text="item.code"></td>
+                                    <td class="font-medium text-slate-900" x-text="item.label"></td>
+                                    <td class="text-right pr-8">
+                                        <div class="flex items-center justify-end gap-4">
+                                            <button @click="toggle(item)" class="badge cursor-pointer transition-colors" :class="item.is_active?'badge-success':'badge-neutral'" x-text="item.is_active?'Active':'Inactive'"></button>
+                                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                                                <button @click="open(item)" class="text-slate-400 hover:text-emerald-600"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                                                <button @click="del(item.id)" class="text-slate-400 hover:text-red-600"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                     </table>
+                </div>
+            </div>
+            <div x-show="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm" x-cloak x-transition.opacity>
+                <div class="w-96 rounded-2xl bg-white p-6 shadow-2xl" @click.away="showModal=false">
+                    <h3 class="mb-6 text-lg font-bold text-slate-900">Edit Value</h3>
+                    <div class="space-y-4">
+                        <input x-model="form.code" placeholder="System Code (Unique)" class="input-field font-mono">
+                        <input x-model="form.label" placeholder="Display Label" class="input-field">
+                    </div>
+                    <div class="mt-8 flex justify-end gap-3">
+                        <button @click="showModal=false" class="btn-secondary">Cancel</button>
+                        <button @click="save()" class="btn-primary">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="activeTab === 'sap'" class="h-full flex items-center justify-center" x-transition.opacity>
+            <div class="w-full max-w-2xl">
+                <div class="card p-12 text-center shadow-lg shadow-slate-200/50">
+                    <div class="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-600 ring-8 ring-blue-50/50">
+                        <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-900">SAP Data Export</h2>
+                    <p class="mt-2 text-slate-500">Generate a CSV file of validated vendor data compatible with SAP ERP import.</p>
+                    
+                    <form action="{{ url_for('admin.export_sap_data') }}" method="get" class="mt-10 rounded-2xl bg-slate-50 p-8 ring-1 ring-slate-100">
+                        <div class="flex items-end justify-center gap-4">
+                            <div class="text-left w-48">
+                                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Start Date</label>
+                                <input type="date" name="start_date" class="input-field bg-white">
+                            </div>
+                            <div class="pb-3 text-slate-300"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></div>
+                            <div class="text-left w-48">
+                                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">End Date</label>
+                                <input type="date" name="end_date" class="input-field bg-white">
+                            </div>
+                        </div>
+                        <div class="mt-8">
+                             <button onclick="document.querySelector('form').submit()" class="btn-primary w-full justify-center py-3 text-base shadow-lg shadow-emerald-200">
+                                Download Export File
+                            </button>
+                        </div>
                     </form>
                 </div>
-
-                {% if selected_master_slug %}
-                    <div class="flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
-                        <h4 class="font-bold text-gray-700">{{ master_types[selected_master_slug] }} Records</h4>
-                        <a href="{{ url_for('masters.save_item', slug=selected_master_slug) }}" class="rounded-lg bg-[#009C49] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#007A3A]">+ Add New Item</a>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-100">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Code</th>
-                                    <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Label / Description</th>
-                                    <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Status</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-gray-500">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 bg-white">
-                                {% for item in master_items %}
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold font-mono text-gray-700">{{ item.code }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-600">{{ item.label }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="inline-flex rounded-full px-2 text-xs font-bold leading-5 {{ 'bg-green-100 text-green-800' if item.is_active else 'bg-red-100 text-red-800' }}">
-                                            {{ 'Active' if item.is_active else 'Inactive' }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <a href="{{ url_for('masters.save_item', slug=selected_master_slug, id=item.id) }}" class="mr-4 font-bold text-[#009C49] hover:text-[#007A3A]">Edit</a>
-                                        <form action="{{ url_for('masters.delete_item', id=item.id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete {{ item.code }}?');">
-                                            <button type="submit" class="font-bold text-red-600 hover:text-red-900">Delete</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="4" class="py-12 text-center text-sm italic text-gray-400">No records found. Click "Add New Item" to create one.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <div class="flex flex-col items-center justify-center py-16 text-center">
-                        <div class="mb-4 rounded-full bg-gray-50 p-4 text-gray-300">
-                            <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
-                        </div>
-                        <h3 class="text-sm font-bold text-gray-900">No Data Type Selected</h3>
-                        <p class="mt-1 text-xs text-gray-500">Please select a Data Type from the dropdown above to manage records.</p>
-                    </div>
-                {% endif %}
             </div>
         </div>
 
     </main>
-
-    <div x-show="showDeptModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm transition-opacity" style="display: none;" x-transition.opacity>
-        <div class="w-80 transform overflow-hidden rounded-xl bg-white p-6 shadow-2xl transition-all" @click.away="showDeptModal = false" x-transition.scale.95>
-            <h3 class="mb-4 text-lg font-bold text-gray-800">New Department</h3>
+    
+    <div x-show="showDeptModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm" x-cloak x-transition.opacity>
+        <div class="w-80 rounded-2xl bg-white p-6 shadow-2xl" @click.away="showDeptModal=false">
+            <h3 class="mb-4 text-lg font-bold text-slate-900">New Department</h3>
             <form method="POST">
-                <div class="mb-4">
-                    <label class="mb-1 block text-xs font-bold uppercase text-gray-500">Name</label>
-                    <input type="text" name="new_dept_name" class="w-full rounded-lg border-gray-300 py-2.5 text-sm font-medium focus:border-[#009C49] focus:ring-[#009C49]" placeholder="e.g. Logistics" required autofocus>
-                </div>
-                <div class="flex justify-end gap-2">
-                    <button type="button" @click="showDeptModal = false" class="rounded-lg px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
-                    <button class="rounded-lg bg-[#009C49] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#007A3A]">Create</button>
-                </div>
+                <input name="new_dept_name" class="input-field" placeholder="Department Name" required autofocus>
+                <div class="mt-6 flex justify-end gap-3"><button type="button" @click="showDeptModal=false" class="btn-secondary">Cancel</button><button class="btn-primary">Create</button></div>
             </form>
         </div>
     </div>
-
-    <div x-show="showUserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm transition-opacity" style="display: none;" x-transition.opacity>
-        <div class="w-full max-w-lg transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all" @click.away="showUserModal = false" x-transition.scale.95>
-            <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-                <h3 class="text-lg font-bold text-gray-800" x-text="modalTitle"></h3>
-                <button @click="showUserModal = false" class="text-gray-400 hover:text-gray-600">
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            
-            <form method="POST" class="p-6">
-                <input type="hidden" name="edit_user_id" x-model="userForm.id">
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2">
-                        <label class="mb-1 block text-xs font-bold uppercase text-gray-500">Full Name</label>
-                        <input type="text" name="new_user_name" x-model="userForm.name" class="w-full rounded-lg border-gray-300 py-2.5 text-sm font-medium focus:border-[#009C49] focus:ring-[#009C49]" placeholder="e.g. John Doe" required>
-                    </div>
-                    <div class="col-span-2">
-                        <label class="mb-1 block text-xs font-bold uppercase text-gray-500">Email Address</label>
-                        <input type="email" name="new_user_email" x-model="userForm.email" class="w-full rounded-lg border-gray-300 py-2.5 text-sm font-medium focus:border-[#009C49] focus:ring-[#009C49]" placeholder="john@company.com" required>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-xs font-bold uppercase text-gray-500">Department</label>
-                        <select name="user_dept" x-model="userForm.dept" class="w-full rounded-lg border-gray-300 py-2.5 text-sm font-medium focus:border-[#009C49] focus:ring-[#009C49]">
-                            {% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-xs font-bold uppercase text-gray-500">System Role</label>
-                        <select name="user_role" x-model="userForm.role" class="w-full rounded-lg border-gray-300 py-2.5 text-sm font-medium focus:border-[#009C49] focus:ring-[#009C49]">
-                            <option value="initiator">Initiator</option>
-                            <option value="approver">Approver</option>
-                        </select>
-                    </div>
-                    <div class="col-span-2">
-                        <label class="mb-1 block text-xs font-bold uppercase text-gray-500">Assigned Category (Optional)</label>
-                        <input type="text" name="user_category" x-model="userForm.category" placeholder="e.g. IT Hardware" class="w-full rounded-lg border-gray-300 py-2.5 text-sm font-medium focus:border-[#009C49] focus:ring-[#009C49]">
-                        <p class="mt-1 text-[10px] text-gray-400">Used for automatic category routing logic.</p>
-                    </div>
-                </div>
-
-                <div class="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
-                    <button type="button" @click="showUserModal = false" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50">Cancel</button>
-                    <button class="rounded-lg bg-[#009C49] px-6 py-2 text-sm font-bold text-white shadow-md shadow-green-100 transition hover:bg-[#007A3A]" x-text="userForm.id ? 'Update Member' : 'Add Member'"></button>
-                </div>
-            </form>
-        </div>
-    </div>
-
 </div>
 
 <script>
-    // --- Table Filtering Logic ---
-    function filterUsers() {
-        const search = document.getElementById('userSearchInput').value.toLowerCase();
-        const roleFilter = document.getElementById('roleFilterInput').value.toLowerCase();
-        const deptFilter = document.getElementById('deptFilterInput').value.toLowerCase(); 
-        const rows = document.getElementById('userTableBody').getElementsByTagName('tr');
-        let hasResults = false;
-
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const nameText = row.cells[0]?.textContent.toLowerCase().trim() || '';
-            const emailText = row.cells[1]?.textContent.toLowerCase().trim() || '';
-            const deptText = row.cells[2]?.textContent.toLowerCase().trim() || ''; 
-            const roleText = row.cells[3]?.textContent.toLowerCase().trim() || ''; 
-            const catText = row.cells[4]?.textContent.toLowerCase().trim() || '';
-            
-            const matchesSearch = (nameText + emailText + deptText + roleText + catText).includes(search);
-            
-            let matchesRole = true;
-            if (roleFilter) {
-                if (roleFilter === 'finance') matchesRole = deptText.includes('finance') || roleText.includes('finance');
-                else matchesRole = roleText.includes(roleFilter);
-            }
-
-            let matchesDept = true;
-            if (deptFilter) matchesDept = deptText.includes(deptFilter); 
-
-            if (matchesSearch && matchesRole && matchesDept) {
-                row.style.display = "";
-                hasResults = true;
-            } else {
-                row.style.display = "none";
-            }
+document.addEventListener('alpine:init', () => {
+    // --- MAIN CONTROLLER ---
+    Alpine.data('adminApp', () => ({
+        activeTab: APP.active_tab || 'dashboard',
+        tabs: [
+            {id:'dashboard',label:'Overview',icon:'<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>'},
+            {id:'logic',label:'Workflow',icon:'<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>'},
+            {id:'users',label:'Team',icon:'<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>'},
+            {id:'masters',label:'Data',icon:'<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4"/></svg>'},
+            {id:'sap',label:'Integration',icon:'<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>'}
+        ],
+        departments: APP.departments, stats: APP.stats, showDeptModal: false, toasts: [],
+        init() {
+            const u = new URL(window.location); if(u.searchParams.get('active_tab')) this.activeTab = u.searchParams.get('active_tab');
+            this.$watch('activeTab', v => { const url = new URL(window.location); url.searchParams.set('active_tab', v); window.history.pushState({},'',url); });
+            this.initCharts();
+        },
+        toast(msg) { const id=Date.now(); this.toasts.push({id,msg,visible:true}); setTimeout(()=>this.toasts=this.toasts.filter(t=>t.id!==id),3000); },
+        initCharts() {
+            const s = this.stats;
+            const c1 = document.getElementById('deptChart');
+            if(c1) new Chart(c1, { type:'bar', data: { labels:s.dept_labels, datasets:[{data:s.dept_volumes, backgroundColor:'#10b981', borderRadius:6, barThickness:30}] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}, y:{beginAtZero:true, grid:{borderDash:[4,4], color:'#e2e8f0'}}} } });
+            const c2 = document.getElementById('statusChart');
+            if(c2) new Chart(c2, { type:'doughnut', data: { labels:['Done','Reject','Pending','Draft'], datasets:[{data:[s.completed, s.rejected, s.pending, s.total-(s.completed+s.rejected+s.pending)], backgroundColor:['#10b981','#f43f5e','#f59e0b','#e2e8f0'], borderWidth:0}] }, options:{responsive:true, maintainAspectRatio:false, cutout:'75%', plugins:{legend:{display:false}}} });
         }
-        document.getElementById('noResultsMsg').style.display = hasResults ? "none" : "flex";
-    }
-
-    // --- Table Sorting Logic ---
-    function sortTable(n) {
-        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
-        table = document.querySelector("#userTableBody");
-        switching = true;
-        dir = "asc"; 
-        
-        while (switching) {
-            switching = false;
-            rows = table.rows;
-            for (i = 0; i < (rows.length - 1); i++) {
-                shouldSwitch = false;
-                x = rows[i].getElementsByTagName("TD")[n];
-                y = rows[i + 1].getElementsByTagName("TD")[n];
-                
-                var xContent = x.textContent.toLowerCase().trim();
-                var yContent = y.textContent.toLowerCase().trim();
-
-                if (dir == "asc") {
-                    if (xContent > yContent) { shouldSwitch = true; break; }
-                } else if (dir == "desc") {
-                    if (xContent < yContent) { shouldSwitch = true; break; }
-                }
-            }
-            if (shouldSwitch) {
-                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-                switching = true;
-                switchcount ++;      
-            } else {
-                if (switchcount == 0 && dir == "asc") {
-                    dir = "desc";
-                    switching = true;
-                }
-            }
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const el = document.getElementById('stepList');
-        if (el) Sortable.create(el, { animation: 150, handle: '.cursor-move', ghostClass: 'bg-green-50', onEnd: (evt) => {
-            const order = Array.from(document.querySelectorAll('.step-item')).map(item => item.dataset.id);
-            fetch("{{ url_for('admin.reorder_steps') }}", { method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step_ids: order }) }).then(() => {
-                document.querySelectorAll('.step-number').forEach((div, index) => div.innerText = index + 1);
-            });
-        }});
-
-        const commonOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
-        
-        const deptCtx = document.getElementById('deptChart');
-        if(deptCtx) {
-            new Chart(deptCtx.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: {{ stats.dept_labels | tojson }},
-                    datasets: [{ data: {{ stats.dept_volumes | tojson }}, backgroundColor: '#009C49', borderRadius: 8, barThickness: 24 }]
-                },
-                options: { ...commonOptions, scales: { y: { beginAtZero: true, grid: { borderDash: [4, 4], color: '#f1f5f9' } }, x: { grid: { display: false } } } }
-            });
-        }
-
-        const statusCtx = document.getElementById('statusChart');
-        if(statusCtx) {
-            new Chart(statusCtx.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Done', 'Reject', 'Pending', 'Draft'],
-                    datasets: [{
-                        data: [{{ stats.completed }}, {{ stats.rejected }}, {{ stats.pending }}, {{ stats.total - (stats.completed + stats.rejected + stats.pending) }}],
-                        backgroundColor: ['#10b981', '#f43f5e', '#f59e0b', '#e2e8f0'],
-                        borderWidth: 0,
-                        hoverOffset: 10
-                    }]
-                },
-                options: { ...commonOptions, cutout: '80%' }
-            });
-        }
-    });
+    }));
+    // --- WORKFLOW ---
+    Alpine.data('workflowApp', () => ({
+        currentDept: APP.selected_dept || 'Purchase', viewType: 'STANDARD', loading: false,
+        users: APP.users, finance: APP.finance, itData: APP.it_routes, matrix: [], steps: [],
+        newCat: {name:'',l1:'',l2:''}, newStep: {role:'',email:''}, newIT: {group:'',email:''},
+        init() { this.loadDept(this.currentDept); },
+        async loadDept(d) {
+            this.currentDept = d; this.loading = true;
+            if(d.startsWith('GLOBAL_')) this.viewType = d.replace('GLOBAL_', '');
+            else { this.viewType = 'STANDARD'; const data = await (await fetch(`/admin/api/logic/${d}`)).json(); this.matrix = data.matrix; this.steps = data.steps; }
+            this.loading = false;
+            if(this.viewType === 'STANDARD') this.$nextTick(() => { const el = document.getElementById('stepList'); if(el && !el._sortable) el._sortable = Sortable.create(el, { animation:150, handle:'.cursor-grab', onEnd: e => apiRequest({action:'reorder_steps', order: Array.from(el.querySelectorAll('.step-item')).map(i=>i.dataset.id)}) }); });
+        },
+        async update(type, id, email) { await apiRequest({action:'update_assignment', type, id, email}); this.$root._x_dataStack[0].toast('Assignment Updated'); },
+        async addCat() { if(this.newCat.name){ await apiRequest({action:'add_category', dept:this.currentDept, category:this.newCat.name, l1:this.newCat.l1, l2:this.newCat.l2}); this.newCat={name:'',l1:'',l2:''}; this.loadDept(this.currentDept); }},
+        async addStep() { if(this.newStep.role){ await apiRequest({action:'add_step', dept:this.currentDept, role:this.newStep.role, email:this.newStep.email}); this.newStep={role:'',email:''}; this.loadDept(this.currentDept); }},
+        async delRule(t, id) { if(confirm('Are you sure?')){ await apiRequest({action: t==='category'?'delete_category':'delete_step', id}); this.loadDept(this.currentDept); }}
+    }));
+    // --- USERS ---
+    Alpine.data('userApp', () => ({
+        search: '', deptFilter: '', showModal: false, form: {id:'',name:'',email:'',dept:'',role:'',category:''}, departments: APP.departments,
+        get filtered() { return APP.users.filter(u => (u.username+u.email).toLowerCase().includes(this.search.toLowerCase()) && (!this.deptFilter || u.department===this.deptFilter)); },
+        open(u) { this.form = u ? {...u} : {id:'',name:'',email:'',dept:this.departments[0],role:'initiator',category:''}; this.showModal=true; },
+        async save() { await apiRequest({action:'save_user', ...this.form}); window.location.reload(); },
+        async del(id) { if(confirm('Remove user?')){ await apiRequest({action:'delete_user', id}); window.location.reload(); }}
+    }));
+    // --- MASTERS ---
+    Alpine.data('masterApp', () => ({
+        types: APP.master_types, currentSlug: '', currentLabel: '', items: [], search: '', showModal: false, form: {id:'',code:'',label:'',is_active:true},
+        get filteredItems() { return this.items.filter(i => (i.code+i.label).toLowerCase().includes(this.search.toLowerCase())); },
+        async loadType(slug) { this.currentSlug = slug; this.currentLabel = this.types.find(t=>t.slug===slug).label; this.items = await (await fetch(`/admin/api/masters/${slug}`)).json(); },
+        open(i) { this.form = i ? {...i, category_code:''} : {id:'', code:'', label:'', is_active:true}; this.showModal=true; },
+        async save() { const t = this.types.find(x=>x.slug===this.currentSlug); await apiRequest({action:'save_master', ...this.form, category_code: t ? t.slug.replace(/-/g, '_').toUpperCase() : ''}); this.showModal=false; this.loadType(this.currentSlug); this.$root._x_dataStack[0].toast('Saved'); },
+        async toggle(i) { await apiRequest({action:'toggle_master', id:i.id}); i.is_active = !i.is_active; },
+        async del(id) { if(confirm('Delete?')){ await apiRequest({action:'delete_master', id}); this.loadType(this.currentSlug); }}
+    }));
+});
 </script>
 {% endblock %}

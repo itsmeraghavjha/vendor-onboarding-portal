@@ -36,13 +36,14 @@ class ResetPasswordForm(FlaskForm):
     submit = SubmitField('Reset Password')
 
 # --- VENDOR PORTAL FORMS ---
-
 class VendorOnboardingForm(FlaskForm):
     # Step 1: General
     title = SelectField('Title', choices=[('Mr', 'Mr'), ('Ms', 'Ms'), ('M/s', 'M/s'), ('Dr', 'Dr')], validators=[DataRequired()])
     trade_name = StringField('Trade Name')
     
+    # FIX 1: Added blank default option to force user selection
     constitution = SelectField('Constitution', choices=[
+        ('', '-- Select Constitution --'), 
         ('Individual', 'Individual'),
         ('Proprietorship', 'Proprietorship'), 
         ('Partnership', 'Partnership'),
@@ -59,10 +60,17 @@ class VendorOnboardingForm(FlaskForm):
     
     contact_name = StringField('Contact Person', validators=[DataRequired()])
     designation = StringField('Designation', validators=[DataRequired()])
+    
+    # Mobile length is validated here, but we also enforced it in HTML
     mobile_1 = StringField('Mobile 1', validators=[DataRequired(), Length(min=10, max=10)])
     mobile_2 = StringField('Mobile 2')
     landline = StringField('Landline')
-    product_desc = TextAreaField('Product/Service Description', validators=[DataRequired()])
+    
+    # FIX 2: Restricted length to 50 characters
+    product_desc = TextAreaField('Product/Service Description', validators=[
+        DataRequired(), 
+        Length(max=50, message="Description cannot exceed 50 characters")
+    ])
     
     street_1 = StringField('Street 1', validators=[DataRequired()])
     street_2 = StringField('Street 2')
@@ -75,7 +83,6 @@ class VendorOnboardingForm(FlaskForm):
     # Step 2: Tax & Compliance
     gst_reg = RadioField('GST Registered?', choices=[('YES', 'Yes'), ('NO', 'No')], validators=[DataRequired()])
     
-    # Auto-uppercase GST Number
     gst_no = StringField('GST Number', 
                          validators=[RequiredIf('gst_reg')], 
                          filters=[lambda x: x.upper() if x else None])
@@ -85,7 +92,6 @@ class VendorOnboardingForm(FlaskForm):
         RequiredIf('gst_reg')
     ])
 
-    # Auto-uppercase PAN Number
     pan_no = StringField('PAN Number', 
                          validators=[DataRequired(), Length(min=10, max=10)], 
                          filters=[lambda x: x.upper() if x else None])
@@ -116,7 +122,6 @@ class VendorOnboardingForm(FlaskForm):
     acc_no = StringField('Account Number', validators=[DataRequired()])
     acc_no_confirm = StringField('Confirm Account Number', validators=[DataRequired(), EqualTo('acc_no', message='Account numbers must match')])
     
-    # Auto-uppercase IFSC
     ifsc = StringField('IFSC Code', 
                        validators=[DataRequired()], 
                        filters=[lambda x: x.upper() if x else None])
