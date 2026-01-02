@@ -17,9 +17,7 @@
     /* --- Base Layout --- */
     body { background-color: #F8FAFC; font-family: 'Open Sans', sans-serif; }
 
-    [x-show="activeTab === 'sap'"] {
-      margin-top: -12px;
-  }
+    [x-show="activeTab === 'sap'"] { margin-top: -12px; }
     
     /* --- Standardized Inputs --- */
     .input-std, .select-std {
@@ -49,7 +47,7 @@
     }
     .btn-secondary:hover { background-color: #F8FAFC; border-color: #94A3B8; }
 
-    .btn-icon { padding: 0.5rem; border-radius: 0.375rem; color: #64748B; transition: all 0.2s; }
+    .btn-icon { padding: 0.5rem; border-radius: 0.375rem; color: #64748B; transition: all 0.2s; cursor: pointer; }
     .btn-icon:hover { background-color: #F1F5F9; color: var(--heritage-green); }
     .btn-icon.danger:hover { background-color: #FEF2F2; color: #DC2626; }
 
@@ -57,7 +55,10 @@
     .card {
         background-color: white; border: 1px solid #CBD5E1; border-radius: 0.5rem;
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); overflow: hidden;
+        transition: all 0.2s ease;
     }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.06); }
+    
     .card-header {
         background-color: #F8FAFC; border-bottom: 1px solid #CBD5E1; padding: 1rem 1.5rem;
         display: flex; align-items: center; justify-content: space-between;
@@ -84,19 +85,23 @@
     .custom-scroll::-webkit-scrollbar-thumb:hover { background-color: #94A3B8; }
 </style>
 
+<div x-data="{ show: false, message: '', type: 'success' }" 
+     @notify.window="show = true; message = $event.detail.message; type = $event.detail.type; setTimeout(() => show = false, 3000)"
+     x-show="show" 
+     class="fixed top-20 right-6 z-[100] px-6 py-4 rounded-lg shadow-xl transition-all transform duration-300 flex items-center gap-3 border"
+     :class="type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800'"
+     x-transition:enter="translate-x-full opacity-0"
+     x-transition:enter-end="translate-x-0 opacity-100"
+     x-transition:leave="translate-x-0 opacity-100"
+     x-transition:leave-end="translate-x-full opacity-0"
+     x-cloak>
+    <span x-text="type === 'error' ? '⚠️' : '✅'" class="text-xl"></span>
+    <span x-text="message" class="font-bold text-sm"></span>
+</div>
+
 <script>
     const APP = {{ app_data | tojson }};
     
-    // --- Mocking Dept-wise Pending Data if not provided by backend ---
-    // This allows the UI to render correctly even if the backend update is pending.
-    if (!APP.stats.dept_pending) {
-        APP.stats.dept_pending = {};
-        APP.departments.forEach(d => {
-            // Simulated random data for demo purposes
-            APP.stats.dept_pending[d] = Math.floor(Math.random() * 5); 
-        });
-    }
-
     async function apiRequest(payload) {
         try {
             const res = await fetch('/admin/api/update', { 
@@ -105,10 +110,15 @@
                 body: JSON.stringify(payload) 
             });
             const data = await res.json();
+            
             if(!data.success && data.error) throw new Error(data.error);
+            
+            // Dispatch success toast
+            window.dispatchEvent(new CustomEvent('notify', { detail: { message: 'Action completed successfully', type: 'success' } }));
             return data;
         } catch (e) {
-            alert('Error: ' + e.message);
+            // Dispatch error toast (NO ALERT)
+            window.dispatchEvent(new CustomEvent('notify', { detail: { message: e.message, type: 'error' } }));
             return {error: e.message};
         }
     }
@@ -139,132 +149,144 @@
 
    <main class="flex-1 max-w-[1600px] w-full mx-auto px-6 py-4 space-y-6">
 
-        
-        <div x-show="activeTab === 'dashboard'" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div class="card p-6 border-l-4 border-l-[#009C49]">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Requests</p>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <h3 class="text-3xl font-bold text-gray-900" x-text="stats.total"></h3>
-                        <span class="text-xs font-medium text-gray-500">all time</span>
-                    </div>
-                </div>
-                <div class="card p-6 border-l-4 border-l-amber-500">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Pending Action</p>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <h3 class="text-3xl font-bold text-gray-900" x-text="stats.pending"></h3>
-                        <span class="text-xs font-medium text-gray-500">active</span>
-                    </div>
-                </div>
-                <div class="card p-6 border-l-4 border-l-red-500">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Rejected</p>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <h3 class="text-3xl font-bold text-gray-900" x-text="stats.rejected"></h3>
-                        <span class="text-xs font-medium text-gray-500">requests</span>
-                    </div>
-                </div>
-                <div class="card p-6 border-l-4 border-l-blue-500">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg Cycle Time</p>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <h3 class="text-3xl font-bold text-gray-900" x-text="stats.avg_cycle_time"></h3>
-                        <span class="text-xs font-medium text-gray-500">days</span>
-                    </div>
+      <div x-show="activeTab === 'dashboard'" class="space-y-8">
+        <div class="grid grid-cols-5 gap-4">
+            <div class="card p-5 border-t-4 border-blue-500 shadow-sm hover:shadow-md transition-all">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Department Review</p>
+                <div class="flex items-center justify-between mt-2">
+                    <h3 class="text-4xl font-light text-slate-900" x-text="stats.bottlenecks[0][1]"></h3>
+                    <span class="text-blue-100 text-xl">🏢</span>
                 </div>
             </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="card flex flex-col">
-                    <div class="card-header">
-                        <h3 class="font-bold text-gray-800">Pending Workload by Dept</h3>
-                    </div>
-                    <div class="flex-1 p-0">
-                        <div class="overflow-y-auto max-h-80 custom-scroll">
-                            <table class="w-full text-left data-table">
-                                <thead class="sticky top-0 bg-gray-50">
-                                    <tr><th class="py-2">Department</th><th class="py-2 text-right">Pending</th><th class="py-2 w-1/3">Load</th></tr>
-                                </thead>
-                                <tbody>
-                                    <template x-for="(count, dept) in stats.dept_pending" :key="dept">
-                                        <tr>
-                                            <td class="font-medium text-gray-700" x-text="dept"></td>
-                                            <td class="text-right font-bold text-gray-900" x-text="count"></td>
-                                            <td class="px-4">
-                                                <div class="w-full bg-gray-200 rounded-full h-1.5">
-                                                    <div class="bg-amber-500 h-1.5 rounded-full" :style="`width: ${Math.min((count/10)*100, 100)}%`"></div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+            <div class="card p-5 border-t-4 border-indigo-500 shadow-sm hover:shadow-md transition-all">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bill Passing</p>
+                <div class="flex items-center justify-between mt-2">
+                    <h3 class="text-4xl font-light text-slate-900" x-text="stats.bottlenecks[1][1]"></h3>
+                    <span class="text-indigo-100 text-xl">🧾</span>
                 </div>
-
-                <div class="card flex flex-col">
-                    <div class="card-header">
-                        <h3 class="font-bold text-gray-800">Total Volume Distribution</h3>
-                    </div>
-                    <div class="flex-1 p-6 flex items-center justify-center">
-                         <div class="w-full h-64"><canvas id="deptChart"></canvas></div>
-                    </div>
+            </div>
+            <div class="card p-5 border-t-4 border-violet-500 shadow-sm hover:shadow-md transition-all">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Treasury</p>
+                <div class="flex items-center justify-between mt-2">
+                    <h3 class="text-4xl font-light text-slate-900" x-text="stats.bottlenecks[2][1]"></h3>
+                    <span class="text-violet-100 text-xl">💰</span>
+                </div>
+            </div>
+            <div class="card p-5 border-t-4 border-purple-500 shadow-sm hover:shadow-md transition-all">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tax Team</p>
+                <div class="flex items-center justify-between mt-2">
+                    <h3 class="text-4xl font-light text-slate-900" x-text="stats.bottlenecks[3][1]"></h3>
+                    <span class="text-purple-100 text-xl">⚖️</span>
+                </div>
+            </div>
+            <div class="card p-5 border-t-4 border-pink-500 shadow-sm hover:shadow-md transition-all">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">IT Provisioning</p>
+                <div class="flex items-center justify-between mt-2">
+                    <h3 class="text-4xl font-light text-slate-900" x-text="stats.bottlenecks[4][1]"></h3>
+                    <div class="h-2 w-2 rounded-full" :class="stats.bottlenecks[4][1] > 0 ? 'bg-pink-500 animate-pulse' : 'bg-slate-200'"></div>
                 </div>
             </div>
         </div>
 
-        <div x-show="activeTab === 'logic'" x-data="workflowApp()" class="flex gap-6 items-start">
+        <div class="grid grid-cols-3 gap-8">
+            <div class="col-span-2 card">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/30">
+                    <h3 class="text-sm font-bold text-slate-700">BUSINESS UNIT (BU) LOAD</h3>
+                </div>
+                <table class="w-full text-left">
+                    <thead><tr class="text-[10px] uppercase text-slate-400 border-b"><th class="px-6 py-3">Business Unit</th><th class="px-6 py-3 text-right">Pending</th><th class="px-6 py-3 w-1/2">Load Factor</th></tr></thead>
+                    <tbody>
+                        <template x-for="(count, dept) in stats.dept_pending" :key="dept">
+                            <tr class="hover:bg-slate-50/50">
+                                <td class="px-6 py-4 text-sm font-bold text-slate-700" x-text="dept"></td>
+                                <td class="px-6 py-4 text-sm text-right font-bold" x-text="count"></td>
+                                <td class="px-6 py-4">
+                                    <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-500" :style="`width: ${Math.min(count * 10, 100)}%`" :class="count > 5 ? 'bg-red-500' : (count > 2 ? 'bg-yellow-400' : 'bg-emerald-500')"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
             
-            <aside class="w-64 shrink-0 card sticky top-24 max-h-[calc(100vh-120px)] flex flex-col">
-                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center shrink-0">
-                    <span class="text-xs font-bold uppercase text-gray-500">Departments</span>
-                    <button @click="showDeptModal=true" class="text-[#009C49] hover:bg-green-50 p-1 rounded transition border border-transparent hover:border-green-200">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    </button>
-                </div>
-                <div class="p-2 space-y-1 overflow-y-auto custom-scroll flex-1">
-                    <div class="px-3 py-2 text-[10px] font-bold uppercase text-gray-400">Global Settings</div>
-                    <button @click="loadDept('GLOBAL_FINANCE')" 
-                        :class="currentDept === 'GLOBAL_FINANCE' ? 'bg-blue-50 text-blue-700 font-bold border-blue-200' : 'text-gray-600 hover:bg-gray-50 border-transparent'"
-                        class="w-full text-left px-3 py-2 rounded-md text-sm border flex items-center gap-2 transition-all">
-                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> Finance Team
-                    </button>
-                    <button @click="loadDept('GLOBAL_IT')" 
-                        :class="currentDept === 'GLOBAL_IT' ? 'bg-purple-50 text-purple-700 font-bold border-purple-200' : 'text-gray-600 hover:bg-gray-50 border-transparent'"
-                        class="w-full text-left px-3 py-2 rounded-md text-sm border flex items-center gap-2 transition-all">
-                        <span class="w-2 h-2 rounded-full bg-purple-500"></span> IT Provisioning
-                    </button>
-
-                    <div class="border-t border-gray-200 my-2"></div>
-
-                    <div class="px-3 py-2 text-[10px] font-bold uppercase text-gray-400">Business Units</div>
-                    <template x-for="d in departments" :key="d">
-                        <button @click="loadDept(d)" 
-                            :class="currentDept === d ? 'bg-[#E6F5ED] text-[#007A3A] font-bold border-[#009C49]' : 'text-gray-600 hover:bg-gray-50 border-transparent'"
-                            class="w-full text-left px-3 py-2 rounded-md text-sm border transition-all flex justify-between items-center">
-                            <span x-text="d"></span>
-                            <span x-show="currentDept === d" class="w-2 h-2 rounded-full bg-[#009C49]"></span>
-                        </button>
-                    </template>
-                </div>
-            </aside>
-
-            <div class="flex-1 space-y-6">
-                <div class="card">
-                    <div class="card-header">
-                        <div>
-                            <h2 class="text-lg font-bold text-gray-900" x-text="currentDept.replace('GLOBAL_', '').replace('_', ' ')"></h2>
-                            <p class="text-xs text-gray-500 mt-0.5">Manage workflow routing</p>
-                        </div>
-                        <div x-show="loading" class="text-xs font-bold text-[#009C49] animate-pulse">Saving...</div>
+            <div class="card p-6 border-0 shadow-lg flex flex-col justify-between">
+                <div>
+                    <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Request Volume & Status</h4>
+                    <div class="h-48 relative">
+                        <canvas id="statusChart"></canvas>
                     </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-6 text-center border-t pt-4">
+                    <div>
+                        <span class="block text-2xl font-bold text-emerald-600" x-text="stats.completed"></span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Approved</span>
+                    </div>
+                    <div>
+                        <span class="block text-2xl font-bold text-red-500" x-text="stats.rejected"></span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Rejected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    <div class="p-6 bg-gray-50/30">
+    <div x-show="activeTab === 'logic'" x-data="workflowApp()" class="flex gap-6 items-start h-[calc(100vh-140px)]">
+    
+    <aside class="w-64 shrink-0 card h-full flex flex-col">
+        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center shrink-0">
+            <span class="text-xs font-bold uppercase text-gray-500">Departments</span>
+            <button @click="showDeptModal = true" class="text-[#009C49] hover:bg-green-50 p-1 rounded transition border border-transparent hover:border-green-200">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </button>
+        </div>
+        <div class="p-2 space-y-1 overflow-y-auto custom-scroll flex-1">
+            <div class="px-3 py-2 text-[10px] font-bold uppercase text-gray-400">Business Units</div>
+            <template x-for="d in departments" :key="d">
+                <div class="group flex items-center w-full rounded-md border border-transparent hover:bg-gray-50 hover:border-gray-200 transition-all mb-1">
+                    <button @click="loadDept(d)" 
+                        class="flex-1 text-left px-3 py-2 text-sm flex justify-between items-center"
+                        :class="currentDept === d ? 'text-emerald-700 font-bold' : 'text-gray-600'">
+                        <span x-text="d"></span>
+                        <span x-show="currentDept === d" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    </button>
+                    <div class="hidden group-hover:flex items-center gap-1 pr-2">
+                         <button @click.stop="openRename(d)" class="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Rename">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                        <button @click.stop="deleteDept(d)" class="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <div class="border-t border-gray-200 my-2"></div>
+
+            <div class="px-3 py-2 text-[10px] font-bold uppercase text-gray-400">Provisioning Phases</div>
+            <button @click="loadDept('GLOBAL_FINANCE')" :class="currentDept === 'GLOBAL_FINANCE' ? 'bg-blue-50 text-blue-700 font-bold border-blue-200' : 'text-gray-600'" class="w-full text-left px-3 py-2 rounded-md text-sm border flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span> Finance Provisioning
+            </button>
+            <button @click="loadDept('GLOBAL_IT')" :class="currentDept === 'GLOBAL_IT' ? 'bg-purple-50 text-purple-700 font-bold border-purple-200' : 'text-gray-600'" class="w-full text-left px-3 py-2 rounded-md text-sm border flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-purple-500"></span> IT Provisioning
+            </button>
+        </div>
+    </aside>
+
+    <div class="flex-1 space-y-6 h-full flex flex-col">
+        <div class="card h-full flex flex-col">
+            <div class="card-header shrink-0">
+                <h2 class="text-lg font-bold text-gray-900" x-text="currentDept.replace('GLOBAL_', '').replace('_', ' ')"></h2>
+                <div x-show="loading" class="text-xs font-bold text-emerald-600 animate-pulse">Loading...</div>
+            </div>
+
+            <div class="p-6 bg-gray-50/30 overflow-y-auto custom-scroll flex-1">
+                <div class="space-y-8">
+                    <template x-if="!currentDept.startsWith('GLOBAL_')">
                         <div class="space-y-8">
-                            
                             <div class="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden">
-                                <div class="bg-gray-100 px-4 py-2 border-b border-gray-300 text-xs font-bold text-gray-600 uppercase">
-                                    Category Approval Matrix
-                                </div>
+                                <div class="bg-gray-100 px-4 py-2 border-b border-gray-300 text-xs font-bold text-gray-600 uppercase">Category Approval Matrix</div>
                                 <table class="w-full text-left data-table">
                                     <thead><tr><th>Category</th><th>L1 Manager</th><th>L2 Head</th><th class="w-16"></th></tr></thead>
                                     <tbody>
@@ -278,377 +300,242 @@
                                         </template>
                                         <tr class="bg-green-50/50">
                                             <td class="p-2 pl-4"><input x-model="newCat.name" placeholder="New Category" class="input-std h-9 text-xs"></td>
-                                            <td class="p-2"><select x-model="newCat.l1" class="select-std h-9 text-xs"><option value="">L1 Manager...</option><template x-for="u in deptUsers"><option :value="u.email" x-text="u.username"></option></template></select></td>
-                                            <td class="p-2"><select x-model="newCat.l2" class="select-std h-9 text-xs"><option value="">L2 Head...</option><template x-for="u in deptUsers"><option :value="u.email" x-text="u.username"></option></template></select></td>
-                                            <td class="p-2 text-right"><button
-    @click="addCat()"
-    class="h-10 px-4 rounded-md bg-[#009C49] text-white font-semibold
-           hover:bg-[#007A3A] transition flex items-center gap-2">
-
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M12 4v16m8-8H4" />
-    </svg>
-
-    Add
-</button>
-</td>
+                                            <td class="p-2"><select x-model="newCat.l1" class="select-std h-9 text-xs"><option value="">L1...</option><template x-for="u in deptUsers"><option :value="u.email" x-text="u.username"></option></template></select></td>
+                                            <td class="p-2"><select x-model="newCat.l2" class="select-std h-9 text-xs"><option value="">L2...</option><template x-for="u in deptUsers"><option :value="u.email" x-text="u.username"></option></template></select></td>
+                                            <td class="p-2 text-right"><button @click="addCat()" class="btn-primary h-9 px-4 text-xs">Add</button></td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
-
                             <div class="bg-white border border-gray-300 rounded-lg shadow-sm">
-
-    <div class="px-4 py-3 border-b text-xs font-bold uppercase text-gray-600">
-        Sequential Approval Chain
+                                <div class="px-4 py-3 border-b text-xs font-bold uppercase text-gray-600">Sequential Approval Chain</div>
+                                <div id="stepList" class="divide-y">
+                                    <template x-for="(s, i) in steps" :key="s.id">
+                                        <div :data-id="s.id" class="step-item grid grid-cols-[28px_40px_1fr_260px_40px] items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                                            <div class="cursor-move text-gray-400">☰</div>
+                                            <div class="w-8 h-8 flex items-center justify-center rounded-full border text-sm font-semibold text-gray-600" x-text="i + 1"></div>
+                                            <div class="font-medium text-gray-800" x-text="s.role"></div>
+                                            <select @change="update('step_user', s.id, $event.target.value)" class="select-std h-9 text-sm">
+                                                <option value="">Select user...</option>
+                                                <template x-for="u in deptUsers"><option :value="u.email" :selected="u.email === s.email" x-text="u.username"></option></template>
+                                            </select>
+                                            <button @click="delRule('step', s.id)" class="text-gray-400 hover:text-red-600 text-lg">×</button>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="border-t bg-gray-50 px-4 py-4">
+                                    <div class="grid grid-cols-[1fr_1fr_auto] gap-3 items-center">
+                                        <input x-model="newStep.role" placeholder="Role title" class="input-std h-10">
+                                        <select x-model="newStep.email" class="select-std h-10">
+                                            <option value="">Select user...</option>
+                                            <template x-for="u in deptUsers"><option :value="u.email" x-text="u.username"></option></template>
+                                        </select>
+                                        <button @click="addStep()" class="btn-primary h-10 px-4" :disabled="!newStep.role">Add</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="currentDept === 'GLOBAL_FINANCE'">
+                        <div class="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden">
+                            <div class="bg-gray-100 px-4 py-3 border-b text-xs font-bold uppercase text-gray-600">Finance Team Provisioning Sequence</div>
+                            <div class="divide-y divide-gray-200">
+                                <template x-for="step in steps" :key="step.id">
+                                    <div class="grid grid-cols-[1fr_2fr] items-center gap-4 px-6 py-4">
+                                        <span class="text-sm font-semibold text-gray-700" x-text="step.role"></span>
+                                        <select @change="update('finance_stage', step.role, $event.target.value)" class="select-std">
+                                            <option value="">Assign Finance Member...</option>
+                                            <template x-for="u in users.filter(user => user.department === 'Finance')" :key="u.email"><option :value="u.email" :selected="u.email === step.email" x-text="u.username"></option></template>
+                                        </select>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="currentDept === 'GLOBAL_IT'">
+                        <div class="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden">
+                            <div class="bg-gray-100 px-4 py-3 border-b text-xs font-bold uppercase text-gray-600">SAP Account Group Assignment Matrix</div>
+                            <table class="w-full data-table">
+                                <thead><tr><th>Account Group</th><th>IT Assignee</th><th class="w-16"></th></tr></thead>
+                                <tbody>
+                                    <template x-for="r in it_routes" :key="r.id">
+                                        <tr>
+                                            <td class="font-bold text-gray-800" x-text="r.account_group"></td>
+                                            <td><select @change="update('it_route', r.id, $event.target.value)" class="select-std h-9"><option value="">Assign IT Member...</option><template x-for="u in users.filter(user => user.department === 'IT')" :key="u.email"><option :value="u.email" :selected="u.email === r.it_assignee_email" x-text="u.username"></option></template></select></td>
+                                            <td><button @click="delRule('it', r.id)" class="btn-icon danger">✕</button></td>
+                                        </tr>
+                                    </template>
+                                    <tr class="bg-purple-50/20">
+                                        <td class="p-2"><input x-model="newIT.group" placeholder="e.g. ZDOM" class="input-std h-9 text-xs"></td>
+                                        <td class="p-2"><select x-model="newIT.email" class="select-std h-9 text-xs"><option value="">Assign IT Member...</option><template x-for="u in users.filter(user => user.department === 'IT')" :key="u.email"><option :value="u.email" x-text="u.username"></option></template></select></td>
+                                        <td class="p-2"><button @click="addIT()" class="btn-primary h-9 px-4 text-xs">Add</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
 
-    <!-- Existing steps -->
-    <div id="stepList" class="divide-y">
-
-        <template x-for="(s, i) in steps" :key="s.id">
-            <div
-                :data-id="s.id"
-                class="step-item grid grid-cols-[28px_40px_1fr_260px_40px]
-                       items-center gap-3 px-4 py-3 hover:bg-gray-50">
-
-                <!-- Drag -->
-                <div class="cursor-move text-gray-400 hover:text-gray-700">
-                    ☰
-                </div>
-
-                <!-- Index -->
-                <div class="w-8 h-8 flex items-center justify-center rounded-full
-                            border text-sm font-semibold text-gray-600">
-                    <span x-text="i + 1"></span>
-                </div>
-
-                <!-- Role -->
-                <div>
-                    <div class="text-[10px] uppercase font-bold text-gray-400 mb-1">
-                        Role
+<div x-show="activeTab === 'users'" x-data="userApp()" class="h-full">
+    <div class="card flex flex-col h-[calc(100vh-140px)]">
+        <div class="card-header">
+            <div class="flex items-center justify-between w-full gap-4">
+                <div class="flex items-center gap-3 flex-1">
+                    <div class="relative flex-1">
+                        <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <input x-model="search" placeholder="Search users by name or email..." class="h-10 w-full pl-9 pr-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009C49]/30 focus:border-[#009C49]">
                     </div>
-                    <div class="font-medium text-gray-800" x-text="s.role"></div>
-                </div>
-
-                <!-- User -->
-                <div>
-                    <div class="text-[10px] uppercase font-bold text-gray-400 mb-1">
-                        Assignee
-                    </div>
-                    <select
-                        @change="update('step_user', s.id, $event.target.value)"
-                        class="select-std h-9 text-sm">
-                        <option value="">Select user...</option>
-                        <template x-for="u in deptUsers">
-                            <option :value="u.email" :selected="u.email === s.email" x-text="u.username"></option>
-                        </template>
+                    <select x-model="deptFilter" class="h-10 min-w-[190px] px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009C49]/30 focus:border-[#009C49]">
+                        <option value="">All Departments</option>
+                        <template x-for="d in departments"><option :value="d" x-text="d"></option></template>
+                    </select>
+                    <select x-model="roleFilter" class="h-10 min-w-[170px] px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009C49]/30 focus:border-[#009C49]">
+                        <option value="">All Roles</option><option value="initiator">Initiator</option><option value="approver">Approver</option><option value="admin">Admin</option>
                     </select>
                 </div>
-
-                <!-- Delete -->
-                <button
-                    @click="delRule('step', s.id)"
-                    class="text-gray-400 hover:text-red-600 text-lg"
-                    title="Remove">
-                    ×
+                <button @click="open()" class="flex items-center gap-2 h-10 px-4 rounded-lg border border-[#009C49] text-[#009C49] font-semibold hover:bg-[#E6F5ED] transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add Member
                 </button>
             </div>
-        </template>
-    </div>
-
-    <!-- Add new -->
-    <div class="border-t bg-gray-50 px-4 py-4">
-        <div class="grid grid-cols-[1fr_1fr_auto] gap-3 items-center">
-
-            <input
-                x-model="newStep.role"
-                placeholder="Role title"
-                class="input-std h-10"
-            />
-
-            <select
-                x-model="newStep.email"
-                class="select-std h-10">
-                <option value="">Select user...</option>
-                <template x-for="u in deptUsers">
-                    <option :value="u.email" x-text="u.username"></option>
-                </template>
-            </select>
-
-            <button
-                @click="addStep()"
-                class="h-10 px-4 rounded-md bg-[#009C49] text-white font-semibold
-                       hover:bg-[#007A3A] transition"
-                :disabled="!newStep.role">
-                Add
-            </button>
         </div>
-    </div>
-</div>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'users'" x-data="userApp()" class="h-full">
-            <div class="card flex flex-col h-[calc(100vh-140px)]">
-                <div class="card-header">
-    <div class="flex items-center justify-between w-full gap-4">
-
-        <!-- LEFT: Search + Filters -->
-        <div class="flex items-center gap-3 flex-1">
-
-            <!-- Search (wide) -->
-            <div class="relative flex-1">
-                <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
-                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-
-                <input
-                    x-model="search"
-                    placeholder="Search users by name or email..."
-                    class="h-10 w-full pl-9 pr-3 text-sm
-                           border border-gray-300 rounded-lg
-                           focus:ring-2 focus:ring-[#009C49]/30
-                           focus:border-[#009C49]"
-                />
-            </div>
-
-            <!-- Department filter -->
-            <select
-                x-model="deptFilter"
-                class="h-10 min-w-[190px] px-3 text-sm
-                       border border-gray-300 rounded-lg
-                       focus:ring-2 focus:ring-[#009C49]/30
-                       focus:border-[#009C49]">
-                <option value="">All Departments</option>
-                <template x-for="d in departments">
-                    <option :value="d" x-text="d"></option>
-                </template>
-            </select>
-
-            <!-- Role filter -->
-            <select
-                x-model="roleFilter"
-                class="h-10 min-w-[170px] px-3 text-sm
-                       border border-gray-300 rounded-lg
-                       focus:ring-2 focus:ring-[#009C49]/30
-                       focus:border-[#009C49]">
-                <option value="">All Roles</option>
-                <option value="initiator">Initiator</option>
-                <option value="approver">Approver</option>
-                <option value="admin">Admin</option>
-            </select>
-        </div>
-
-        <!-- Add Button -->
-        <button
-            @click="open()"
-            class="flex items-center gap-2 h-10 px-4 rounded-lg
-                   border border-[#009C49]
-                   text-[#009C49] font-semibold
-                   hover:bg-[#E6F5ED] transition">
-
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M12 4v16m8-8H4"/>
-            </svg>
-            Add Member
-        </button>
-    </div>
-</div>
-
-                
-                <div class="flex-1 overflow-auto custom-scroll">
-                    <table class="data-table">
-                        <thead class="sticky top-0 z-10 bg-gray-50 shadow-sm">
-                            <tr>
-                                <th @click="sort('username')">Name <span x-show="sortBy==='username'" x-text="sortDesc?'↓':'↑'"></span></th>
-                                <th @click="sort('email')">Email <span x-show="sortBy==='email'" x-text="sortDesc?'↓':'↑'"></span></th>
-                                <th @click="sort('role')">Role <span x-show="sortBy==='role'" x-text="sortDesc?'↓':'↑'"></span></th>
-                                <th @click="sort('department')">Department <span x-show="sortBy==='department'" x-text="sortDesc?'↓':'↑'"></span></th>
-                                <th class="text-right pointer-events-none">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="u in filteredUsers" :key="u.id">
-                                <tr>
-                                    <td class="font-bold text-gray-900" x-text="u.username"></td>
-                                    <td class="font-mono text-gray-600 text-xs" x-text="u.email"></td>
-                                    <td><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-800" x-text="u.role.toUpperCase()"></span></td>
-                                    <td class="text-gray-600 font-medium" x-text="u.department||'-'"></td>
-                                    <td class="text-right">
-                                        <button @click="open(u)" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase mr-3">Edit</button>
-                                        <button @click="del(u.id)" class="text-red-500 hover:text-red-700 text-xs font-bold uppercase">Delete</button>
-                                    </td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <div x-show="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm" x-cloak>
-                <div class="w-full max-w-md bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showModal=false">
-                    <h3 class="text-lg font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100">User Details</h3>
-                    <div class="space-y-4">
-                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label><input x-model="form.name" class="input-std"></div>
-                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label><input x-model="form.email" class="input-std"></div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dept</label><select x-model="form.dept" class="select-std"><template x-for="d in departments"><option :value="d" x-text="d"></option></template></select></div>
-                            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Role</label><select x-model="form.role" class="select-std"><option value="initiator">Initiator</option><option value="approver">Approver</option><option value="admin">Admin</option></select></div>
-                        </div>
-                    </div>
-                    <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
-                        <button @click="showModal=false" class="btn-secondary">Cancel</button>
-                        <button @click="save()" class="btn-primary">Save User</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'masters'" x-data="masterApp()" class="flex gap-6 h-[calc(100vh-140px)]">
-            <aside class="w-64 shrink-0 card flex flex-col">
-                <div class="bg-gray-50 px-4 py-3 border-b border-gray-300 text-xs font-bold text-gray-500 uppercase">Master Data</div>
-                <div class="flex-1 overflow-y-auto custom-scroll p-2">
-                    <template x-for="t in types" :key="t.slug">
-                        <button @click="loadType(t.slug)" 
-                            :class="currentSlug === t.slug ? 'bg-[#E6F5ED] text-[#007A3A] font-bold border-[#009C49]' : 'text-gray-600 hover:bg-gray-50 border-transparent'"
-                            class="w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors mb-1 border" x-text="t.label"></button>
+        <div class="flex-1 overflow-auto custom-scroll">
+            <table class="data-table">
+                <thead class="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                    <tr><th @click="sort('username')">Name <span x-show="sortBy==='username'" x-text="sortDesc?'↓':'↑'"></span></th><th @click="sort('email')">Email <span x-show="sortBy==='email'" x-text="sortDesc?'↓':'↑'"></span></th><th @click="sort('role')">Role <span x-show="sortBy==='role'" x-text="sortDesc?'↓':'↑'"></span></th><th @click="sort('department')">Department <span x-show="sortBy==='department'" x-text="sortDesc?'↓':'↑'"></span></th><th class="text-right pointer-events-none">Actions</th></tr>
+                </thead>
+                <tbody>
+                    <template x-for="u in filteredUsers" :key="u.id">
+                        <tr>
+                            <td class="font-bold text-gray-900" x-text="u.username"></td>
+                            <td class="font-mono text-gray-600 text-xs" x-text="u.email"></td>
+                            <td><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-800" x-text="u.role.toUpperCase()"></span></td>
+                            <td class="text-gray-600 font-medium" x-text="u.department||'-'"></td>
+                            <td class="text-right">
+                                <button @click="open(u)" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase mr-3">Edit</button>
+                                <button @click="del(u.id)" class="text-red-500 hover:text-red-700 text-xs font-bold uppercase">Delete</button>
+                            </td>
+                        </tr>
                     </template>
-                </div>
-            </aside>
-            <div class="flex-1 card flex flex-col">
-                <div class="card-header">
-                    <div>
-                        <h3 class="font-bold text-gray-800 text-lg" x-text="currentLabel || 'Select Category'"></h3>
-                        <p class="text-xs text-gray-500">Manage Dropdowns</p>
-                    </div>
-                    <div class="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-300">
-    
-    <!-- Search -->
-    <div class="relative">
-        <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
-        <input 
-            x-model="search"
-            placeholder="Search..."
-            class="h-9 w-56 pl-9 pr-3 text-sm border-0 focus:ring-0 focus:outline-none"
-        >
+                </tbody>
+            </table>
+        </div>
     </div>
-
-    <!-- Divider -->
-    <div class="h-5 w-px bg-gray-200"></div>
-
-    <!-- Add Button -->
-    <button 
-        @click="open()"
-        class="h-9 px-3 flex items-center gap-1.5 text-sm font-semibold
-               text-[#009C49] hover:bg-[#E6F5ED] rounded-md transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 4v16m8-8H4"/>
-        </svg>
-        Add
-    </button>
-
+    <div x-show="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm" x-cloak>
+        <div class="w-full max-w-md bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showModal=false">
+            <h3 class="text-lg font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100">User Details</h3>
+            <div class="space-y-4">
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label><input x-model="form.name" class="input-std"></div>
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label><input x-model="form.email" class="input-std"></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dept</label><select x-model="form.dept" class="select-std"><template x-for="d in departments"><option :value="d" x-text="d"></option></template></select></div>
+                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Role</label><select x-model="form.role" class="select-std"><option value="initiator">Initiator</option><option value="approver">Approver</option><option value="admin">Admin</option></select></div>
+                </div>
+                <div class="mt-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned Category (Optional)</label><input x-model="form.category" class="input-std" placeholder="e.g. IT_HARDWARE (for specific routing)"></div>
+            </div>
+            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button @click="showModal=false" class="btn-secondary">Cancel</button>
+                <button @click="save()" class="btn-primary">Save User</button>
+            </div>
+        </div>
+    </div>
 </div>
 
+<div x-show="activeTab === 'masters'" x-data="masterApp()" class="flex gap-6 h-[calc(100vh-140px)]">
+    <aside class="w-64 shrink-0 card flex flex-col">
+        <div class="bg-gray-50 px-4 py-3 border-b border-gray-300 text-xs font-bold text-gray-500 uppercase">Master Data</div>
+        <div class="flex-1 overflow-y-auto custom-scroll p-2">
+            <template x-for="t in types" :key="t.slug">
+                <button @click="loadType(t.slug)" :class="currentSlug === t.slug ? 'bg-[#E6F5ED] text-[#007A3A] font-bold border-[#009C49]' : 'text-gray-600 hover:bg-gray-50 border-transparent'" class="w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors mb-1 border" x-text="t.label"></button>
+            </template>
+        </div>
+    </aside>
+    <div class="flex-1 card flex flex-col">
+        <div class="card-header">
+            <div><h3 class="font-bold text-gray-800 text-lg" x-text="currentLabel || 'Select Category'"></h3><p class="text-xs text-gray-500">Manage Dropdowns</p></div>
+            <div class="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-300">
+                <div class="relative">
+                    <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input x-model="search" placeholder="Search..." class="h-9 w-56 pl-9 pr-3 text-sm border-0 focus:ring-0 focus:outline-none">
                 </div>
-                <div class="flex-1 overflow-auto custom-scroll">
-                    <template x-if="!currentSlug">
-                        <div class="h-full flex flex-col items-center justify-center text-gray-400">
-                            <p class="font-bold uppercase tracking-wider text-sm">Select a category from the sidebar</p>
-                        </div>
+                <button @click="open()" class="h-9 px-3 flex items-center gap-1.5 text-sm font-semibold text-[#009C49] hover:bg-[#E6F5ED] rounded-md transition" x-show="currentSlug"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add</button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-auto custom-scroll">
+            <template x-if="!currentSlug"><div class="h-full flex flex-col items-center justify-center text-gray-400"><p class="font-bold uppercase tracking-wider text-sm">Select a category from the sidebar</p></div></template>
+            <table class="data-table" x-show="currentSlug">
+                <thead class="sticky top-0 z-10 shadow-sm"><tr><th class="w-32">Code</th><th>Label</th><th class="text-right">Actions</th></tr></thead>
+                <tbody>
+                    <template x-for="item in filteredItems" :key="item.id">
+                        <tr>
+                            <td class="font-mono text-xs font-bold text-gray-500" x-text="item.code"></td>
+                            <td class="font-medium text-gray-900" x-text="item.label"></td>
+                            <td class="text-right">
+                                <button @click="toggle(item)" class="text-xs font-bold uppercase mr-3" :class="item.is_active?'text-green-600':'text-gray-400'" x-text="item.is_active?'Active':'Inactive'"></button>
+                                <button @click="open(item)" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase mr-3">Edit</button>
+                                <button @click="del(item.id)" class="text-red-500 hover:text-red-700 text-xs font-bold uppercase">Del</button>
+                            </td>
+                        </tr>
                     </template>
-                    <table class="data-table" x-show="currentSlug">
-                        <thead class="sticky top-0 z-10 shadow-sm"><tr><th class="w-32">Code</th><th>Label</th><th class="text-right">Actions</th></tr></thead>
-                        <tbody>
-                            <template x-for="item in filteredItems" :key="item.id">
-                                <tr>
-                                    <td class="font-mono text-xs font-bold text-gray-500" x-text="item.code"></td>
-                                    <td class="font-medium text-gray-900" x-text="item.label"></td>
-                                    <td class="text-right">
-                                        <button @click="toggle(item)" class="text-xs font-bold uppercase mr-3" :class="item.is_active?'text-green-600':'text-gray-400'" x-text="item.is_active?'Active':'Inactive'"></button>
-                                        <button @click="open(item)" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase mr-3">Edit</button>
-                                        <button @click="del(item.id)" class="text-red-500 hover:text-red-700 text-xs font-bold uppercase">Del</button>
-                                    </td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div x-show="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm" x-cloak>
+        <div class="w-96 bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showModal=false">
+            <h3 class="text-lg font-bold text-gray-900 mb-6" x-text="form.id ? 'Edit Item' : 'Add Item'"></h3>
+            <div class="space-y-5">
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">System Code</label><input x-model="form.code" class="input-std font-mono uppercase" placeholder="e.g. 1001"></div>
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Display Label</label><input x-model="form.label" class="input-std" placeholder="e.g. Description"></div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <div class="flex items-center h-5"><input id="is_active" type="checkbox" x-model="form.is_active" class="h-4 w-4 rounded border-gray-300 text-[#009C49] focus:ring-[#009C49] cursor-pointer"></div>
+                    <div class="text-sm"><label for="is_active" class="font-medium text-gray-700 cursor-pointer select-none">Active Record</label><p class="text-xs text-gray-500">Unchecking this will hide the value from vendor forms.</p></div>
                 </div>
             </div>
-            <div x-show="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm" x-cloak>
-                <div class="w-96 bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showModal=false">
-                    <h3 class="text-lg font-bold text-gray-900 mb-6" x-text="form.id ? 'Edit Item' : 'Add Item'"></h3>
-                    <div class="space-y-5">
-    <div>
-        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">System Code</label>
-        <input x-model="form.code" class="input-std font-mono uppercase" placeholder="e.g. 1001">
-    </div>
-    <div>
-        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Display Label</label>
-        <input x-model="form.label" class="input-std" placeholder="e.g. Description">
-    </div>
-    
-    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
-        <div class="flex items-center h-5">
-            <input id="is_active" type="checkbox" x-model="form.is_active" class="h-4 w-4 rounded border-gray-300 text-[#009C49] focus:ring-[#009C49] cursor-pointer">
-        </div>
-        <div class="text-sm">
-            <label for="is_active" class="font-medium text-gray-700 cursor-pointer select-none">Active Record</label>
-            <p class="text-xs text-gray-500">Unchecking this will hide the value from vendor forms.</p>
+            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button @click="showModal=false" class="btn-secondary">Cancel</button>
+                <button @click="save()" class="btn-primary">Save</button>
+            </div>
         </div>
     </div>
 </div>
-                    <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
-                        <button @click="showModal=false" class="btn-secondary">Cancel</button>
-                        <button @click="save()" class="btn-primary">Save</button>
-                    </div>
-                </div>
+
+<div x-show="activeTab === 'sap'" class="flex justify-center pt-2">
+    <div class="w-full max-w-xl card px-8 pt-6 pb-8 text-center">
+        <div class="mx-auto mb-6 h-16 w-16 rounded-2xl bg-green-50 text-[#009C49] flex items-center justify-center border border-green-100"><svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></div>
+        <h2 class="text-2xl font-bold text-gray-900">SAP Data Export</h2>
+        <form action="{{ url_for('admin.export_sap_data') }}" method="get" class="mt-8 bg-gray-50 p-8 rounded-xl border border-gray-200">
+            <div class="grid grid-cols-2 gap-6">
+                <div class="text-left"><label class="text-xs font-bold uppercase text-gray-500 mb-1 block">Start Date</label><input type="date" name="start_date" class="input-std"></div>
+                <div class="text-left"><label class="text-xs font-bold uppercase text-gray-500 mb-1 block">End Date</label><input type="date" name="end_date" class="input-std"></div>
             </div>
-        </div>
-        
-        <div 
-  x-show="activeTab === 'sap'" 
-  class="flex justify-center pt-2"
->
+            <button type="submit" class="btn-primary w-full mt-8 h-12">Download File</button>
+        </form>
+    </div>
+</div>
 
-            <div class="w-full max-w-xl card px-8 pt-6 pb-8 text-center">
+</main>
 
+<div x-show="showDeptModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm" x-cloak>
+    <div class="w-80 bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showDeptModal = false">
+        <h3 class="text-lg font-bold text-gray-900 mb-4">New Department</h3>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> <input name="new_dept_name" class="input-std" placeholder="Department Name" required autofocus>
+            <div class="mt-6 flex justify-end gap-3"><button type="button" @click="showDeptModal = false" class="btn-secondary">Cancel</button><button type="submit" class="btn-primary">Create</button></div>
+        </form>
+    </div>
+</div>
 
-                <div class="mx-auto mb-6 h-16 w-16 rounded-2xl bg-green-50 text-[#009C49] flex items-center justify-center border border-green-100">
-                    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                </div>
-                <h2 class="text-2xl font-bold text-gray-900">SAP Data Export</h2>
-                <form action="{{ url_for('admin.export_sap_data') }}" method="get" class="mt-8 bg-gray-50 p-8 rounded-xl border border-gray-200">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="text-left"><label class="text-xs font-bold uppercase text-gray-500 mb-1 block">Start Date</label><input type="date" name="start_date" class="input-std"></div>
-                        <div class="text-left"><label class="text-xs font-bold uppercase text-gray-500 mb-1 block">End Date</label><input type="date" name="end_date" class="input-std"></div>
-                    </div>
-                    <button type="submit" class="btn-primary w-full mt-8 h-12">Download File</button>
-                </form>
-            </div>
-        </div>
-
-    </main>
-    
-    <div x-show="showDeptModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm" x-cloak>
-        <div class="w-80 bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showDeptModal=false">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">New Department</h3>
-            <form method="POST">
-                <input name="new_dept_name" class="input-std" placeholder="Department Name" required autofocus>
-                <div class="mt-6 flex justify-end gap-3"><button type="button" @click="showDeptModal=false" class="btn-secondary">Cancel</button><button class="btn-primary">Create</button></div>
-            </form>
+<div x-show="showRenameModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm" x-cloak>
+    <div class="w-80 bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showRenameModal = false">
+        <h3 class="text-lg font-bold text-gray-900 mb-4">Rename Department</h3>
+        <input x-model="renameData.newName" class="input-std mb-4" placeholder="New Name" autofocus>
+        <div class="mt-6 flex justify-end gap-3">
+            <button type="button" @click="showRenameModal = false" class="btn-secondary">Cancel</button>
+            <button type="button" @click="saveRename()" class="btn-primary">Save</button>
         </div>
     </div>
 </div>
@@ -659,92 +546,109 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('adminApp', () => ({
         activeTab: APP.active_tab || 'dashboard',
         tabs: [{id:'dashboard',label:'Dashboard'}, {id:'logic',label:'Workflow'}, {id:'users',label:'Users'}, {id:'masters',label:'Master Data'}, {id:'sap',label:'Reports'}],
-        departments: APP.departments, stats: APP.stats, showDeptModal: false,
+        departments: APP.departments, stats: APP.stats, showDeptModal: false, showRenameModal: false, renameData: {oldName:'', newName:''},
+        chart: null,
         init() {
             const u = new URL(window.location); if(u.searchParams.get('active_tab')) this.activeTab = u.searchParams.get('active_tab');
             this.$watch('activeTab', v => { const url = new URL(window.location); url.searchParams.set('active_tab', v); window.history.pushState({},'',url); if(v==='dashboard') this.initCharts(); });
-            if(this.activeTab==='dashboard') this.initCharts();
+            if(this.activeTab === 'dashboard') this.initCharts();
         },
         initCharts() {
-            const ctx = document.getElementById('deptChart');
-            if(ctx) {
-                if(this.chart) this.chart.destroy();
-                this.chart = new Chart(ctx, { type:'bar', data: { labels:APP.stats.dept_labels, datasets:[{label:'Volume', data:APP.stats.dept_volumes, backgroundColor:'#009C49', borderRadius:4}] }, options:{responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true}}, plugins:{legend:{display:false}}} });
+            this.$nextTick(() => {
+                const ctx = document.getElementById('statusChart');
+                if(ctx) {
+                    if(this.chart) this.chart.destroy();
+                    // Calculated Pending
+                    const pending = this.stats.total - this.stats.completed - this.stats.rejected;
+                    this.chart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Approved', 'Rejected', 'Pending'],
+                            datasets: [{
+                                data: [this.stats.completed, this.stats.rejected, pending < 0 ? 0 : pending],
+                                backgroundColor: ['#10B981', '#EF4444', '#E2E8F0'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '70%',
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                }
+            });
+        },
+        openRename(d) { this.renameData = {oldName: d, newName: d}; this.showRenameModal = true; },
+        async saveRename() { 
+            await apiRequest({action:'rename_dept', old_name:this.renameData.oldName, new_name:this.renameData.newName}); 
+            window.location.reload(); 
+        },
+        async deleteDept(d) {
+            if(confirm(`Are you sure you want to delete ${d}? This cannot be undone.`)) {
+                await apiRequest({action:'delete_dept', name:d});
+                window.location.reload();
             }
         }
     }));
     
     // --- WORKFLOW ---
     Alpine.data('workflowApp', () => ({
-        currentDept: APP.selected_dept || 'Purchase', viewType: 'STANDARD', loading: false,
-        users: APP.users, matrix: [], steps: [], newCat: {name:'',l1:'',l2:''}, newStep: {role:'',email:''},
-        get deptUsers() { 
-            // If Global, show ALL users (or specific IT/Finance users if you have roles). For now, showing all to be safe.
-            // For departments, filter strictly.
-            if(this.currentDept.startsWith('GLOBAL_')) return this.users;
-            return this.users.filter(u => u.department === this.currentDept); 
-        },
+        currentDept: localStorage.getItem('active_admin_dept') || 'Purchase',
+        loading: false, matrix: [], steps: [], it_routes: APP.it_routes, users: APP.users,
+        newCat: {name:'',l1:'',l2:''}, newStep: {role:'',email:''}, newIT: {group:'',email:''},
+
+        get deptUsers() { return this.currentDept.startsWith('GLOBAL_') ? this.users : this.users.filter(u => u.department === this.currentDept); },
+        
         init() { this.loadDept(this.currentDept); },
+        
         async loadDept(d) {
-            this.currentDept = d; this.loading = true;
-            if(d.startsWith('GLOBAL_')) {
-                // Keep viewType as the specific global key so the UI can adapt if needed, 
-                // BUT for now we might assume standard structure or specific structure.
-                // Assuming backend handles "GLOBAL_FINANCE" as a valid key for the logic API.
-                this.viewType = 'STANDARD'; 
-                try {
+            this.currentDept = d; localStorage.setItem('active_admin_dept', d); this.loading = true;
+            try {
+                if(!d.startsWith('GLOBAL_')) {
                     const data = await (await fetch(`/admin/api/logic/${d}`)).json();
                     this.matrix = data.matrix || [];
                     this.steps = data.steps || [];
-                } catch(e) {
-                    console.log("Global fetch error, likely empty", e);
-                    this.matrix = []; this.steps = [];
+                } else if(d === 'GLOBAL_IT' && APP.it_routes) {
+                    this.it_routes = APP.it_routes;
+                } else if(d === 'GLOBAL_FINANCE') {
+                    const data = await (await fetch(`/admin/api/logic/${d}`)).json();
+                    this.steps = data.steps || [];
                 }
-            } else { 
-                this.viewType = 'STANDARD'; 
-                const data = await (await fetch(`/admin/api/logic/${d}`)).json(); 
-                this.matrix = data.matrix; this.steps = data.steps; 
-            }
+            } catch(e) { console.error(e); }
             this.loading = false;
-            this.$nextTick(() => { 
-                const el = document.getElementById('stepList'); 
-                if(el && !el._sortable) el._sortable = Sortable.create(el, { animation:150, handle:'.cursor-move', onEnd: e => apiRequest({action:'reorder_steps', order: Array.from(el.querySelectorAll('.step-item')).map(i=>i.dataset.id)}) }); 
+            this.$nextTick(() => {
+                const el = document.getElementById('stepList');
+                if(el && !el._sortable) el._sortable = Sortable.create(el, { handle: '.cursor-move', onEnd: (e) => {
+                    const order = Array.from(el.querySelectorAll('.step-item')).map(i => i.dataset.id);
+                    apiRequest({action:'reorder_steps', order});
+                }});
             });
         },
-        async update(type, id, email) { await apiRequest({action:'update_assignment', type, id, email}); },
-        async addCat() { if(this.newCat.name){ await apiRequest({action:'add_category', dept:this.currentDept, category:this.newCat.name, l1:this.newCat.l1, l2:this.newCat.l2}); this.newCat={name:'',l1:'',l2:''}; this.loadDept(this.currentDept); }},
-        async addStep() { if(this.newStep.role){ await apiRequest({action:'add_step', dept:this.currentDept, role:this.newStep.role, email:this.newStep.email}); this.newStep={role:'',email:''}; this.loadDept(this.currentDept); }},
-        async delRule(t, id) { if(confirm('Delete?')){ await apiRequest({action: t==='category'?'delete_category':'delete_step', id}); this.loadDept(this.currentDept); }}
+        async update(type, id, email) { 
+            this.loading = true; 
+            await apiRequest({action: type === 'finance_stage' ? 'finance_stage' : (type==='it_route'?'it_route':'update_assignment'), type, id, email}); 
+            this.loading = false; 
+        },
+        async addCat() { await apiRequest({action:'add_category', dept:this.currentDept, category:this.newCat.name, l1:this.newCat.l1, l2:this.newCat.l2}); this.loadDept(this.currentDept); this.newCat={name:'',l1:'',l2:''}; },
+        async addStep() { await apiRequest({action:'add_step', dept:this.currentDept, role:this.newStep.role, email:this.newStep.email}); this.loadDept(this.currentDept); this.newStep={role:'',email:''}; },
+        async addIT() { await apiRequest({action:'add_it_mapping', group:this.newIT.group, email:this.newIT.email}); window.location.reload(); },
+        async delRule(type, id) { if(confirm('Delete rule?')) { await apiRequest({action: type==='category'?'delete_category':(type==='step'?'delete_step':'delete_it_mapping'), id}); if(type==='it') window.location.reload(); else this.loadDept(this.currentDept); } }
     }));
-    
+
     // --- USERS ---
     Alpine.data('userApp', () => ({
         search: '', deptFilter: '', roleFilter: '', sortBy: 'username', sortDesc: false, showModal: false, form: {id:'',name:'',email:'',dept:'',role:'',category:''}, departments: APP.departments,
         get filteredUsers() {
-    return APP.users
-        .filter(u =>
-            (!this.search ||
-                u.username.toLowerCase().includes(this.search.toLowerCase()) ||
-                u.email.toLowerCase().includes(this.search.toLowerCase())
-            )
-        )
-        .filter(u =>
-            !this.deptFilter || u.department === this.deptFilter
-        )
-        .filter(u =>
-            !this.roleFilter || u.role === this.roleFilter
-        )
-        .sort((a, b) => {
-            let A = (a[this.sortBy] || '').toLowerCase();
-            let B = (b[this.sortBy] || '').toLowerCase();
-            if (A < B) return this.sortDesc ? 1 : -1;
-            if (A > B) return this.sortDesc ? -1 : 1;
-            return 0;
-        });
-},
+            return APP.users.filter(u => (!this.search || u.username.toLowerCase().includes(this.search.toLowerCase()) || u.email.toLowerCase().includes(this.search.toLowerCase()))).filter(u => !this.deptFilter || u.department === this.deptFilter).filter(u => !this.roleFilter || u.role === this.roleFilter).sort((a, b) => { let A = (a[this.sortBy] || '').toLowerCase(); let B = (b[this.sortBy] || '').toLowerCase(); if (A < B) return this.sortDesc ? 1 : -1; if (A > B) return this.sortDesc ? -1 : 1; return 0; });
+        },
         sort(col) { if(this.sortBy===col) this.sortDesc=!this.sortDesc; else { this.sortBy=col; this.sortDesc=false; } },
         open(u) { this.form = u ? {...u} : {id:'',name:'',email:'',dept:this.departments[0],role:'initiator',category:''}; this.showModal=true; },
-        async save() { await apiRequest({action:'save_user', ...this.form}); window.location.reload(); },
+        async save() { 
+            const res = await apiRequest({action:'save_user', ...this.form}); 
+            if(res.success) window.location.reload(); 
+        },
         async del(id) { if(confirm('Delete user?')){ await apiRequest({action:'delete_user', id}); window.location.reload(); }}
     }));
     
