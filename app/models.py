@@ -9,7 +9,7 @@ from app.extensions import db
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), unique=True, nullable=False)
+    username = db.Column(db.String(64), unique=False, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
     role = db.Column(db.String(20), nullable=False)
@@ -44,17 +44,6 @@ class Department(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
 
-# class MasterData(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     category = db.Column(db.String(50), nullable=False)
-#     code = db.Column(db.String(50), nullable=False)
-#     label = db.Column(db.String(200), nullable=False)
-#     parent_code = db.Column(db.String(50)) 
-#     is_active = db.Column(db.Boolean, default=True)
-
-
-# In app/models.py
-
 class MasterData(db.Model):
     __tablename__ = 'master_data'
     
@@ -64,10 +53,7 @@ class MasterData(db.Model):
     label = db.Column(db.String(255))
     parent_code = db.Column(db.String(100), index=True, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
-
-    # --- ADD THIS LINE ---
     data = db.Column(db.JSON, nullable=True) 
-    # ---------------------
 
     def __repr__(self):
         return f"<Master {self.category}: {self.code}>"
@@ -142,6 +128,10 @@ class VendorRequest(db.Model):
     msme_type = db.Column(db.String(50))
     msme_number = db.Column(db.String(50))
     msme_file_path = db.Column(db.String(200))
+    
+    # --- ADDED: Missing Column for TDS Persistence ---
+    tds_file_path = db.Column(db.String(200))
+    # -----------------------------------------------
     
     # Bank
     bank_name = db.Column(db.String(100))
@@ -229,7 +219,6 @@ class MockEmail(db.Model):
     link = db.Column(db.String(500))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-# --- NEW: Audit Log Model ---
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vendor_request_id = db.Column(db.Integer, db.ForeignKey('vendor_request.id'), nullable=False)

@@ -532,8 +532,8 @@ def api_update():
                 # Create Checks
                 if User.query.filter_by(email=u_email).first():
                     return jsonify({'success': False, 'error': 'User with this email already exists.'}), 400
-                if User.query.filter_by(username=u_name).first():
-                    return jsonify({'success': False, 'error': 'User Name already exists.'}), 400
+                # if User.query.filter_by(username=u_name).first():
+                #     return jsonify({'success': False, 'error': 'User Name already exists.'}), 400
                     
                 new_u = User(username=u_name, email=u_email, department=u_dept, role=u_role, assigned_category=u_cat)
                 new_u.set_password('pass123')

@@ -45,6 +45,7 @@
     </div>
 
     <form method="POST" class="space-y-8">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         {% if req.last_query %}
         <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r-lg">
@@ -549,7 +550,7 @@
                 <textarea name="comments" class="w-full border-gray-300 rounded-lg p-3 mb-4 h-32 text-sm focus:ring-yellow-500 focus:border-yellow-500" placeholder="Please describe what needs to be corrected..."></textarea>
                 <div class="flex justify-end gap-3">
                     <button type="button" onclick="document.getElementById('queryModal').classList.add('hidden')" class="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-                    <button type="submit" name="action" value="send_back" class="px-6 py-2 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600 shadow-md">Send Back</button>
+                    <button type="submit" name="action" value="send_back" formnovalidate class="px-6 py-2 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600 shadow-md">Send Back</button>
                 </div>
             </div>
         </div>
@@ -561,7 +562,7 @@
                 <textarea name="comments" class="w-full border-gray-300 rounded-lg p-3 mb-4 h-32 text-sm focus:ring-red-500 focus:border-red-500" placeholder="Reason for rejection..."></textarea>
                 <div class="flex justify-end gap-3">
                     <button type="button" onclick="document.getElementById('rejectModal').classList.add('hidden')" class="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-                    <button type="submit" name="action" value="reject" class="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-md">Confirm Rejection</button>
+                    <button type="submit" name="action" value="reject" formnovalidate class="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-md">Confirm Rejection</button>
                 </div>
             </div>
         </div>

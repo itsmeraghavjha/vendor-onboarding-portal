@@ -102,11 +102,17 @@
 <script>
     const APP = {{ app_data | tojson }};
     
-    async function apiRequest(payload) {
+   async function apiRequest(payload) {
         try {
+            // 1. Get the token from the meta tag
+            const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
             const res = await fetch('/admin/api/update', { 
                 method: 'POST', 
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'}, 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': token // 2. Use the variable here
+                }, 
                 body: JSON.stringify(payload) 
             });
             const data = await res.json();

@@ -217,6 +217,7 @@
                 <p class="text-green-100 text-xs mt-1">Send an invitation link to the vendor.</p>
             </div>
             <form action="{{ url_for('main.create_request') }}" method="POST" class="p-6 space-y-5">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">Vendor Company Name (Legal Name)</label>
                     <input type="text" name="vendor_name" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
