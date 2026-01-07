@@ -228,13 +228,13 @@
                 </div>
                 {% if current_user.assigned_category %}
                     <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned Category</label>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned Material Category</label>
                         <input type="text" value="{{ current_user.assigned_category }}" disabled class="w-full bg-white border border-gray-200 rounded p-2 text-gray-700 font-bold">
                         <input type="hidden" name="vendor_type" value="{{ current_user.assigned_category }}">
                     </div>
                 {% elif dept_categories %}
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Select Category</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Select Material Category</label>
                         <select name="vendor_type" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
                             {% for cat in dept_categories %}
                                 <option value="{{ cat }}">{{ cat }}</option>

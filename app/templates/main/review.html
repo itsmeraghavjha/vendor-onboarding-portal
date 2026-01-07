@@ -246,7 +246,7 @@
         {% set tax1_rows = req.get_tax1_rows() %}
         {% set tax2_rows = req.get_tax2_rows() %}
         
-        {% if (tax1_rows or tax2_rows) and (req.finance_stage == 'TAX' or req.current_dept_flow == 'IT' or req.status == 'COMPLETED') %}
+        {% if (req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TAX') or (req.current_dept_flow == 'IT') or (req.status == 'COMPLETED') %}
         <div class="mt-8 bg-white rounded-xl shadow-sm border border-yellow-200 overflow-hidden">
             <div class="bg-yellow-50 px-6 py-4 border-b border-yellow-200">
                 <h3 class="font-bold text-yellow-900 flex items-center gap-2">
@@ -255,7 +255,6 @@
             </div>
             <div class="p-6 grid grid-cols-1 xl:grid-cols-2 gap-8">
                 
-                {% if tax1_rows %}
                 <div>
                     <h4 class="text-xs font-bold text-gray-500 uppercase mb-3">Withholding Tax (TDS)</h4>
                     <div class="overflow-x-auto border border-gray-100 rounded-lg">
@@ -270,22 +269,24 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
-                                {% for row in tax1_rows %}
-                                <tr>
-                                    <td class="px-2 py-2 border-r font-mono">{{ row.type }}</td>
-                                    <td class="px-2 py-2 border-r font-mono">{{ row.code }}</td>
-                                    <td class="px-2 py-2 border-r">{{ row.rate }}%</td>
-                                    <td class="px-2 py-2 border-r">{{ row.cert or '-' }}</td>
-                                    <td class="px-2 py-2 text-[10px]">{{ row.start }}<br>{{ row.end }}</td>
-                                </tr>
-                                {% endfor %}
+                                {% if tax1_rows %}
+                                    {% for row in tax1_rows %}
+                                    <tr>
+                                        <td class="px-2 py-2 border-r font-mono">{{ row.type }}</td>
+                                        <td class="px-2 py-2 border-r font-mono">{{ row.code }}</td>
+                                        <td class="px-2 py-2 border-r">{{ row.rate }}%</td>
+                                        <td class="px-2 py-2 border-r">{{ row.cert or '-' }}</td>
+                                        <td class="px-2 py-2 text-[10px]">{{ row.start }}<br>{{ row.end }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="5" class="px-2 py-2 text-center text-gray-400">No records</td></tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
                 </div>
-                {% endif %}
 
-                {% if tax2_rows %}
                 <div>
                     <h4 class="text-xs font-bold text-gray-500 uppercase mb-3">194Q / Section Codes</h4>
                     <div class="overflow-x-auto border border-gray-100 rounded-lg">
@@ -300,20 +301,23 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
-                                {% for row in tax2_rows %}
-                                <tr>
-                                    <td class="px-2 py-2 border-r font-mono">{{ row.section }}</td>
-                                    <td class="px-2 py-2 border-r font-mono">{{ row.code }}</td>
-                                    <td class="px-2 py-2 border-r">{{ row.rate }}%</td>
-                                    <td class="px-2 py-2 border-r">{{ row.thresh }}</td>
-                                    <td class="px-2 py-2 text-[10px]">{{ row.start }}<br>{{ row.end }}</td>
-                                </tr>
-                                {% endfor %}
+                                {% if tax2_rows %}
+                                    {% for row in tax2_rows %}
+                                    <tr>
+                                        <td class="px-2 py-2 border-r font-mono">{{ row.section }}</td>
+                                        <td class="px-2 py-2 border-r font-mono">{{ row.code }}</td>
+                                        <td class="px-2 py-2 border-r">{{ row.rate }}%</td>
+                                        <td class="px-2 py-2 border-r">{{ row.thresh }}</td>
+                                        <td class="px-2 py-2 text-[10px]">{{ row.start }}<br>{{ row.end }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="5" class="px-2 py-2 text-center text-gray-400">No records</td></tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
                 </div>
-                {% endif %}
             </div>
         </div>
         {% endif %}
@@ -410,7 +414,7 @@
             </div>
             {% endif %}
 
-            {% if req.finance_stage == 'BILL_PASSING' %}
+            {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'BILL_PASSING' %}
             <div class="bg-white rounded-xl shadow-lg border-2 border-indigo-500 p-8">
                 <h3 class="font-bold text-indigo-900 mb-4">💰 Bill Passing: Assign GL</h3>
                 <label class="block text-sm font-bold text-indigo-700 mb-2">General Ledger (GL) Account <span class="text-red-500">*</span></label>
@@ -426,7 +430,7 @@
             </div>
             {% endif %}
 
-            {% if req.finance_stage == 'TREASURY' %}
+            {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TREASURY' %}
             <div class="bg-white rounded-xl shadow-lg border-2 border-emerald-500 p-8">
                 <h3 class="font-bold text-emerald-900 mb-4">🏦 Treasury: Assign House Bank</h3>
                 <label class="block text-sm font-bold text-emerald-700 mb-2">House Bank <span class="text-red-500">*</span></label>
@@ -442,7 +446,7 @@
             </div>
             {% endif %}
 
-            {% if req.finance_stage == 'TAX' %}
+            {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TAX' %}
             <div class="bg-white rounded-xl shadow-lg border-2 border-yellow-400 overflow-hidden">
                 <div class="bg-yellow-50 px-6 py-4 border-b border-yellow-200">
                     <h3 class="font-bold text-yellow-900">🧾 Tax Compliance Review</h3>
@@ -486,12 +490,12 @@
                                         <th class="px-3 py-2 border-r">Section</th>
                                         <th class="px-3 py-2 border-r">Cert No.</th>
                                         <th class="px-3 py-2 border-r">Rate %</th>
+                                        <th class="px-3 py-2 border-r">Threshold</th>
                                         <th class="px-3 py-2 border-r">Start</th>
                                         <th class="px-3 py-2 border-r">End</th>
                                         <th class="px-3 py-2 border-r bg-gray-50">Reason</th>
                                         <th class="px-3 py-2 border-r">Type</th>
                                         <th class="px-3 py-2 border-r">Code</th>
-                                        <th class="px-3 py-2 border-r">Threshold</th>
                                         <th class="px-3 py-2 border-r bg-gray-50">Curr</th>
                                         <th class="px-2 py-2 text-center">Action</th>
                                     </tr>
@@ -543,7 +547,9 @@
             {% endif %}
 
         </div>
-        {% endif %} <div id="queryModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-60 backdrop-blur-sm transition-opacity">
+        {% endif %} 
+        
+        <div id="queryModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-60 backdrop-blur-sm transition-opacity">
             <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-100">
                 <h3 class="font-bold text-xl mb-2 text-gray-900">Raise a Query</h3>
                 <p class="text-sm text-gray-500 mb-4">This will send the application back to the vendor for correction.</p>
@@ -571,9 +577,9 @@
 </div>
 
 <script>
-    const TAX_TYPES = [{code:"", label:"--"}, {% for t in tax_types %}{code: "{{t.code}}", label: "{{t.code}}"},{% endfor %}];
+    const TAX_TYPES = [{code:"", label:"--"}, {% for t in tax_types %}{code: "{{t.code}}", label: "{{t.code}} - {{t.label}}"},{% endfor %}];
     const TAX_CODE_MAP = {{ tax_code_map | safe }}; 
-    const EXEMPTIONS = [{code:"", label:"--"}, {% for r in exemption_reasons %}{code: "{{r.code}}", label: "{{r.code}}"},{% endfor %}];
+    const EXEMPTIONS = [{code:"", label:"--"}, {% for r in exemption_reasons %}{code: "{{r.code}}", label: "{{r.code}} - {{r.label}}"},{% endfor %}];
     const SAVED_TAX1 = {{ req.get_tax1_rows() | tojson | safe }};
     const SAVED_TAX2 = {{ req.get_tax2_rows() | tojson | safe }};
 
@@ -595,7 +601,7 @@
             <td class="px-1 py-1 border-r">${createSelect('tax1_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
             <td class="px-1 py-1 border-r"><select name="tax1_code[]" class="w-full border-0 p-1 bg-transparent tax-code-select text-sm focus:ring-0">${codes.map(c => `<option value="${c.code}" ${c.code == data.code ? 'selected' : ''}>${c.label}</option>`).join('')}</select></td>
             <td class="px-1 py-1 border-r text-center"><input type="checkbox" class="accent-heritage w-4 h-4" ${data.subject == '1' ? 'checked' : ''} onchange="this.nextElementSibling.value = this.checked ? '1' : '0'"><input type="hidden" name="tax1_subject_hidden[]" value="${data.subject || '0'}"></td>
-            <td class="px-1 py-1 border-r"><select name="tax1_recipient_type[]" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"><option value="CO" ${data.recipient == 'CO' ? 'selected' : ''}>CO</option><option value="OT" ${data.recipient == 'OT' ? 'selected' : ''}>OT</option></select></td>
+            <td class="px-1 py-1 border-r"><select name="tax1_recipient_type[]" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"><option value="">Select...</option><option value="CO" ${data.recipient == 'CO' ? 'selected' : ''}>CO</option><option value="OT" ${data.recipient == 'OT' ? 'selected' : ''}>OT</option></select></td>
             <td class="px-1 py-1 border-r">${createSelect('tax1_exemption_reason[]', EXEMPTIONS, data.reason)}</td>
             <td class="px-1 py-1 border-r"><input type="text" name="tax1_cert_no[]" value="${data.cert || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
             <td class="px-1 py-1 border-r"><input type="text" name="tax1_rate[]" value="${data.rate || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
@@ -616,12 +622,12 @@
             <td class="px-1 py-1 border-r"><input type="text" name="tax2_section_code[]" value="${data.section || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
             <td class="px-1 py-1 border-r"><input type="text" name="tax2_cert_no[]" value="${data.cert || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
             <td class="px-1 py-1 border-r"><input type="text" name="tax2_rate[]" value="${data.rate || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
+            <td class="px-1 py-1 border-r"><input type="text" name="tax2_threshold_amount[]" value="${data.thresh || '5,000,000.00'}" class="w-full border-0 p-1 bg-transparent text-right text-sm focus:ring-0"></td>
             <td class="px-1 py-1 border-r"><input type="date" name="tax2_start_date[]" value="${data.start || ''}" class="w-full border-0 p-1 bg-transparent font-mono text-xs focus:ring-0"></td>
             <td class="px-1 py-1 border-r"><input type="date" name="tax2_end_date[]" value="${data.end || ''}" class="w-full border-0 p-1 bg-transparent font-mono text-xs focus:ring-0"></td>
             <td class="px-1 py-1 border-r bg-gray-50 font-medium text-center text-xs">T7</td>
             <td class="px-1 py-1 border-r">${createSelect('tax2_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
             <td class="px-1 py-1 border-r"><select name="tax2_code[]" class="w-full border-0 p-1 bg-transparent tax-code-select text-sm focus:ring-0">${codes.map(c => `<option value="${c.code}" ${c.code == data.code ? 'selected' : ''}>${c.label}</option>`).join('')}</select></td>
-            <td class="px-1 py-1 border-r"><input type="text" name="tax2_threshold_amount[]" value="${data.thresh || '5,000,000.00'}" class="w-full border-0 p-1 bg-transparent text-right text-sm focus:ring-0"></td>
             <td class="px-1 py-1 border-r bg-gray-50 font-medium text-center text-xs">INR</td>
             <td class="px-1 py-1 text-center"><button type="button" class="text-red-400 hover:text-red-600 font-bold" onclick="this.closest('tr').remove()">×</button></td>`;
         tbody.appendChild(row);
@@ -642,8 +648,8 @@
     }
 
     window.addEventListener('load', () => {
-        if(SAVED_TAX1.length > 0) SAVED_TAX1.forEach(r => addTax1Row(r)); else addTax1Row({});
-        if(SAVED_TAX2.length > 0) SAVED_TAX2.forEach(r => addTax2Row(r)); else addTax2Row({});
+        if(SAVED_TAX1.length > 0) SAVED_TAX1.forEach(r => addTax1Row(r));
+        if(SAVED_TAX2.length > 0) SAVED_TAX2.forEach(r => addTax2Row(r));
     });
 </script>
 {% endblock %}
