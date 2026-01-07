@@ -15,6 +15,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), nullable=False)
     department = db.Column(db.String(50))
     assigned_category = db.Column(db.String(50))
+    is_active = db.Column(db.Boolean, default=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

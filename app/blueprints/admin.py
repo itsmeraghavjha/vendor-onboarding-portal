@@ -93,7 +93,7 @@ def admin_workflow():
     if current_user.role != 'admin': return "Access Denied", 403
     
     if request.method == 'POST':
-        # Dept Creation (Simple enough to keep here or move to Service)
+        # Dept Creation
         if 'new_dept_name' in request.form:
             name = request.form.get('new_dept_name').strip()
             if name and not Department.query.filter_by(name=name).first():
@@ -105,14 +105,21 @@ def admin_workflow():
     departments = [d.name for d in Department.query.all()]
     all_users = User.query.filter(User.role != 'admin').order_by(User.username).all()
     
-    # Generate Master Types list from service keys
     master_types = [{'slug': k, 'label': k.replace('-', ' ').title()} for k in MasterService.SLUG_TO_DB.keys()]
 
     app_data = {
         'active_tab': request.args.get('active_tab', 'dashboard'),
         'stats': admin_service.get_dashboard_stats(),
         'departments': departments,
-        'users': [{'id': u.id, 'username': u.username, 'email': u.email, 'department': u.department, 'role': u.role, 'category': u.assigned_category} for u in all_users],
+        'users': [{
+            'id': u.id, 
+            'username': u.username, 
+            'email': u.email, 
+            'department': u.department, 
+            'role': u.role, 
+            'category': u.assigned_category,
+            'is_active': u.is_active  # <--- THIS WAS MISSING
+        } for u in all_users],
         'it_routes': [{'id': r.id, 'account_group': r.account_group, 'it_assignee_email': r.it_assignee_email} for r in ITRouting.query.all()],
         'master_types': master_types
     }

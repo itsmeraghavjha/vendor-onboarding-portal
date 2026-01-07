@@ -17,6 +17,10 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data.lower().strip()).first()
         if user and user.check_password(form.password.data):
+            if not user.is_active:
+                flash('Your account has been disabled. Please contact the administrator.', 'error')
+                return render_template('auth/login.html', form=form)
+                
             login_user(user)
             return redirect(url_for('main.dashboard'))
         flash('Invalid email or password.', 'error')

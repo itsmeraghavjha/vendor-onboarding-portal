@@ -410,45 +410,94 @@
         </div>
         <div class="flex-1 overflow-auto custom-scroll">
             <table class="data-table">
-                <thead class="sticky top-0 z-10 bg-gray-50 shadow-sm">
-                    <tr><th @click="sort('username')">Name <span x-show="sortBy==='username'" x-text="sortDesc?'↓':'↑'"></span></th><th @click="sort('email')">Email <span x-show="sortBy==='email'" x-text="sortDesc?'↓':'↑'"></span></th><th @click="sort('role')">Role <span x-show="sortBy==='role'" x-text="sortDesc?'↓':'↑'"></span></th><th @click="sort('department')">Department <span x-show="sortBy==='department'" x-text="sortDesc?'↓':'↑'"></span></th><th class="text-right pointer-events-none">Actions</th></tr>
-                </thead>
-                <tbody>
-                    <template x-for="u in filteredUsers" :key="u.id">
-                        <tr>
-                            <td class="font-bold text-gray-900" x-text="u.username"></td>
-                            <td class="font-mono text-gray-600 text-xs" x-text="u.email"></td>
-                            <td><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-800" x-text="u.role.toUpperCase()"></span></td>
-                            <td class="text-gray-600 font-medium" x-text="u.department||'-'"></td>
-                            <td class="text-right">
-                                <button @click="open(u)" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase mr-3">Edit</button>
-                                <button @click="del(u.id)" class="text-red-500 hover:text-red-700 text-xs font-bold uppercase">Delete</button>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
+    <thead class="sticky top-0 z-10 bg-gray-50 shadow-sm">
+        <tr>
+            <th @click="sort('username')">Name <span x-show="sortBy==='username'" x-text="sortDesc?'↓':'↑'"></span></th>
+            <th @click="sort('email')">Email <span x-show="sortBy==='email'" x-text="sortDesc?'↓':'↑'"></span></th>
+            <th @click="sort('role')">Role <span x-show="sortBy==='role'" x-text="sortDesc?'↓':'↑'"></span></th>
+            <th @click="sort('department')">Department <span x-show="sortBy==='department'" x-text="sortDesc?'↓':'↑'"></span></th>
+            <th class="text-right pointer-events-none">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <template x-for="u in filteredUsers" :key="u.id">
+            <tr :class="!u.is_active ? 'bg-gray-50' : ''">
+                <td class="font-bold text-gray-900">
+                    <div class="flex items-center gap-2">
+                        <span x-text="u.username"></span>
+                        <span x-show="u.is_active === false" class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-600 font-bold uppercase tracking-wide">Inactive</span>
+                    </div>
+                </td>
+                <td class="font-mono text-gray-600 text-xs" x-text="u.email"></td>
+                <td>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-800" x-text="u.role.toUpperCase()"></span>
+                </td>
+                <td class="text-gray-600 font-medium" x-text="u.department||'-'"></td>
+                <td class="text-right">
+                    <button @click="open(u)" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase mr-3">Edit</button>
+                    <button @click="del(u.id)" class="text-red-500 hover:text-red-700 text-xs font-bold uppercase">Delete</button>
+                </td>
+            </tr>
+        </template>
+    </tbody>
+</table>
         </div>
     </div>
     <div x-show="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm" x-cloak>
-        <div class="w-full max-w-md bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showModal=false">
-            <h3 class="text-lg font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100">User Details</h3>
-            <div class="space-y-4">
-                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label><input x-model="form.name" class="input-std"></div>
-                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label><input x-model="form.email" class="input-std"></div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dept</label><select x-model="form.dept" class="select-std"><template x-for="d in departments"><option :value="d" x-text="d"></option></template></select></div>
-                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Role</label><select x-model="form.role" class="select-std"><option value="initiator">Initiator</option><option value="approver">Approver</option><option value="admin">Admin</option></select></div>
+    <div class="w-full max-w-md bg-white rounded-lg shadow-2xl p-6 border border-gray-200" @click.away="showModal=false">
+        <h3 class="text-lg font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100" x-text="form.id ? 'Edit User' : 'Add New User'"></h3>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label>
+                <input x-model="form.name" class="input-std">
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
+                <input x-model="form.email" class="input-std">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dept</label>
+                    <select x-model="form.dept" class="select-std">
+                        <template x-for="d in departments"><option :value="d" x-text="d"></option></template>
+                    </select>
                 </div>
-                <div class="mt-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned Category (Optional)</label><input x-model="form.category" class="input-std" placeholder="e.g. IT_HARDWARE (for specific routing)"></div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Role</label>
+                    <select x-model="form.role" class="select-std">
+                        <option value="initiator">Initiator</option>
+                        <option value="approver">Approver</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
             </div>
-            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
-                <button @click="showModal=false" class="btn-secondary">Cancel</button>
-                <button @click="save()" class="btn-primary">Save User</button>
+            
+            <div class="mt-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned Category (Optional)</label>
+                <input x-model="form.category" class="input-std" placeholder="e.g. IT_HARDWARE (for specific routing)">
             </div>
+
+            <div class="flex items-center gap-3 mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <div class="flex items-center h-5">
+                    <input id="user_active" type="checkbox" x-model="form.is_active" class="h-4 w-4 rounded border-gray-300 text-[#009C49] focus:ring-[#009C49] cursor-pointer">
+                </div>
+                <div class="text-sm">
+                    <label for="user_active" class="font-medium text-gray-700 cursor-pointer select-none">Active User</label>
+                    <p class="text-xs text-gray-500">Uncheck to disable login access for this user.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button @click="showModal=false" class="btn-secondary">Cancel</button>
+            <button @click="save()" class="btn-primary">Save User</button>
         </div>
     </div>
 </div>
+
 
 <div x-show="activeTab === 'masters'" x-data="masterApp()" class="flex gap-6 h-[calc(100vh-140px)]">
     <aside class="w-64 shrink-0 card flex flex-col">
@@ -650,7 +699,18 @@ document.addEventListener('alpine:init', () => {
             return APP.users.filter(u => (!this.search || u.username.toLowerCase().includes(this.search.toLowerCase()) || u.email.toLowerCase().includes(this.search.toLowerCase()))).filter(u => !this.deptFilter || u.department === this.deptFilter).filter(u => !this.roleFilter || u.role === this.roleFilter).sort((a, b) => { let A = (a[this.sortBy] || '').toLowerCase(); let B = (b[this.sortBy] || '').toLowerCase(); if (A < B) return this.sortDesc ? 1 : -1; if (A > B) return this.sortDesc ? -1 : 1; return 0; });
         },
         sort(col) { if(this.sortBy===col) this.sortDesc=!this.sortDesc; else { this.sortBy=col; this.sortDesc=false; } },
-        open(u) { this.form = u ? {...u} : {id:'',name:'',email:'',dept:this.departments[0],role:'initiator',category:''}; this.showModal=true; },
+        open(u) { 
+    this.form = u 
+        ? { 
+            ...u, 
+            name: u.username,        // Map username -> name
+            is_active: u.is_active,  // Map active status
+            category: u.category,    // Map assigned_category -> category
+            dept: u.department       // <--- FIX: Map department -> dept
+          } 
+        : { id:'', name:'', email:'', dept:this.departments[0], role:'initiator', category:'', is_active: true }; 
+    this.showModal=true; 
+},
         async save() { 
             const res = await apiRequest({action:'save_user', ...this.form}); 
             if(res.success) window.location.reload(); 

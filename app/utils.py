@@ -285,10 +285,62 @@ def send_system_email(recipient, subject, html_body):
 # ---------------------------------------------------------
 # 3. WORKFLOW & AUDIT UTILITIES
 # ---------------------------------------------------------
+# def get_next_approver_email(req):
+#     """Determines who should receive the next email based on workflow state."""
+#     # Import inside function to avoid Circular Imports with models.py
+#     from app.models import WorkflowStep, ITRouting, User
+    
+#     if req.status == 'DRAFT': return None, 'Draft'
+#     if req.status == 'PENDING_VENDOR': return req.vendor_email, 'Vendor Resubmission'
+#     if req.status == 'REJECTED': return None, 'Rejected'
+#     if req.status == 'COMPLETED': return None, 'Completed'
+
+#     # 1. Initiator Review
+#     if req.current_dept_flow == 'INITIATOR_REVIEW':
+#         u = db.session.get(User, req.initiator_id)
+#         return (u.email if u else None), 'Initiator Review'
+    
+#     # 2. Department Approval
+#     if req.current_dept_flow == 'DEPT':
+#         step = WorkflowStep.query.filter_by(department=req.initiator_dept, step_order=req.current_step_number).first()
+#         if step: 
+#             return step.approver_email, f"Dept Approval: {step.role_label}"
+#         return None, 'Dept Approval'
+
+#     # 3. Finance Approval
+#     if req.current_dept_flow == 'FINANCE':
+#         # Hardcoded logic (Ideal: Move to DB/Config)
+#         if req.finance_stage == 'BILL_PASSING':
+#             u = User.query.filter_by(username='Bill Passing Team').first()
+#             return (u.email if u else None), 'Finance: Bill Passing'
+#         if req.finance_stage == 'TREASURY':
+#             u = User.query.filter_by(username='Treasury Team').first()
+#             return (u.email if u else None), 'Finance: Treasury'
+#         if req.finance_stage == 'TAX':
+#             u = User.query.filter_by(username='Tax Team').first()
+#             return (u.email if u else None), 'Finance: Tax Team'
+            
+#     # 4. IT Provisioning
+#     if req.current_dept_flow == 'IT':
+#         # A. Try specific routing rule
+#         rule = ITRouting.query.filter_by(account_group=req.account_group).first()
+#         if rule: 
+#             return rule.it_assignee_email, 'IT: SAP Creation'
+        
+#         # B. Fallback to generic IT Admin
+#         fallback = User.query.filter_by(username='IT Admin').first()
+#         if fallback: 
+#             return fallback.email, 'IT: SAP Creation (Default)'
+        
+#         return None, 'IT Team'
+        
+#     return None, 'Processing'
+
+
 def get_next_approver_email(req):
     """Determines who should receive the next email based on workflow state."""
-    # Import inside function to avoid Circular Imports with models.py
-    from app.models import WorkflowStep, ITRouting, User
+    # ADDED: CategoryRouting to imports
+    from app.models import CategoryRouting, WorkflowStep, ITRouting, User
     
     if req.status == 'DRAFT': return None, 'Draft'
     if req.status == 'PENDING_VENDOR': return req.vendor_email, 'Vendor Resubmission'
@@ -300,11 +352,27 @@ def get_next_approver_email(req):
         u = db.session.get(User, req.initiator_id)
         return (u.email if u else None), 'Initiator Review'
     
-    # 2. Department Approval
+    # 2. Department Approval (Hybrid Logic)
     if req.current_dept_flow == 'DEPT':
+        # A. Check for Category Specific Routing (The Matrix)
+        cat_rule = CategoryRouting.query.filter_by(
+            department=req.initiator_dept, 
+            category_name=req.vendor_type
+        ).first()
+
+        if cat_rule:
+            # --- MATRIX PATH ---
+            if req.current_step_number == 1:
+                return cat_rule.l1_manager_email, f"Category Approval (L1): {req.vendor_type}"
+            elif req.current_step_number == 2:
+                return cat_rule.l2_head_email, f"Category Approval (L2): {req.vendor_type}"
+        
+        # B. Fallback to Generic Workflow Steps (Standard Path)
+        # This runs if vendor_type is 'Standard' OR if no matrix rule exists for selected category
         step = WorkflowStep.query.filter_by(department=req.initiator_dept, step_order=req.current_step_number).first()
         if step: 
             return step.approver_email, f"Dept Approval: {step.role_label}"
+        
         return None, 'Dept Approval'
 
     # 3. Finance Approval
@@ -335,6 +403,7 @@ def get_next_approver_email(req):
         return None, 'IT Team'
         
     return None, 'Processing'
+
 
 def log_audit(req_id, user_id, action, details=None):
     """Records a business action to the database."""

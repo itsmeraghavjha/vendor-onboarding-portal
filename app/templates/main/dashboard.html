@@ -226,24 +226,15 @@
                     <label class="block text-sm font-bold text-gray-700 mb-1">Vendor Email Address</label>
                     <input type="email" name="vendor_email" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
                 </div>
-                {% if current_user.assigned_category %}
-                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned Material Category</label>
-                        <input type="text" value="{{ current_user.assigned_category }}" disabled class="w-full bg-white border border-gray-200 rounded p-2 text-gray-700 font-bold">
-                        <input type="hidden" name="vendor_type" value="{{ current_user.assigned_category }}">
-                    </div>
-                {% elif dept_categories %}
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Select Material Category</label>
-                        <select name="vendor_type" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
-                            {% for cat in dept_categories %}
-                                <option value="{{ cat }}">{{ cat }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                {% else %}
-                    <input type="hidden" name="vendor_type" value="Standard">
-                {% endif %}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Select Material Category</label>
+                    <select name="vendor_type" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-green-500 focus:border-green-500">
+                        {% for cat in dept_categories %}
+                            <option value="{{ cat }}">{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Select "Standard" if no specific category applies.</p>
+                </div>
                 <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                     <button type="button" onclick="document.getElementById('newReqModal').classList.add('hidden')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-bold hover:bg-gray-50 transition">Cancel</button>
                     <button type="submit" class="px-4 py-2 bg-heritage text-white rounded-lg font-bold hover:bg-green-800 shadow-sm transition">Send Invite &rarr;</button>
