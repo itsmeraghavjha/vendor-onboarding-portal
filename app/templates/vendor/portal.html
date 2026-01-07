@@ -44,6 +44,146 @@
         .step-panel.active { display: block; animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
+    <script>
+    // Explicitly attach to window to ensure global access
+    window.verifyVendorData = async function() {
+        const btn = document.querySelector('button[onclick="verifyVendorData()"]');
+        const resultDiv = document.getElementById('verificationResult');
+        
+        // Helper to safely get values
+        const getVal = (name) => {
+            const el = document.querySelector(`[name="${name}"]`);
+            return el ? el.value : '';
+        };
+
+        // 1. Map HTML Field Names to API Keys
+        const payload = {
+            vendor_name:        getVal('legal_name'), 
+            pan_number:         getVal('pan_no'),
+            gst_number:         getVal('gst_no'),
+            msme_number:        getVal('msme_number'),
+            bank_account_no:    getVal('acc_no'),
+            ifsc_code:          getVal('ifsc')
+        };
+
+        // 2. Basic Validation
+        if (!payload.pan_number && !payload.gst_number) {
+            alert("Please enter at least a PAN Number or GST Number to verify.");
+            return;
+        }
+
+        // 3. UI Loading State
+        btn.disabled = true;
+        const originalText = btn.innerText;
+        btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 inline-block text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Verifying...';
+        
+        resultDiv.className = "mt-4 p-4 rounded bg-blue-50 text-blue-800 border border-blue-200";
+        resultDiv.innerHTML = "<strong>Connecting to IDfy...</strong><br>Validating against Government Databases.";
+        resultDiv.classList.remove('hidden');
+
+        try {
+            // 4. API Call
+            const response = await fetch('/vendor/api/verify-details', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error);
+            
+            // 5. Render Results
+            // 5. Render Results
+// 5. Render Results (UPDATED)
+            let html = '<h4 class="font-bold mb-2 border-b border-gray-200 pb-1">Verification Report</h4><ul class="text-sm space-y-2">';
+
+            // GST Result
+            if (data.details.gst) {
+                const g = data.details.gst;
+                let icon = '❌'; let color = 'text-red-600';
+                if (g.status === 'Active') { icon = '✅'; color = 'text-green-700'; }
+                else if (g.status === 'Skipped') { icon = '⚪'; color = 'text-gray-500'; }
+
+                html += `<li class="bg-white p-2 rounded border border-gray-200">
+                    <div class="${color} font-bold">${icon} GST: ${g.status}</div>
+                    <div class="text-xs text-gray-800 font-semibold">Trade: ${g.trade_name || 'N/A'}</div>
+                    <div class="text-xs text-gray-500">Legal: ${g.legal_name || 'N/A'}</div>
+                    <div class="text-xs text-gray-500">Type: ${g.type || 'N/A'}</div>
+                    <div class="text-xs text-gray-500">Filing: ${g.filing_status || 'N/A'}</div>
+                    <div class="text-xs text-blue-600">E-Invoice: ${g.einvoice || 'N/A'}</div>
+                </li>`;
+            }
+
+            // PAN Result
+            if (data.details.pan) {
+                const p = data.details.pan;
+                const icon = p.status === 'VALID' ? '✅' : '❌';
+                const color = p.status === 'VALID' ? 'text-green-700' : 'text-red-600';
+                
+                // Handle Name Match Boolean
+                let nameMatchStr = 'N/A';
+                if (p.name_match === true) nameMatchStr = '<span class="text-green-600">Matched</span>';
+                else if (p.name_match === false) nameMatchStr = '<span class="text-red-600">Mismatch</span>';
+
+                html += `<li class="bg-white p-2 rounded border border-gray-200">
+                    <div class="${color} font-bold">${icon} PAN Status: ${p.status}</div>
+                    <div class="text-xs text-gray-500">Name Match: ${nameMatchStr}</div>
+                    <div class="text-xs text-gray-500">Aadhaar Linked: ${p.aadhaar_linked || 'N/A'}</div>
+                </li>`;
+            }
+
+            // Bank Result
+            if (data.details.bank) {
+                const b = data.details.bank;
+                // Handle "Skipped" status explicitly
+                let icon = '❌';
+                let color = 'text-red-600';
+                
+                if (b.status === 'Verified') { icon = '✅'; color = 'text-green-700'; }
+                else if (b.status === 'Skipped') { icon = '⚪'; color = 'text-gray-500'; }
+
+                html += `<li class="bg-white p-2 rounded border border-gray-200">
+                    <div class="${color} font-bold">${icon} Bank: ${b.status}</div>
+                    <div class="text-xs text-gray-500">Name at Bank: ${b.name_at_bank || 'N/A'}</div>
+                </li>`;
+            }
+
+            // MSME Result
+            if (data.details.msme) {
+                const m = data.details.msme;
+                // Handle "Skipped" status
+                let icon = '❌';
+                let color = 'text-red-600';
+                
+                if (m.status === 'id_found') { icon = '✅'; color = 'text-green-700'; }
+                else if (m.status === 'Skipped') { icon = '⚪'; color = 'text-gray-500'; }
+
+                html += `<li class="bg-white p-2 rounded border border-gray-200">
+                    <div class="${color} font-bold">${icon} MSME: ${m.status === 'id_found' ? 'Verified' : m.status}</div>
+                    <div class="text-xs text-gray-800 font-medium">${m.name || 'N/A'}</div>
+                    <div class="text-xs text-gray-500">Type: ${m.enterprise_type || 'N/A'}</div>
+                </li>`;
+            }
+
+            html += '</ul>';
+            resultDiv.innerHTML = html;
+
+            resultDiv.className = "mt-4 p-4 rounded shadow-sm border " + (data.valid ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200");
+
+        } catch (e) {
+            console.error(e);
+            resultDiv.innerHTML = `<strong>Verification Error:</strong> ${e.message}`;
+            resultDiv.className = "mt-4 p-4 rounded bg-red-50 border border-red-200 text-red-700 shadow-sm";
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    };
+</script>
 </head>
 <body class="bg-gray-50 min-h-screen pb-20">
 
@@ -465,6 +605,15 @@
                     </div>
                 </div>
 
+             <div class="mb-6 flex justify-end">
+    <button type="button" onclick="verifyVendorData()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-blue-700 transition flex items-center gap-2">
+        <span>🛡️</span> Verify Data with Govt.
+    </button>
+</div>
+
+<div id="verificationResult" class="hidden mb-6"></div>
+
+
                 <div class="flex justify-between pt-4 border-t border-gray-100">
                     <button type="button" @click="step = 2" class="text-gray-600 font-bold hover:text-gray-900 h-11 flex items-center" :disabled="submitting">
                         &larr; Back
@@ -492,5 +641,8 @@
         <p>&copy; 2025 Heritage Foods Ltd. All rights reserved.</p>
     </footer>
 
+    
 </body>
+
+
 </html>

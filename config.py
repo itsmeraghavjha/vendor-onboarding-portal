@@ -85,3 +85,6 @@ class Config:
     CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL') or 'redis://localhost:6379/0'
     CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND') or 'redis://localhost:6379/0'
     CELERY_TASK_ALWAYS_EAGER = False
+
+    IDFY_API_KEY = os.environ.get('IDFY_API_KEY')
+    IDFY_ACCOUNT_ID = os.environ.get('IDFY_ACCOUNT_ID')
