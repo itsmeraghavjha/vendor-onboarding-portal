@@ -24,21 +24,9 @@ class VerificationService:
 
     @staticmethod
     def file_to_base64(file_path):
-        if not file_path:
-            return None
-        
         full_path = os.path.join(
             current_app.root_path, "static", "uploads", file_path
         )
-        
-        # Fallback for temp files (absolute path)
-        if not os.path.exists(full_path):
-            if os.path.exists(file_path):
-                full_path = file_path
-            else:
-                logger.error(f"File not found for OCR: {full_path}")
-                return None
-            
         with open(full_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
 
@@ -96,7 +84,7 @@ class VerificationService:
             response.raise_for_status()
             data = response.json()
 
-            if data and isinstance(data, list) and len(data) > 0:
+            if data and isinstance(data, list):
                 task = data[0]
                 return {"status": task.get("status"), "result": task.get("result")}
 
@@ -134,18 +122,11 @@ class VerificationService:
     def start_pan_ocr(pan_file_path):
         url = f"{VerificationService.BASE_URL}/tasks/async/extract/ind_pan"
 
-        try:
-            b64_doc = VerificationService.file_to_base64(pan_file_path)
-            if not b64_doc:
-                raise Exception("File not found on server")
-        except Exception as e:
-            raise Exception(f"Could not read PAN file: {str(e)}")
-
         payload = {
             "task_id": f"task-{uuid.uuid4()}",
             "group_id": f"group-{uuid.uuid4()}",
             "data": {
-                "document1": b64_doc
+                "document1": VerificationService.file_to_base64(pan_file_path)
             },
         }
 
@@ -176,6 +157,9 @@ class VerificationService:
         bank_acc = data.get("bank_account_no")
         ifsc = data.get("ifsc_code")
 
+        if not pan or not pan_file:
+            raise Exception("PAN number and PAN file are required")
+
         tasks = {}
         poll_data = {}
 
@@ -189,85 +173,121 @@ class VerificationService:
             },
         }
 
-        # 1. PAN
-        if pan:
-            if not pan_file:
-                 summary["details"]["pan"] = {"error": "Please select a PAN file to verify."}
-            else:
-                try:
-                    ocr_id = VerificationService.start_pan_ocr(pan_file)
-                    ocr_res, err = VerificationService.poll_result_blocking(ocr_id)
-                    
-                    if err: raise Exception(f"OCR Failed: {err}")
-                    
-                    ocr_output = ocr_res.get("result", {}).get("extraction_output", {})
-                    ocr_name = ocr_output.get("name_on_card")
-                    ocr_dob = ocr_output.get("date_of_birth")
-                    
-                    if not ocr_name: raise Exception("Could not read Name from PAN Card")
+        # --------------------------------------------------
+        # 1. PAN OCR
+        # --------------------------------------------------
+        ocr_id = VerificationService.start_pan_ocr(pan_file)
+        ocr_res, err = VerificationService.poll_result_blocking(ocr_id)
+        if err:
+            raise Exception("PAN OCR failed")
 
-                    tasks["pan"] = VerificationService.start_task(
-                        "ind_pan",
-                        { "id_number": pan, "full_name": ocr_name, "dob": ocr_dob, "get_contact_details": False }
-                    )[0]
+        ocr_output = ocr_res["result"]["extraction_output"]
+        ocr_name = ocr_output.get("name_on_card")
+        ocr_dob = ocr_output.get("date_of_birth")
 
-                    if aadhaar:
-                        tasks["pan_link"] = VerificationService.start_task(
-                            "pan_aadhaar_link",
-                            {"pan_number": pan, "aadhaar_number": aadhaar}
-                        )[0]
-                except Exception as e:
-                    summary["details"]["pan"] = {"error": str(e)}
+        print("OCR NAME:", ocr_name)
+        print("OCR DOB:", ocr_dob)
 
-        # 2. GST
+        if not ocr_name:
+            raise Exception("PAN OCR name missing")
+
+        # --------------------------------------------------
+        # 2. START TASKS
+        # --------------------------------------------------
+        tasks["pan"] = VerificationService.start_task(
+            "ind_pan",
+            {
+                "id_number": pan,
+                "full_name": ocr_name,
+                "dob": ocr_dob,
+                "get_contact_details": False,
+            },
+        )[0]
+
+        if aadhaar:
+            tasks["pan_link"] = VerificationService.start_task(
+                "pan_aadhaar_link",
+                {"pan_number": pan, "aadhaar_number": aadhaar},
+            )[0]
+
         if gstin:
             tasks["gst"] = VerificationService.start_task(
                 "ind_gst_certificate",
-                { "gstin": gstin, "filing_details": True, "e_invoice_details": True }
+                {
+                    "gstin": gstin,
+                    "filing_details": True,
+                    "e_invoice_details": True,
+                },
             )[0]
 
-        # 3. MSME
         if udyam:
             tasks["msme"] = VerificationService.start_task(
-                "udyam_aadhaar", {"uam_number": udyam}
+                "udyam_aadhaar",
+                {"uam_number": udyam},
             )[0]
 
-        # 4. BANK
         if bank_acc and ifsc:
             tasks["bank"] = VerificationService.start_task(
                 "validate_bank_account",
-                { "bank_account_no": bank_acc, "bank_ifsc_code": ifsc, "nf_verification": False }
+                {
+                    "bank_account_no": bank_acc,
+                    "bank_ifsc_code": ifsc,
+                    "nf_verification": False,
+                },
             )[0]
 
-        # 5. POLL
+        # --------------------------------------------------
+        # 3. POLL ALL TASKS
+        # --------------------------------------------------
         for key, req_id in tasks.items():
-            if not req_id: continue
+            if not req_id:
+                continue
+
             res, err = VerificationService.poll_result_blocking(req_id)
-            if res: poll_data[key] = res
-            if err: print(f"DEBUG [{key}] FAILED:", err)
+            if res:
+                poll_data[key] = res
+                print(f"DEBUG [{key}]:", res)
+            if err:
+                print(f"DEBUG [{key}] FAILED:", err)
 
-        # --- PROCESS PAN ---
-        if "pan" in poll_data:
-            pan_src = poll_data["pan"].get("result", {}).get("source_output", {})
-            pan_status_text = pan_src.get("pan_status", "")
-            pan_id_found = pan_src.get("status") == "id_found"
-            
-            pan_is_valid = (pan_id_found and "existing and valid" in str(pan_status_text).lower())
 
-            aadhaar_linked = None
-            if "pan_link" in poll_data:
-                aadhaar_linked = poll_data["pan_link"].get("result", {}).get("source_output", {}).get("is_linked")
+                # --------------------------------------------------
+        # 4. PROCESS PAN (NORMALIZED – SINGLE SOURCE OF TRUTH)
+        # --------------------------------------------------
+        pan_src = poll_data.get("pan", {}).get("result", {}).get("source_output", {})
 
-            summary["details"]["pan"] = {
-                "is_valid": pan_is_valid,
-                "status_text": pan_status_text,
-                "name_match": pan_src.get("name_match"),
-                "aadhaar_linked": aadhaar_linked,
-            }
+        pan_status_text = pan_src.get("pan_status", "")
+        pan_id_found = pan_src.get("status") == "id_found"
+        name_match = pan_src.get("name_match") is True
 
-        # --- PROCESS GST ---
-        if "gst" in poll_data:
-            gst_src = poll_data["gst"].get("result", {}).get("source_output", {})
+        # ✅ CANONICAL VALID FLAG (THIS FIXES RED ❌)
+        pan_is_valid = (
+            pan_id_found
+            and isinstance(pan_status_text, str)
+            and "existing and valid" in pan_status_text.lower()
+        )
+
+        aadhaar_linked = (
+            poll_data.get("pan_link", {})
+            .get("result", {})
+            .get("source_output", {})
+            .get("is_linked")
+        )
+
+        summary["details"]["pan"] = {
+            "is_valid": pan_is_valid,          # ✅ frontend uses ONLY this
+            "status_text": pan_status_text,    # display text
+            "id_found": pan_id_found,
+            "name_match": name_match,
+            "aadhaar_linked": aadhaar_linked,
+        }
+
+
+        # --------------------------------------------------
+        # 5. PROCESS GST
+        # --------------------------------------------------
+        gst_src = poll_data.get("gst", {}).get("result", {}).get("source_output", {})
+        if gst_src:
             summary["details"]["gst"] = {
                 "status": gst_src.get("status"),
                 "gstin_status": gst_src.get("gstin_status"),
@@ -275,57 +295,46 @@ class VerificationService:
                 "legal_name": gst_src.get("legal_name"),
                 "taxpayer_type": gst_src.get("taxpayer_type"),
                 "e_invoice_status": gst_src.get("e_invoice_status"),
-                "last_6_gstr3b": VerificationService._analyze_gst_filings(gst_src.get("filing_details", {})),
+                "last_6_gstr3b": VerificationService._analyze_gst_filings(
+                    gst_src.get("filing_details", {})
+                ),
             }
 
-        # --- PROCESS MSME ---
-        if "msme" in poll_data:
-            msme_src = poll_data["msme"].get("result", {}).get("source_output", {})
-            general_details = msme_src.get("general_details", {})
-
-            # Name Fallback
-            ent_name = (
-                general_details.get("enterprise_name") or 
-                msme_src.get("enterprise_name") or 
-                msme_src.get("name") or 
-                "N/A"
-            )
-
-            # Type Parsing
-            ent_type_raw = general_details.get("enterprise_type") or msme_src.get("enterprise_type")
-            ent_type = "N/A"
-            if isinstance(ent_type_raw, str):
-                ent_type = ent_type_raw
-            elif isinstance(ent_type_raw, dict):
-                ent_type = ent_type_raw.get("label") or ent_type_raw.get("code") or "N/A"
-
+        # --------------------------------------------------
+        # 6. PROCESS MSME
+        # --------------------------------------------------
+        msme_src = poll_data.get("msme", {}).get("result", {}).get("source_output", {})
+        if msme_src:
             summary["details"]["msme"] = {
                 "status": msme_src.get("status"),
-                "name": ent_name,
-                "type": ent_type,
+                "name": msme_src.get("enterprise_name"),
+                "type": msme_src.get("enterprise_type"),
+                "classification": msme_src.get("classification"),
+                "date_of_registration": msme_src.get("date_of_registration"),
             }
 
-        # --- PROCESS BANK (FIXED HERE) ---
-        if "bank" in poll_data:
-            # Bank API returns results in 'result', NOT 'source_output'
-            bank_res = poll_data["bank"].get("result", {})
-            
-            # Check for source_output first (just in case), otherwise use direct result
-            bank_src = bank_res.get("source_output") or bank_res
-
+        # --------------------------------------------------
+        # 7. PROCESS BANK
+        # --------------------------------------------------
+        bank_src = poll_data.get("bank", {}).get("result", {}).get("source_output", {})
+        if bank_src:
             summary["details"]["bank"] = {
                 "status": bank_src.get("status"),
                 "account_exists": bank_src.get("account_exists"),
                 "name_at_bank": bank_src.get("name_at_bank"),
+                "bank_name": bank_src.get("bank_name"),
+                "ifsc": bank_src.get("ifsc"),
             }
 
         return summary
 
+    # --------------------------------------------------
+    # GST ANALYSIS
+    # --------------------------------------------------
+
     @staticmethod
     def _analyze_gst_filings(filing_details):
-        if not filing_details: return "N/A"
         gstr3b = filing_details.get("gstr3b", [])
-        if not gstr3b: return "0/6"
         recent = gstr3b[:6]
         filed = sum(1 for f in recent if f.get("status") == "Filed")
         return f"{filed}/6 Filed"

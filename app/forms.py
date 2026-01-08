@@ -86,6 +86,9 @@ class VendorOnboardingForm(FlaskForm):
                          validators=[DataRequired(), Length(min=10, max=10)], 
                          filters=[lambda x: x.upper() if x else None])
     
+    # --- ADDED AADHAAR FIELD ---
+    aadhaar_no = StringField('Aadhaar Number', validators=[Optional(), Length(min=12, max=12)])
+    
     pan_file = FileField('Upload PAN', validators=[FileAllowed(['pdf', 'jpg', 'png'])])
 
     msme_reg = RadioField('MSME Registered?', choices=[('YES', 'Yes'), ('NO', 'No')], validators=[DataRequired()])

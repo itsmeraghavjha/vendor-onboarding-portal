@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Registration | Heritage Foods</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .text-heritage { color: #009C49; }
+        .bg-heritage { background-color: #009C49; }
+        .border-heritage { border-color: #009C49; }
+        .hover-bg-heritage:hover { background-color: #007a3a; }
+        .ring-heritage:focus { --tw-ring-color: #009C49; }
+        .accent-heritage { accent-color: #009C49; }
+        .std-input {
+            height: 44px;
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            background-color: white;
+        }
+        .std-input:focus { outline: none; border-color: #009C49; box-shadow: 0 0 0 3px rgba(0, 156, 73, 0.1); }
+        .std-input:invalid:not(:placeholder-shown) { border-color: #ef4444; background-color: #fef2f2; }
+        input[type="file"].std-input { padding: 0.25rem; }
+        input[type="file"]::file-selector-button {
+            height: 100%; margin-right: 1rem; background-color: #f3f4f6; border: none;
+            border-right: 1px solid #e5e7eb; border-radius: 0.25rem; color: #374151;
+            padding-left: 0.75rem; padding-right: 0.75rem; font-size: 0.75rem; font-weight: 600;
+            cursor: pointer; transition: background 0.2s;
+        }
+        input[type="file"]::file-selector-button:hover { background-color: #e5e7eb; }
+        textarea.std-input { height: auto; padding-top: 0.5rem; }
+        .step-panel { display: none; }
+        .step-panel.active { display: block; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+    <script>
+    // Explicitly attach to window to ensure global access
+    window.verifyVendorData = async function() {
+        const btn = document.querySelector('button[onclick="verifyVendorData()"]');
+        const resultDiv = document.getElementById('verificationResult');
+        
+        // Helper to safely get values
+        const getVal = (name) => {
+            const el = document.querySelector(`[name="${name}"]`);
+            return el ? el.value : '';
+        };
+
+        // 1. Map HTML Field Names to API Keys
+        const payload = {
+            pan_file_path:      "{{ req.pan_file_path }}",
+            vendor_name:        getVal('legal_name'), 
+            pan_number:         getVal('pan_no'),
+            aadhaar_number:     getVal('aadhaar_no'),
+            gst_number:         getVal('gst_no'),
+            msme_number:        getVal('msme_number'),
+            bank_account_no:    getVal('acc_no'),
+            ifsc_code:          getVal('ifsc')
+        };
+
+        // 2. Basic Validation
+        if (!payload.pan_number && !payload.gst_number) {
+            alert("Please enter at least a PAN Number or GST Number to verify.");
+            return;
+        }
+
+        // 3. UI Loading State
+        btn.disabled = true;
+        const originalText = btn.innerText;
+        btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 inline-block text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Verifying...';
+        
+        resultDiv.className = "mt-4 p-4 rounded bg-blue-50 text-blue-800 border border-blue-200";
+        resultDiv.innerHTML = "<strong>Connecting to IDfy...</strong><br>Validating against Government Databases.";
+        resultDiv.classList.remove('hidden');
+
+        try {
+            // 4. API Call
+            const response = await fetch('/vendor/api/verify-details', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error);
+            
+            // 5. Render Results (UPDATED FOR YOUR API RESPONSE STRUCTURE)
+            let html = '<h4 class="font-bold mb-2 border-b border-gray-200 pb-1">Verification Report</h4><ul class="text-sm space-y-2">';
+
+            // --- GST Result ---
+            // --- GST Result ---
+if (payload.gst_number) {
+  const g = data.details.gst || {};
+
+  const status = g.gstin_status || g.status || 'Unknown';
+  const isActive = status === 'Active';
+
+  const icon = isActive ? '✅' : '❌';
+  const color = isActive ? 'text-green-700' : 'text-red-600';
+
+  html += `
+    <li class="bg-white p-3 rounded border border-gray-200 space-y-1">
+      <div class="${color} font-bold">${icon} GST: ${status}</div>
+
+      <div class="text-xs">
+        <span class="font-semibold">Trade:</span> ${g.trade_name || 'N/A'}
+      </div>
+
+      <div class="text-xs">
+        <span class="font-semibold">Legal:</span> ${g.legal_name || 'N/A'}
+      </div>
+
+      <div class="text-xs">
+        <span class="font-semibold">Taxpayer Type:</span> ${g.taxpayer_type || 'N/A'}
+      </div>
+
+      <div class="text-xs">
+        <span class="font-semibold">E-Invoice:</span> ${g.e_invoice_status || 'N/A'}
+      </div>
+
+      <div class="text-xs">
+        <span class="font-semibold">Last 6 GSTR-3B:</span> ${g.last_6_gstr3b || 'N/A'}
+      </div>
+    </li>
+  `;
+}
+
+            // --- PAN Result ---
+            if (data.details.pan) {
+                const p = data.details.pan;
+                // FIX: Check for 'id_found' OR 'VALID'
+                const isValid = p.is_valid === true;
+                
+                const icon = isValid ? '✅' : '❌';
+                const color = isValid ? 'text-green-700' : 'text-red-600';
+                
+                let nameMatchStr = 'N/A';
+                if (p.name_match === true) nameMatchStr = '<span class="text-green-600">Matched</span>';
+                else if (p.name_match === false) nameMatchStr = '<span class="text-red-600">Mismatch</span>';
+
+                html += `<li class="bg-white p-2 rounded border border-gray-200">
+                    <div class="${color} font-bold">${icon} PAN Status: ${isValid ? 'Valid' : p.status}</div>
+                    <div class="text-xs text-gray-500">Name Match: ${nameMatchStr}</div>
+                    <div class="text-xs text-gray-500">Aadhaar Linked: ${p.aadhaar_linked || 'Yes'}</div>
+                </li>`;
+            }
+
+            // --- Bank Result ---
+            if (payload.bank_account_no) {
+                const b = data.details.bank || { status: 'Verification Failed' };
+
+                // FIX: Check for 'id_found' OR 'Verified'
+                const isValid = (b.status === 'id_found' || b.status === 'Verified' || b.account_exists === 'YES');
+                
+                let icon = isValid ? '✅' : '❌'; 
+                let color = isValid ? 'text-green-700' : 'text-red-600';
+                
+                if (b.status === 'Skipped') { icon = '⚪'; color = 'text-gray-500'; }
+
+                html += `<li class="bg-white p-2 rounded border border-gray-200">
+                    <div class="${color} font-bold">${icon} Bank: ${isValid ? 'Verified' : b.status}</div>
+                    <div class="text-xs text-gray-500">Name at Bank: ${b.name_at_bank || 'N/A'}</div>
+                </li>`;
+            }
+
+            // --- MSME Result ---
+            // Note: Your logs show MSME fails with 404, so this might not appear
+            if (data.details.msme) {
+                const m = data.details.msme;
+                let icon = '❌'; let color = 'text-red-600';
+                
+                if (m.status === 'id_found' || m.status === 'Verified') { icon = '✅'; color = 'text-green-700'; }
+                else if (m.status === 'Skipped') { icon = '⚪'; color = 'text-gray-500'; }
+
+                html += `<li class="bg-white p-2 rounded border border-gray-200">
+                    <div class="${color} font-bold">${icon} MSME: ${m.status === 'id_found' ? 'Verified' : m.status}</div>
+                    <div class="text-xs text-gray-800 font-medium">${m.name || 'N/A'}</div>
+                </li>`;
+            } else if (payload.msme_number && payload.msme_number.length > 5) {
+                 // Fallback if MSME was requested but failed (404)
+                 html += `<li class="bg-white p-2 rounded border border-gray-200">
+                    <div class="text-red-600 font-bold">❌ MSME: Verification Failed</div>
+                    <div class="text-xs text-gray-500">Check number or portal availability</div>
+                </li>`;
+            }
+
+            html += '</ul>';
+            resultDiv.innerHTML = html;
+            resultDiv.className = "mt-4 p-4 rounded shadow-sm border bg-white border-gray-200";
+
+        } catch (e) {
+            console.error(e);
+            resultDiv.innerHTML = `<strong>Verification Error:</strong> ${e.message}`;
+            resultDiv.className = "mt-4 p-4 rounded bg-red-50 border border-red-200 text-red-700 shadow-sm";
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    };
+</script>
+</head>
+<body class="bg-gray-50 min-h-screen pb-20">
+
+    <header class="bg-white shadow-sm border-t-4 border-heritage sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Heritage Foods" class="h-12 w-auto">
+                <div class="hidden md:block h-8 w-px bg-gray-200"></div>
+                <div>
+                    <h1 class="text-lg font-bold text-gray-900 tracking-tight">Vendor Portal</h1>
+                    <p class="text-xs text-gray-500 font-medium">Onboarding Application</p>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                <p class="text-[10px] uppercase text-gray-500 font-bold tracking-wider">Ref ID</p>
+                <p class="text-sm font-mono font-bold text-heritage">{{ req.request_id }}</p>
+            </div>
+        </div>
+    </header>
+
+    {% if req.status == 'PENDING_VENDOR' and req.last_query %}
+    <div class="max-w-4xl mx-auto px-4 mt-6">
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-r-lg shadow-sm flex items-start gap-4">
+            <div class="text-3xl">⚠️</div>
+            <div>
+                <h3 class="text-lg font-bold text-yellow-800">Action Required: Correction Needed</h3>
+                <p class="text-sm text-yellow-700 mt-1">Reviewer instruction: "{{ req.last_query }}"</p>
+                <p class="text-xs text-yellow-600 mt-2 font-bold">Please make the necessary changes and re-submit.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <main class="max-w-4xl mx-auto px-4 mt-8" x-data="{ 
+        step: {{ initial_step|default(1) }}, 
+        
+        gstReg: '{{ request.form.get("gst_reg") or req.gst_registered or "NO" }}', 
+        msmeReg: '{{ request.form.get("msme_reg") or req.msme_registered or "NO" }}',
+        constitution: '{{ request.form.get("constitution") or req.constitution or "" }}',
+        panVal: '{{ form.pan_no.data or req.pan_number or "" }}',
+        aadhaarVal: '{{ form.aadhaar_no.data or req.aadhaar_number or "" }}',
+
+        gstConsent: {{ 'true' if request.form.get('gst_consent') or req.gst_registered == 'NO' else 'false' }},
+        msmeConsent: {{ 'true' if request.form.get('msme_consent') or req.msme_registered == 'NO' else 'false' }},
+        
+        submitting: false,
+
+        validateAndNext(currentStep) {
+            const container = document.getElementById('step_' + currentStep);
+            const inputs = container.querySelectorAll('input, select, textarea');
+            let valid = true;
+            for (const input of inputs) {
+                if (!input.checkValidity()) {
+                    input.reportValidity();
+                    valid = false;
+                    break; 
+                }
+            }
+            if (valid) {
+                this.step = currentStep + 1;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        },
+
+        submitForm(e) {
+            const form = document.querySelector('form');
+            if (form.checkValidity()) {
+                this.submitting = true;
+            }
+        }
+    }">
+        
+        <div class="mb-10 max-w-3xl mx-auto">
+            <div class="flex items-center justify-between relative">
+                <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10"></div>
+                <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-heritage -z-10 transition-all duration-500" :style="'width: ' + ((step-1)*50) + '%'"></div>
+                
+                <div class="flex flex-col items-center bg-gray-50 px-2 cursor-pointer" @click="if(step > 1) step = 1">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm" :class="step >= 1 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">
+                        <span x-show="step > 1">✓</span><span x-show="step <= 1">1</span>
+                    </div>
+                    <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 1 ? 'text-gray-900' : 'text-gray-400'">Org Details</span>
+                </div>
+                <div class="flex flex-col items-center bg-gray-50 px-2 cursor-pointer" @click="if(step > 2) step = 2">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm" :class="step >= 2 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">
+                        <span x-show="step > 2">✓</span><span x-show="step <= 2">2</span>
+                    </div>
+                    <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 2 ? 'text-gray-900' : 'text-gray-400'">Compliance</span>
+                </div>
+                <div class="flex flex-col items-center bg-gray-50 px-2 cursor-pointer">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm" :class="step >= 3 ? 'bg-heritage border-heritage text-white' : 'bg-white border-gray-300 text-gray-400'">3</div>
+                    <span class="text-xs font-bold mt-2 uppercase tracking-wide" :class="step >= 3 ? 'text-gray-900' : 'text-gray-400'">Finalize</span>
+                </div>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="mb-6 p-4 rounded-lg border-l-4 shadow-sm flex items-start gap-3 {{ 'bg-red-50 border-red-500 text-red-800' if category=='error' else 'bg-green-50 border-green-500 text-green-800' }}">
+                    <span class="text-xl font-bold">{{ '⚠' if category=='error' else '✓' }}</span>
+                    <p class="text-sm font-medium">{{ message }}</p>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" enctype="multipart/form-data" 
+              @submit="submitForm"
+              class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden relative" novalidate>
+            {{ form.hidden_tag() }}
+            
+            <div id="step_1" class="step-panel p-8" :class="{ 'active': step === 1 }">
+                <div class="mb-8 border-b border-gray-100 pb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Organization Details</h2>
+                    <p class="text-sm text-gray-500">Legal entity information.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Title <span class="text-red-500">*</span></label>
+                        {{ form.title(class="std-input bg-gray-50 focus:bg-white") }}
+                    </div>
+                    <div class="md:col-span-5">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Legal Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="legal_name" 
+                               class="std-input font-medium focus:ring-heritage" 
+                               placeholder="As per PAN (Max 100 chars)" maxlength="100" 
+                               value="{{ form.legal_name.data or req.vendor_name_basic or '' }}"
+                               required>
+                    </div>
+                    <div class="md:col-span-5">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Trade Name</label>
+                        {{ form.trade_name(class="std-input", placeholder="If different (Max 35 chars)", maxlength="35") }}
+                    </div>
+                    <div class="md:col-span-6">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Constitution <span class="text-red-500">*</span></label>
+                        {{ form.constitution(class="std-input", **{'x-model': 'constitution'}) }}
+                    </div>
+                    <div class="md:col-span-6" x-show="constitution.toLowerCase().includes('company')" x-transition>
+                        <label class="block text-xs font-bold text-blue-600 uppercase mb-1">CIN Number <span class="text-red-500">*</span></label>
+                        <input type="text" name="cin_no" class="std-input bg-blue-50 border-blue-200 text-blue-800 font-mono uppercase" 
+                               maxlength="21" placeholder="L12345MH2020PLC123456" 
+                               :required="constitution.toLowerCase().includes('company')"
+                               value="{{ form.cin_no.data or req.cin_number or '' }}">
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-6">
+                    <h3 class="text-sm font-bold text-gray-800 uppercase mb-4 flex items-center gap-2">Contact Person Details</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Name <span class="text-red-500">*</span></label>
+                            {{ form.contact_name(class="std-input", maxlength="35") }}
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Designation <span class="text-red-500">*</span></label>
+                            {{ form.designation(class="std-input", maxlength="35") }}
+                        </div>
+                        
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Mobile No. <span class="text-red-500">*</span></label>
+                            {{ form.mobile_1(class="std-input", type="tel", 
+                                pattern="[0-9]{10}", maxlength="10", 
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '')",
+                                placeholder="10 Digit Number") }}
+                        </div>
+                        
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Alternate Mobile No.</label>
+                            {{ form.mobile_2(class="std-input", type="tel", pattern="[0-9]{10}", maxlength="10", oninput="this.value = this.value.replace(/[^0-9]/g, '')", placeholder="Optional") }}
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Landline No.</label>
+                            {{ form.landline(class="std-input", maxlength="31", placeholder="Optional") }}
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Products / Service Data <span class="text-red-500">*</span></label>
+                            {{ form.product_desc(class="std-input", rows="2", maxlength="50", placeholder="Brief description (Max 50 chars)...") }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                     <h3 class="text-sm font-bold text-gray-800 uppercase mb-3">Registered Address <span class="text-red-500">*</span> </h3>
+                     <div class="space-y-3">
+                        {{ form.street_1(class="std-input", placeholder="Street 1 (Max 35 chars)", maxlength="35", required=True) }}
+                        <div class="grid grid-cols-2 gap-3">
+                            {{ form.street_2(class="std-input", placeholder="Street 2 (Max 40 chars)", maxlength="40") }}
+                            {{ form.street_3(class="std-input", placeholder="Street 3 (Max 40 chars)", maxlength="40") }}
+                            {{ form.street_4(class="std-input", placeholder="Street 4 (Max 40 chars)", maxlength="40") }}
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            {{ form.city(class="std-input", placeholder="City (Max 40 chars)", maxlength="40", required=True) }}
+                            {{ form.pincode(class="std-input", placeholder="Pincode", type="text", pattern="[0-9]{6}", maxlength="10", required=True, oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);") }}
+                            {{ form.state(class="std-input", required=True) }}
+                        </div>
+                     </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t border-gray-100">
+                    <button type="button" @click="validateAndNext(1)" class="bg-heritage text-white px-8 py-2.5 rounded-lg font-bold shadow hover:bg-green-700 transition h-11 flex items-center">Next &rarr;</button>
+                </div>
+            </div>
+
+            <div id="step_2" class="step-panel p-8" :class="{ 'active': step === 2 }">
+                <div class="mb-8 border-b border-gray-100 pb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Tax & Compliance</h2>
+                    <p class="text-sm text-gray-500">Statutory document uploads.</p>
+                </div>
+
+                <div class="mb-6 border rounded-xl p-5" :class="gstReg === 'YES' ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200'">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm font-bold text-gray-800">GST Registered? <span class="text-red-500">*</span></label>
+                        <div class="flex gap-4">
+                            {% for subfield in form.gst_reg %}
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                {{ subfield(class="accent-heritage w-5 h-5", **{'x-model': 'gstReg'}) }}
+                                <span class="text-sm font-medium">{{ subfield.label.text }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div x-show="gstReg === 'YES'" class="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-gray-100 pt-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">GST Number <span class="text-red-500">*</span></label>
+                            <input type="text" name="gst_no" class="std-input uppercase font-mono" 
+                                   maxlength="15" pattern="^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$" 
+                                   oninput="this.value = this.value.toUpperCase()"
+                                   placeholder="15 Digit GSTIN" :required="gstReg === 'YES'"
+                                   value="{{ form.gst_no.data or req.gst_number or '' }}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Certificate <span class="text-red-500">*</span></label>
+                            <input type="file" name="gst_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
+                                   :required="gstReg === 'YES' && '{{ req.gst_file_path or '' }}'.length === 0">
+                            
+                            {% if req.gst_file_path %}
+                            <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                <span>✓ File Uploaded</span>
+                                <a href="{{ url_for('static', filename='uploads/' + req.gst_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                     <div x-show="gstReg === 'NO'" class="pt-4 border-t border-gray-200">
+                         <label class="flex items-start gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                             <input type="checkbox" name="gst_consent" x-model="gstConsent" class="accent-heritage mt-1 w-4 h-4 rounded border-gray-300" :required="gstReg === 'NO'">
+                             <span class="text-sm text-yellow-800">I hereby declare that I am not registered under the GST Act. I will immediately inform Heritage Foods if my status changes.</span>
+                         </label>
+                    </div>
+                </div>
+
+                <div class="mb-6 bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">PAN Number <span class="text-red-500">*</span></label>
+                            <input type="text" name="pan_no" x-model="panVal" class="std-input uppercase font-mono" 
+                                   maxlength="10" pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}" 
+                                   oninput="this.value = this.value.toUpperCase()"
+                                   placeholder="10 Digit PAN" required 
+                                   value="{{ form.pan_no.data or req.pan_number or '' }}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload PAN Card <span class="text-red-500">*</span></label>
+                            <input type="file" name="pan_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
+                                   :required="'{{ req.pan_file_path or '' }}'.length === 0">
+                            
+                            {% if req.pan_file_path %}
+                            <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                <span>✓ File Uploaded</span>
+                                <a href="{{ url_for('static', filename='uploads/' + req.pan_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="md:col-span-2" 
+                             x-show="panVal.length >= 4 && panVal[3].toUpperCase() === 'P'" 
+                             x-transition>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Aadhaar Number <span class="text-red-500">*</span> <span class="text-xs font-normal text-gray-400 lowercase">(Required for Individual Verification)</span></label>
+                            <input type="text" name="aadhaar_no" x-model="aadhaarVal" class="std-input" 
+                                   maxlength="12" placeholder="Enter 12 Digit Aadhaar Number"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="mb-6 border rounded-xl p-5" :class="msmeReg === 'YES' ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200'">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm font-bold text-gray-800">MSME Registered? <span class="text-red-500">*</span></label>
+                        <div class="flex gap-4">
+                            {% for subfield in form.msme_reg %}
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                {{ subfield(class="accent-heritage w-5 h-5", **{'x-model': 'msmeReg'}) }}
+                                <span class="text-sm font-medium">{{ subfield.label.text }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div x-show="msmeReg === 'YES'" class="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-gray-100 pt-4">
+                        <div>
+                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Udyam Number <span class="text-red-500">*</span></label>
+                             <input type="text" name="msme_number" class="std-input uppercase" maxlength="40" 
+                                    :required="msmeReg === 'YES'" oninput="this.value = this.value.toUpperCase()"
+                                    value="{{ form.msme_number.data or req.msme_number or '' }}">
+                        </div>
+                        <div>
+                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Type <span class="text-red-500">*</span></label>
+                             {{ form.msme_type(class="std-input", required=False, **{'x-bind:required': "msmeReg === 'YES'"}) }}
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload MSME Certificate <span class="text-red-500">*</span></label>
+                            <input type="file" name="msme_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
+                                   :required="msmeReg === 'YES' && '{{ req.msme_file_path or '' }}'.length === 0">
+                            
+                            {% if req.msme_file_path %}
+                            <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                <span>✓ File Uploaded</span>
+                                <a href="{{ url_for('static', filename='uploads/' + req.msme_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                     <div x-show="msmeReg === 'NO'" class="pt-4 border-t border-gray-200">
+                        <label class="flex items-start gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                            <input type="checkbox" name="msme_consent" x-model="msmeConsent" class="accent-heritage mt-1 w-4 h-4 rounded border-gray-300" :required="msmeReg === 'NO'">
+                            <span class="text-sm text-yellow-800">I hereby declare that I am not registered under the MSME Act, 2006.</span>
+                        </label>
+                   </div>
+                </div>
+
+                <div class="mb-6 bg-gray-50 border border-gray-200 rounded-xl p-5">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase mb-3">TDS Exemption (Optional)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Certificate No.</label>
+                            {{ form.tds_cert_no(class="std-input") }}
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Upload Document <span class="text-[10px] font-normal text-gray-400 normal-case">(PDF, JPG, PNG)</span></label>
+                            <input type="file" name="tds_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg">
+                            
+                            {% if req.tds_file_path %}
+                            <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                <span>✓ File Uploaded</span>
+                                <a href="{{ url_for('static', filename='uploads/' + req.tds_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between pt-4 border-t border-gray-100">
+                    <button type="button" @click="step = 1" class="text-gray-600 font-bold hover:text-gray-900 h-11 flex items-center">&larr; Back</button>
+                    <button type="button" @click="validateAndNext(2)" class="bg-heritage text-white px-8 py-2.5 rounded-lg font-bold shadow hover:bg-green-700 transition h-11 flex items-center">Next &rarr;</button>
+                </div>
+            </div>
+
+            <div id="step_3" class="step-panel p-8" :class="{ 'active': step === 3 }">
+                <div class="mb-8 border-b border-gray-100 pb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Bank Details & Consent</h2>
+                    <p class="text-sm text-gray-500">Secure payment information and legal declarations.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Bank Name <span class="text-red-500">*</span></label>
+                        {{ form.bank_name(class="std-input", maxlength="60") }}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Account Holder Name <span class="text-red-500">*</span></label>
+                        {{ form.holder_name(class="std-input", maxlength="60") }}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Account Number <span class="text-red-500">*</span></label>
+                        {{ form.acc_no(class="std-input mb-3", placeholder="Enter Account No", type="password", maxlength="18") }}
+                        {{ form.acc_no_confirm(class="std-input", placeholder="Confirm Account No", maxlength="18") }}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">IFSC Code <span class="text-red-500">*</span></label>
+                        <input type="text" name="ifsc" class="std-input uppercase font-mono" 
+                               maxlength="11" oninput="this.value = this.value.toUpperCase()"
+                               required
+                               value="{{ form.ifsc.data or req.bank_ifsc or '' }}">
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-8">
+                     <div class="flex items-start gap-4">
+                        <div class="p-2 bg-blue-100 text-blue-600 rounded-full"><span class="text-xl">📎</span></div>
+                        <div class="w-full">
+                            <label class="block text-sm font-bold text-gray-800 mb-1">Upload Cancelled Cheque / Passbook <span class="text-red-500">*</span></label>
+                            
+                            <input type="file" name="bank_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
+                                   :required="'{{ req.bank_proof_file_path or '' }}'.length === 0">
+
+                            {% if req.bank_proof_file_path %}
+                            <div class="flex items-center gap-2 mt-2 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                <span>✓ File Uploaded</span>
+                                <a href="{{ url_for('static', filename='uploads/' + req.bank_proof_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                     </div>
+                </div>
+
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-8">
+                    <div class="flex items-start gap-4">
+                        <div class="pt-0.5">
+                            {{ form.agree_consent(class="accent-heritage w-5 h-5 cursor-pointer rounded border-gray-300", required=True) }}
+                        </div>
+                        <div>
+                            <label for="agree_consent" class="block text-sm font-bold text-gray-900 cursor-pointer mb-1">
+                                Data Privacy Consent (DPDP Act, 2023) <span class="text-red-500">*</span>
+                            </label>
+                            <p class="text-xs text-gray-600 leading-relaxed text-justify">
+                                By proceeding, I hereby freely, specifically, and unequivocally consent to <strong>Heritage Foods Limited</strong> collecting, storing, using, and processing my personal data and, where applicable, the personal data of authorized representatives, for purposes including vendor onboarding, contract management, payments, statutory and regulatory compliance, audits, and related business operations.
+                            </p>
+                            <p class="text-xs text-gray-600 leading-relaxed text-justify mt-2">
+                                I acknowledge that such processing shall be carried out in accordance with the <strong>Digital Personal Data Protection Act, 2023</strong>, and the <strong>Heritage Foods Limited Privacy Policy</strong>. I understand that I may exercise my rights as a Data Principal, including access, correction, erasure, and grievance redressal, in the manner provided therein, subject to applicable legal and contractual obligations.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+             <div class="mb-6 flex justify-end">
+    <button type="button" onclick="verifyVendorData()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-blue-700 transition flex items-center gap-2">
+        <span>🛡️</span> Verify Data with Govt.
+    </button>
+</div>
+
+<div id="verificationResult" class="hidden mb-6"></div>
+
+
+                <div class="flex justify-between pt-4 border-t border-gray-100">
+                    <button type="button" @click="step = 2" class="text-gray-600 font-bold hover:text-gray-900 h-11 flex items-center" :disabled="submitting">
+                        &larr; Back
+                    </button>
+
+                    <button type="submit" 
+                            class="bg-heritage text-white px-10 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition transform"
+                            :class="{ 'opacity-50 cursor-not-allowed': submitting, 'hover:bg-green-700 hover:-translate-y-0.5': !submitting }"
+                            :disabled="submitting">
+                        
+                        <svg x-show="submitting" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+
+                        <span x-text="submitting ? 'Processing...' : 'Submit Application'"></span>
+                    </button>
+                </div>
+            </div>
+
+        </form>
+    </main>
+
+    <footer class="mt-12 text-center text-gray-400 text-xs pb-8">
+        <p>&copy; 2025 Heritage Foods Ltd. All rights reserved.</p>
+    </footer>
+
+    
+</body>
+
+
+</html>

@@ -14,176 +14,207 @@
         .bg-heritage { background-color: #009C49; }
         .border-heritage { border-color: #009C49; }
         .hover-bg-heritage:hover { background-color: #007a3a; }
-        .ring-heritage:focus { --tw-ring-color: #009C49; }
         .accent-heritage { accent-color: #009C49; }
-        .std-input {
-            height: 44px;
-            width: 100%;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            padding-left: 0.75rem;
-            padding-right: 0.75rem;
-            font-size: 0.875rem;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            background-color: white;
-        }
+        
+        .std-input { height: 44px; width: 100%; border: 1px solid #d1d5db; border-radius: 0.375rem; padding-left: 0.75rem; padding-right: 0.75rem; font-size: 0.875rem; transition: all 0.2s; display: flex; align-items: center; background-color: white; }
         .std-input:focus { outline: none; border-color: #009C49; box-shadow: 0 0 0 3px rgba(0, 156, 73, 0.1); }
         .std-input:invalid:not(:placeholder-shown) { border-color: #ef4444; background-color: #fef2f2; }
+        
         input[type="file"].std-input { padding: 0.25rem; }
-        input[type="file"]::file-selector-button {
-            height: 100%; margin-right: 1rem; background-color: #f3f4f6; border: none;
-            border-right: 1px solid #e5e7eb; border-radius: 0.25rem; color: #374151;
-            padding-left: 0.75rem; padding-right: 0.75rem; font-size: 0.75rem; font-weight: 600;
-            cursor: pointer; transition: background 0.2s;
-        }
+        input[type="file"]::file-selector-button { height: 100%; margin-right: 1rem; background-color: #f3f4f6; border: none; border-right: 1px solid #e5e7eb; border-radius: 0.25rem; color: #374151; padding-left: 0.75rem; padding-right: 0.75rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
         input[type="file"]::file-selector-button:hover { background-color: #e5e7eb; }
         textarea.std-input { height: auto; padding-top: 0.5rem; }
+        
         .step-panel { display: none; }
         .step-panel.active { display: block; animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .verify-btn { position: absolute; right: 5px; top: 5px; bottom: 5px; padding: 0 16px; font-size: 0.75rem; font-weight: 700; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; display: flex; align-items: center; justify-content: center; z-index: 10; background-color: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .verify-btn:hover:not(:disabled) { background-color: #dbeafe; border-color: #93c5fd; }
+        .verify-btn:disabled { background-color: #f3f4f6; color: #9ca3af; border-color: #e5e7eb; cursor: not-allowed; }
+        .verify-btn.verified { background-color: #f0fdf4; color: #15803d; border-color: #bbf7d0; cursor: default; pointer-events: none; }
+
+        .result-box { margin-top: 0.75rem; padding: 1rem; border-radius: 0.5rem; display: none; border: 1px solid transparent; animation: fadeIn 0.3s ease-out; width: 100%; grid-column: 1 / -1; }
+        .result-box.success { background-color: #f0fdf4; border-color: #86efac; color: #14532d; }
+        .result-box.error { background-color: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+        
+        .result-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; font-size: 0.85rem; }
+        @media (max-width: 640px) { .result-grid { grid-template-columns: 1fr; } }
+        .result-label { font-weight: 600; color: #15803d; opacity: 0.8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
     </style>
+    
     <script>
-    // Explicitly attach to window to ensure global access
-    window.verifyVendorData = async function() {
-        const btn = document.querySelector('button[onclick="verifyVendorData()"]');
-        const resultDiv = document.getElementById('verificationResult');
+    window.verificationState = { gst: false, pan: false, msme: false, bank: false };
+
+    async function verifySingle(type) {
+        const btn = document.getElementById(`btn-verify-${type}`);
+        const resultDiv = document.getElementById(`result-${type}`);
+        const originalContent = btn.innerHTML;
+
+        let formData = new FormData();
         
-        // Helper to safely get values
-        const getVal = (name) => {
-            const el = document.querySelector(`[name="${name}"]`);
-            return el ? el.value : '';
-        };
-
-        // 1. Map HTML Field Names to API Keys
-        const payload = {
-            vendor_name:        getVal('legal_name'), 
-            pan_number:         getVal('pan_no'),
-            gst_number:         getVal('gst_no'),
-            msme_number:        getVal('msme_number'),
-            bank_account_no:    getVal('acc_no'),
-            ifsc_code:          getVal('ifsc')
-        };
-
-        // 2. Basic Validation
-        if (!payload.pan_number && !payload.gst_number) {
-            alert("Please enter at least a PAN Number or GST Number to verify.");
-            return;
-        }
-
-        // 3. UI Loading State
-        btn.disabled = true;
-        const originalText = btn.innerText;
-        btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 inline-block text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Verifying...';
-        
-        resultDiv.className = "mt-4 p-4 rounded bg-blue-50 text-blue-800 border border-blue-200";
-        resultDiv.innerHTML = "<strong>Connecting to IDfy...</strong><br>Validating against Government Databases.";
-        resultDiv.classList.remove('hidden');
-
         try {
-            // 4. API Call
+            if (type === 'gst') {
+                formData.append('gst_number', document.querySelector('[name="gst_no"]').value.trim());
+                const fileInput = document.querySelector('[name="gst_file"]');
+                if (fileInput && fileInput.files.length > 0) formData.append('gst_file', fileInput.files[0]);
+            } 
+            else if (type === 'pan') {
+                formData.append('pan_number', document.querySelector('[name="pan_no"]').value.trim());
+                const fileInput = document.querySelector('[name="pan_file"]');
+                if (fileInput && fileInput.files.length > 0) {
+                    formData.append('pan_file', fileInput.files[0]);
+                } else {
+                    formData.append('pan_file_path', "{{ req.pan_file_path }}");
+                }
+                const aadhaarInput = document.querySelector('[name="aadhaar_no"]'); 
+                if (aadhaarInput && aadhaarInput.offsetParent !== null) {
+                    formData.append('aadhaar_number', aadhaarInput.value.trim());
+                }
+            } 
+            else if (type === 'msme') {
+                formData.append('msme_number', document.querySelector('[name="msme_number"]').value.trim());
+                const fileInput = document.querySelector('[name="msme_file"]');
+                if (fileInput && fileInput.files.length > 0) formData.append('msme_file', fileInput.files[0]);
+            } 
+            else if (type === 'bank') {
+                formData.append('bank_account_no', document.querySelector('[name="acc_no"]').value.trim());
+                formData.append('ifsc_code', document.querySelector('[name="ifsc"]').value.trim());
+                const fileInput = document.querySelector('[name="bank_file"]');
+                if (fileInput && fileInput.files.length > 0) formData.append('bank_file', fileInput.files[0]);
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            resultDiv.style.display = 'none';
+
             const response = await fetch('/vendor/api/verify-details', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify(payload)
+                headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                body: formData
             });
-            
+
             const data = await response.json();
             
-            if (data.error) throw new Error(data.error);
-            
-            // 5. Render Results
-            // 5. Render Results
-// 5. Render Results (UPDATED)
-            let html = '<h4 class="font-bold mb-2 border-b border-gray-200 pb-1">Verification Report</h4><ul class="text-sm space-y-2">';
+            let html = '';
+            let isSuccess = false;
 
-            // GST Result
-            if (data.details.gst) {
-                const g = data.details.gst;
-                let icon = '❌'; let color = 'text-red-600';
-                if (g.status === 'Active') { icon = '✅'; color = 'text-green-700'; }
-                else if (g.status === 'Skipped') { icon = '⚪'; color = 'text-gray-500'; }
-
-                html += `<li class="bg-white p-2 rounded border border-gray-200">
-                    <div class="${color} font-bold">${icon} GST: ${g.status}</div>
-                    <div class="text-xs text-gray-800 font-semibold">Trade: ${g.trade_name || 'N/A'}</div>
-                    <div class="text-xs text-gray-500">Legal: ${g.legal_name || 'N/A'}</div>
-                    <div class="text-xs text-gray-500">Type: ${g.type || 'N/A'}</div>
-                    <div class="text-xs text-gray-500">Filing: ${g.filing_status || 'N/A'}</div>
-                    <div class="text-xs text-blue-600">E-Invoice: ${g.einvoice || 'N/A'}</div>
-                </li>`;
+            if (data.error || !data.details) {
+                html = `<strong>⚠️ System Error:</strong> ${data.error || 'Unknown Error'}`;
+                isSuccess = false;
+            } 
+            else {
+                // --- GST ---
+                if (type === 'gst' && data.details.gst) {
+                    const g = data.details.gst;
+                    isSuccess = (g.gstin_status === 'Active' || g.status === 'Active');
+                    if (isSuccess) {
+                        html = `
+                            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-200">
+                                <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">GST Verified</span>
+                            </div>
+                            <div class="result-grid">
+                                <div><span class="result-label">Legal Name</span>${g.legal_name || 'N/A'}</div>
+                                <div><span class="result-label">Trade Name</span>${g.trade_name || 'N/A'}</div>
+                                <div><span class="result-label">Status</span>${g.gstin_status}</div>
+                                <div><span class="result-label">Type</span>${g.taxpayer_type || 'N/A'}</div>
+                                <div><span class="result-label">Filings</span>${g.last_6_gstr3b}</div>
+                                <div><span class="result-label">E-Invoice</span>${g.e_invoice_status || 'N/A'}</div>
+                            </div>`;
+                    } else {
+                        html = `<strong>❌ Verification Failed:</strong> ${g.status || 'Invalid GSTIN'}`;
+                    }
+                }
+                // --- PAN ---
+                else if (type === 'pan' && data.details.pan) {
+                    const p = data.details.pan;
+                    if (p.error) {
+                        html = `<strong>⚠️ Error:</strong> ${p.error}`;
+                    } else {
+                        isSuccess = p.is_valid;
+                        if (isSuccess) {
+                            const nameMatch = p.name_match ? '<span class="text-green-700">Matched</span>' : '<span class="text-orange-600">Mismatch</span>';
+                            html = `
+                                <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-200">
+                                    <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">PAN Validated</span>
+                                </div>
+                                <div class="result-grid">
+                                    <div><span class="result-label">Status</span>${p.status_text}</div>
+                                    <div><span class="result-label">Name Match</span>${nameMatch}</div>
+                                    <div class="col-span-2 mt-1 pt-2 border-t border-green-200"><span class="result-label">Aadhaar Linked:</span> ${p.aadhaar_linked || 'N/A'}</div>
+                                </div>`;
+                        } else {
+                            html = `<strong>❌ Verification Failed:</strong> ${p.status_text || 'Invalid'}`;
+                        }
+                    }
+                }
+                // --- MSME ---
+                else if (type === 'msme' && data.details.msme) {
+                    const m = data.details.msme;
+                    isSuccess = (m.status === 'id_found' || m.status === 'Verified');
+                    if (isSuccess) {
+                        html = `
+                            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-200">
+                                <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Udyam Verified</span>
+                            </div>
+                            <div class="result-grid">
+                                <div><span class="result-label">Enterprise Name</span>${m.name || 'N/A'}</div>
+                                <div><span class="result-label">Enterprise Type</span>${m.type || 'N/A'}</div>
+                            </div>`;
+                    } else {
+                        html = `<strong>❌ Not Found:</strong> Check Udyam number.`;
+                    }
+                }
+                // --- BANK ---
+                else if (type === 'bank' && data.details.bank) {
+                    const b = data.details.bank;
+                    
+                    const exists = String(b.account_exists).toUpperCase();
+                    const status = String(b.status).toLowerCase();
+                    
+                    // Relaxed Check for YES/1/true or valid status
+                    isSuccess = (exists === 'YES' || exists === 'TRUE' || exists === '1' || status === 'id_found' || status === 'verified');
+                    
+                    if (isSuccess) {
+                        html = `
+                            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-200">
+                                <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Bank Verified</span>
+                            </div>
+                            <div class="result-grid">
+                                <div class="col-span-2"><span class="result-label">Name at Bank</span>${b.name_at_bank || 'N/A'}</div>
+                            </div>`;
+                    } else {
+                        // Debugging info in error message
+                        html = `<strong>❌ Verification Failed:</strong><br>
+                                <span class="text-xs text-red-600">Status: ${b.status}, Exists: ${b.account_exists}</span>`;
+                    }
+                }
             }
 
-            // PAN Result
-            if (data.details.pan) {
-                const p = data.details.pan;
-                const icon = p.status === 'VALID' ? '✅' : '❌';
-                const color = p.status === 'VALID' ? 'text-green-700' : 'text-red-600';
-                
-                // Handle Name Match Boolean
-                let nameMatchStr = 'N/A';
-                if (p.name_match === true) nameMatchStr = '<span class="text-green-600">Matched</span>';
-                else if (p.name_match === false) nameMatchStr = '<span class="text-red-600">Mismatch</span>';
-
-                html += `<li class="bg-white p-2 rounded border border-gray-200">
-                    <div class="${color} font-bold">${icon} PAN Status: ${p.status}</div>
-                    <div class="text-xs text-gray-500">Name Match: ${nameMatchStr}</div>
-                    <div class="text-xs text-gray-500">Aadhaar Linked: ${p.aadhaar_linked || 'N/A'}</div>
-                </li>`;
-            }
-
-            // Bank Result
-            if (data.details.bank) {
-                const b = data.details.bank;
-                // Handle "Skipped" status explicitly
-                let icon = '❌';
-                let color = 'text-red-600';
-                
-                if (b.status === 'Verified') { icon = '✅'; color = 'text-green-700'; }
-                else if (b.status === 'Skipped') { icon = '⚪'; color = 'text-gray-500'; }
-
-                html += `<li class="bg-white p-2 rounded border border-gray-200">
-                    <div class="${color} font-bold">${icon} Bank: ${b.status}</div>
-                    <div class="text-xs text-gray-500">Name at Bank: ${b.name_at_bank || 'N/A'}</div>
-                </li>`;
-            }
-
-            // MSME Result
-            if (data.details.msme) {
-                const m = data.details.msme;
-                // Handle "Skipped" status
-                let icon = '❌';
-                let color = 'text-red-600';
-                
-                if (m.status === 'id_found') { icon = '✅'; color = 'text-green-700'; }
-                else if (m.status === 'Skipped') { icon = '⚪'; color = 'text-gray-500'; }
-
-                html += `<li class="bg-white p-2 rounded border border-gray-200">
-                    <div class="${color} font-bold">${icon} MSME: ${m.status === 'id_found' ? 'Verified' : m.status}</div>
-                    <div class="text-xs text-gray-800 font-medium">${m.name || 'N/A'}</div>
-                    <div class="text-xs text-gray-500">Type: ${m.enterprise_type || 'N/A'}</div>
-                </li>`;
-            }
-
-            html += '</ul>';
             resultDiv.innerHTML = html;
+            resultDiv.className = `result-box ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.style.display = 'block';
 
-            resultDiv.className = "mt-4 p-4 rounded shadow-sm border " + (data.valid ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200");
+            if (isSuccess) {
+                btn.classList.add('verified');
+                btn.innerHTML = `✓ VERIFIED`;
+                window.verificationState[type] = true;
+            } else {
+                btn.innerHTML = originalContent;
+                window.verificationState[type] = false;
+            }
 
         } catch (e) {
             console.error(e);
-            resultDiv.innerHTML = `<strong>Verification Error:</strong> ${e.message}`;
-            resultDiv.className = "mt-4 p-4 rounded bg-red-50 border border-red-200 text-red-700 shadow-sm";
+            resultDiv.innerHTML = `<strong>Error:</strong> ${e.message}`;
+            resultDiv.className = 'result-box error';
+            resultDiv.style.display = 'block';
+            btn.innerHTML = originalContent;
         } finally {
-            btn.disabled = false;
-            btn.innerText = originalText;
+            if(!window.verificationState[type]) btn.disabled = false; 
         }
-    };
-</script>
+    }
+    </script>
 </head>
 <body class="bg-gray-50 min-h-screen pb-20">
 
@@ -224,13 +255,81 @@
         msmeReg: '{{ request.form.get("msme_reg") or req.msme_registered or "NO" }}',
         constitution: '{{ request.form.get("constitution") or req.constitution or "" }}',
 
-        // PERSISTENCE FIX: Check Request Form OR Database Status to keep box checked
+        panVal: '{{ form.pan_no.data or req.pan_number or "" }}',
+        aadhaarVal: '{{ form.aadhaar_no.data or req.aadhaar_number or "" }}',
+
         gstConsent: {{ 'true' if request.form.get('gst_consent') or req.gst_registered == 'NO' else 'false' }},
         msmeConsent: {{ 'true' if request.form.get('msme_consent') or req.msme_registered == 'NO' else 'false' }},
         
         submitting: false,
 
+        checkVerifyBtn(type) {
+            const btn = document.getElementById('btn-verify-' + type);
+            if(!btn) return;
+
+            let valid = false;
+            
+            if(type === 'gst') {
+                const num = document.getElementsByName('gst_no')[0].value;
+                const file = document.getElementsByName('gst_file')[0].value;
+                const savedFile = '{{ req.gst_file_path or "" }}';
+                valid = (num.length === 15) && (file !== '' || savedFile !== '');
+            }
+            if(type === 'pan') {
+                const num = this.panVal;
+                const file = document.getElementsByName('pan_file')[0].value;
+                const savedFile = '{{ req.pan_file_path or "" }}';
+                let basicValid = (num.length === 10) && (file !== '' || savedFile !== '');
+                
+                if (num.length > 3 && num[3].toUpperCase() === 'P') {
+                    const aadhaar = this.aadhaarVal;
+                    valid = basicValid && (aadhaar.length === 12);
+                } else {
+                    valid = basicValid;
+                }
+            }
+            if(type === 'msme') {
+                const num = document.getElementsByName('msme_number')[0].value;
+                const file = document.getElementsByName('msme_file')[0].value;
+                const savedFile = '{{ req.msme_file_path or "" }}';
+                valid = (num.length > 5) && (file !== '' || savedFile !== '');
+            }
+            if(type === 'bank') {
+                const acc = document.getElementsByName('acc_no')[0].value;
+                const ifsc = document.getElementsByName('ifsc')[0].value;
+                const file = document.getElementsByName('bank_file')[0].value;
+                const savedFile = '{{ req.bank_proof_file_path or "" }}';
+                valid = (acc.length > 5) && (ifsc.length === 11) && (file !== '' || savedFile !== '');
+            }
+
+            if(!window.verificationState[type]) {
+                btn.disabled = !valid;
+            }
+        },
+
         validateAndNext(currentStep) {
+            if (currentStep === 2) {
+                if (this.gstReg === 'YES' && !window.verificationState.gst) {
+                    alert('Action Required: Please click Verify inside the GST field.');
+                    return;
+                }
+                if (!window.verificationState.pan) {
+                    alert('Action Required: Please click Verify inside the PAN field.');
+                    return;
+                }
+                if (this.msmeReg === 'YES' && !window.verificationState.msme) {
+                    alert('Action Required: Please click Verify inside the Udyam field.');
+                    return;
+                }
+            }
+            
+            if (currentStep === 3) {
+                 if (!window.verificationState.bank) {
+                    alert('Action Required: Please verify your Bank Account before submitting.');
+                    return;
+                }
+            }
+
             const container = document.getElementById('step_' + currentStep);
             const inputs = container.querySelectorAll('input, select, textarea');
             let valid = true;
@@ -253,7 +352,8 @@
                 this.submitting = true;
             }
         }
-    }">
+    }"
+    x-init="$watch('panVal', value => checkVerifyBtn('pan')); $watch('aadhaarVal', value => checkVerifyBtn('pan'))">
         
         <div class="mb-10 max-w-3xl mx-auto">
             <div class="flex items-center justify-between relative">
@@ -409,25 +509,32 @@
                     </div>
 
                     <div x-show="gstReg === 'YES'" class="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-gray-100 pt-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">GST Number <span class="text-red-500">*</span></label>
-                            <input type="text" name="gst_no" class="std-input uppercase font-mono" 
-                                   maxlength="15" pattern="^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$" 
-                                   oninput="this.value = this.value.toUpperCase()"
-                                   placeholder="15 Digit GSTIN" :required="gstReg === 'YES'"
-                                   value="{{ form.gst_no.data or req.gst_number or '' }}">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Certificate <span class="text-red-500">*</span></label>
-                            <input type="file" name="gst_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
-                                   :required="gstReg === 'YES' && '{{ req.gst_file_path or '' }}'.length === 0">
-                            
-                            {% if req.gst_file_path %}
-                            <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                                <span>✓ File Uploaded</span>
-                                <a href="{{ url_for('static', filename='uploads/' + req.gst_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">GST Number <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <input type="text" name="gst_no" class="std-input uppercase font-mono pr-24" 
+                                           maxlength="15" pattern="^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$" 
+                                           oninput="this.value = this.value.toUpperCase(); checkVerifyBtn('gst')"
+                                           placeholder="15 Digit GSTIN" :required="gstReg === 'YES'"
+                                           value="{{ form.gst_no.data or req.gst_number or '' }}">
+                                    <button type="button" id="btn-verify-gst" onclick="verifySingle('gst')" class="verify-btn" disabled>VERIFY</button>
+                                </div>
                             </div>
-                            {% endif %}
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Certificate <span class="text-red-500">*</span></label>
+                                <input type="file" name="gst_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
+                                       :required="gstReg === 'YES' && '{{ req.gst_file_path or '' }}'.length === 0"
+                                       @change="checkVerifyBtn('gst')">
+                                
+                                {% if req.gst_file_path %}
+                                <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                    <span>✓ File Uploaded</span>
+                                    <a href="{{ url_for('static', filename='uploads/' + req.gst_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div id="result-gst" class="md:col-span-2 result-box"></div>
                         </div>
                     </div>
                      <div x-show="gstReg === 'NO'" class="pt-4 border-t border-gray-200">
@@ -440,25 +547,49 @@
 
                 <div class="mb-6 bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">PAN Number <span class="text-red-500">*</span></label>
-                            <input type="text" name="pan_no" class="std-input uppercase font-mono" 
-                                   maxlength="10" pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}" 
-                                   oninput="this.value = this.value.toUpperCase()"
-                                   placeholder="10 Digit PAN" required 
-                                   value="{{ form.pan_no.data or req.pan_number or '' }}">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload PAN Card <span class="text-red-500">*</span></label>
-                            <input type="file" name="pan_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
-                                   :required="'{{ req.pan_file_path or '' }}'.length === 0">
-                            
-                            {% if req.pan_file_path %}
-                            <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                                <span>✓ File Uploaded</span>
-                                <a href="{{ url_for('static', filename='uploads/' + req.pan_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">PAN Number <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <input type="text" name="pan_no" x-model="panVal" class="std-input uppercase font-mono pr-24" 
+                                           maxlength="10" pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}" 
+                                           oninput="this.value = this.value.toUpperCase(); checkVerifyBtn('pan')"
+                                           placeholder="10 Digit PAN" required 
+                                           value="{{ form.pan_no.data or req.pan_number or '' }}">
+                                    <button type="button" id="btn-verify-pan" onclick="verifySingle('pan')" class="verify-btn" disabled>VERIFY</button>
+                                </div>
                             </div>
-                            {% endif %}
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload PAN Card <span class="text-red-500">*</span></label>
+                                <input type="file" name="pan_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
+                                       :required="'{{ req.pan_file_path or '' }}'.length === 0"
+                                       @change="checkVerifyBtn('pan')">
+                                
+                                {% if req.pan_file_path %}
+                                <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                    <span>✓ File Uploaded</span>
+                                    <a href="{{ url_for('static', filename='uploads/' + req.pan_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="md:col-span-2" 
+                                 x-show="panVal.length >= 4 && panVal[3].toUpperCase() === 'P'" 
+                                 x-transition>
+                                 <div class="bg-yellow-50 p-4 rounded border border-yellow-200">
+                                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">
+                                        Aadhaar Number <span class="text-red-500">*</span> 
+                                        <span class="text-[10px] font-normal text-gray-500">(Required for Individual PAN Verification)</span>
+                                    </label>
+                                    <input type="text" name="aadhaar_no" x-model="aadhaarVal" class="std-input tracking-widest" 
+                                           maxlength="12" placeholder="Enter 12 Digit Aadhaar Number"
+                                           pattern="[0-9]{12}" 
+                                           oninput="this.value = this.value.replace(/[^0-9]/g, ''); checkVerifyBtn('pan')"
+                                           value="{{ form.aadhaar_no.data or req.aadhaar_number or '' }}">
+                                 </div>
+                            </div>
+
+                            <div id="result-pan" class="md:col-span-2 result-box"></div>
                         </div>
                     </div>
                 </div>
@@ -477,27 +608,36 @@
                     </div>
 
                     <div x-show="msmeReg === 'YES'" class="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-gray-100 pt-4">
-                        <div>
-                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Udyam Number <span class="text-red-500">*</span></label>
-                             <input type="text" name="msme_number" class="std-input uppercase" maxlength="40" 
-                                    :required="msmeReg === 'YES'" oninput="this.value = this.value.toUpperCase()"
-                                    value="{{ form.msme_number.data or req.msme_number or '' }}">
-                        </div>
-                        <div>
-                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Type <span class="text-red-500">*</span></label>
-                             {{ form.msme_type(class="std-input", required=False, **{'x-bind:required': "msmeReg === 'YES'"}) }}
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload MSME Certificate <span class="text-red-500">*</span></label>
-                            <input type="file" name="msme_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
-                                   :required="msmeReg === 'YES' && '{{ req.msme_file_path or '' }}'.length === 0">
-                            
-                            {% if req.msme_file_path %}
-                            <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                                <span>✓ File Uploaded</span>
-                                <a href="{{ url_for('static', filename='uploads/' + req.msme_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Udyam Number <span class="text-red-500">*</span></label>
+                                 
+                                 <div class="relative">
+                                     <input type="text" name="msme_number" class="std-input uppercase pr-24" maxlength="40" 
+                                            :required="msmeReg === 'YES'" 
+                                            oninput="this.value = this.value.toUpperCase(); checkVerifyBtn('msme')"
+                                            value="{{ form.msme_number.data or req.msme_number or '' }}">
+                                    <button type="button" id="btn-verify-msme" onclick="verifySingle('msme')" class="verify-btn" disabled>VERIFY</button>
+                                 </div>
                             </div>
-                            {% endif %}
+                            <div>
+                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Type <span class="text-red-500">*</span></label>
+                                 {{ form.msme_type(class="std-input", required=False, **{'x-bind:required': "msmeReg === 'YES'"}) }}
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload MSME Certificate <span class="text-red-500">*</span></label>
+                                <input type="file" name="msme_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
+                                       :required="msmeReg === 'YES' && '{{ req.msme_file_path or '' }}'.length === 0"
+                                       @change="checkVerifyBtn('msme')">
+                                
+                                {% if req.msme_file_path %}
+                                <div class="flex items-center gap-2 mt-1 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                    <span>✓ File Uploaded</span>
+                                    <a href="{{ url_for('static', filename='uploads/' + req.msme_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div id="result-msme" class="md:col-span-2 result-box"></div>
                         </div>
                     </div>
                      <div x-show="msmeReg === 'NO'" class="pt-4 border-t border-gray-200">
@@ -553,37 +693,47 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Account Number <span class="text-red-500">*</span></label>
-                        {{ form.acc_no(class="std-input mb-3", placeholder="Enter Account No", type="password", maxlength="18") }}
-                        {{ form.acc_no_confirm(class="std-input", placeholder="Confirm Account No", maxlength="18") }}
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">IFSC Code <span class="text-red-500">*</span></label>
-                        <input type="text" name="ifsc" class="std-input uppercase font-mono" 
-                               maxlength="11" oninput="this.value = this.value.toUpperCase()"
-                               required
-                               value="{{ form.ifsc.data or req.bank_ifsc or '' }}">
-                    </div>
-                </div>
-
-                <div class="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-8">
-                     <div class="flex items-start gap-4">
-                        <div class="p-2 bg-blue-100 text-blue-600 rounded-full"><span class="text-xl">📎</span></div>
-                        <div class="w-full">
-                            <label class="block text-sm font-bold text-gray-800 mb-1">Upload Cancelled Cheque / Passbook <span class="text-red-500">*</span></label>
-                            
-                            <input type="file" name="bank_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
-                                   :required="'{{ req.bank_proof_file_path or '' }}'.length === 0">
-
-                            {% if req.bank_proof_file_path %}
-                            <div class="flex items-center gap-2 mt-2 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
-                                <span>✓ File Uploaded</span>
-                                <a href="{{ url_for('static', filename='uploads/' + req.bank_proof_file_path) }}" target="_blank" class="underline font-bold">View</a>
-                            </div>
-                            {% endif %}
+                    <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Account Number <span class="text-red-500">*</span></label>
+                            {{ form.acc_no(class="std-input mb-3", placeholder="Enter Account No", type="password", maxlength="18") }}
+                            {{ form.acc_no_confirm(class="std-input", placeholder="Confirm Account No", maxlength="18", **{'@input': "checkVerifyBtn('bank')"}) }}
                         </div>
-                     </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">IFSC Code <span class="text-red-500">*</span></label>
+                            
+                            <div class="relative">
+                                <input type="text" name="ifsc" class="std-input uppercase font-mono pr-24" 
+                                       maxlength="11" oninput="this.value = this.value.toUpperCase(); checkVerifyBtn('bank')"
+                                       required
+                                       value="{{ form.ifsc.data or req.bank_ifsc or '' }}">
+                                <button type="button" id="btn-verify-bank" onclick="verifySingle('bank')" class="verify-btn" disabled>VERIFY</button>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2">
+                             <div class="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-2">
+                                 <div class="flex items-start gap-4">
+                                    <div class="p-2 bg-blue-100 text-blue-600 rounded-full"><span class="text-xl">📎</span></div>
+                                    <div class="w-full">
+                                        <label class="block text-sm font-bold text-gray-800 mb-1">Upload Cancelled Cheque / Passbook <span class="text-red-500">*</span></label>
+                                        
+                                        <input type="file" name="bank_file" class="std-input" accept=".pdf, .png, .jpg, .jpeg" 
+                                               :required="'{{ req.bank_proof_file_path or '' }}'.length === 0"
+                                               @change="checkVerifyBtn('bank')">
+
+                                        {% if req.bank_proof_file_path %}
+                                        <div class="flex items-center gap-2 mt-2 text-xs text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                                            <span>✓ File Uploaded</span>
+                                            <a href="{{ url_for('static', filename='uploads/' + req.bank_proof_file_path) }}" target="_blank" class="underline font-bold">View</a>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                 </div>
+                            </div>
+                        </div>
+                        <div id="result-bank" class="md:col-span-2 result-box"></div>
+                    </div>
                 </div>
 
                 <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-8">
@@ -604,15 +754,6 @@
                         </div>
                     </div>
                 </div>
-
-             <div class="mb-6 flex justify-end">
-    <button type="button" onclick="verifyVendorData()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-blue-700 transition flex items-center gap-2">
-        <span>🛡️</span> Verify Data with Govt.
-    </button>
-</div>
-
-<div id="verificationResult" class="hidden mb-6"></div>
-
 
                 <div class="flex justify-between pt-4 border-t border-gray-100">
                     <button type="button" @click="step = 2" class="text-gray-600 font-bold hover:text-gray-900 h-11 flex items-center" :disabled="submitting">
@@ -641,8 +782,5 @@
         <p>&copy; 2025 Heritage Foods Ltd. All rights reserved.</p>
     </footer>
 
-    
 </body>
-
-
 </html>

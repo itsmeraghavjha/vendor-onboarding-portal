@@ -124,15 +124,14 @@ class VendorRequest(db.Model):
     gst_number = db.Column(db.String(15))
     gst_file_path = db.Column(db.String(200))
     pan_number = db.Column(db.String(10))
+    aadhaar_number = db.Column(db.String(12))  # <--- ADDED THIS FIELD
     pan_file_path = db.Column(db.String(200))
     msme_registered = db.Column(db.String(5))
     msme_type = db.Column(db.String(50))
     msme_number = db.Column(db.String(50))
     msme_file_path = db.Column(db.String(200))
     
-    # --- ADDED: Missing Column for TDS Persistence ---
     tds_file_path = db.Column(db.String(200))
-    # -----------------------------------------------
     
     # Bank
     bank_name = db.Column(db.String(100))
@@ -158,7 +157,6 @@ class VendorRequest(db.Model):
     tax_details = db.relationship('VendorTaxDetail', backref='vendor_request', lazy=True, cascade="all, delete-orphan")
 
     def get_tax1_rows(self):
-        """Returns tax details filtered for 'WHT' category."""
         return [
             {
                 'type': t.tax_category,
@@ -175,7 +173,6 @@ class VendorRequest(db.Model):
         ]
 
     def get_tax2_rows(self):
-        """Returns tax details filtered for '194Q' category."""
         return [
             {
                 'section': t.section_code,
