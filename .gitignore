@@ -39,3 +39,17 @@ Thumbs.db
 
 # ---- Other ----
 *.sqlite3
+
+
+# Uploaded files (PAN, GST, OCR docs, etc.)
+uploads/
+
+# CSV imports / raw data
+csv_data/
+
+# Optional: ignore all CSVs anywhere
+*.csv
+
+# Optional: ignore temp files
+*.tmp
+*.log
