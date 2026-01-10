@@ -137,7 +137,7 @@
                                 <div class="text-sm font-mono font-medium">{{ req.gst_number or 'Unregistered' }}</div>
                             </div>
                             {% if req.gst_file_path %}
-                            <a href="{{ url_for('static', filename='uploads/' + req.gst_file_path) }}" target="_blank" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-bold transition">View GST</a>
+                            <a href="{{ url_for('main.serve_protected_file', filename=req.gst_file_path) }}" target="_blank" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-bold transition">View GST</a>
                             {% endif %}
                         </div>
                         <div class="flex justify-between items-center">
@@ -146,7 +146,7 @@
                                 <div class="text-sm font-mono font-medium">{{ req.pan_number }}</div>
                             </div>
                             {% if req.pan_file_path %}
-                            <a href="{{ url_for('static', filename='uploads/' + req.pan_file_path) }}" target="_blank" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-bold transition">View PAN</a>
+                            <a href="{{ url_for('main.serve_protected_file', filename=req.pan_file_path) }}" target="_blank" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-bold transition">View PAN</a>
                             {% endif %}
                         </div>
                         {% if req.msme_registered == 'YES' %}
@@ -156,7 +156,7 @@
                                 <div class="text-sm font-mono font-medium">{{ req.msme_number }}</div>
                             </div>
                             {% if req.msme_file_path %}
-                            <a href="{{ url_for('static', filename='uploads/' + req.msme_file_path) }}" target="_blank" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-bold transition">View MSME</a>
+                            <a href="{{ url_for('main.serve_protected_file', filename=req.msme_file_path) }}" target="_blank" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-bold transition">View MSME</a>
                             {% endif %}
                         </div>
                         {% endif %}
@@ -187,7 +187,7 @@
                             </div>
                         </div>
                         {% if req.bank_proof_file_path %}
-                        <a href="{{ url_for('static', filename='uploads/' + req.bank_proof_file_path) }}" target="_blank" class="block text-center w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-xs font-bold mt-2 transition">
+                        <a href="{{ url_for('main.serve_protected_file', filename=req.bank_proof_file_path) }}" target="_blank" class="block text-center w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-xs font-bold mt-2 transition">
                             👁️ View Cancelled Cheque
                         </a>
                         {% endif %}

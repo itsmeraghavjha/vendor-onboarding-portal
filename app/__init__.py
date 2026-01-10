@@ -45,6 +45,8 @@ def create_app(config_class=Config):
     app.register_blueprint(vendor_bp, url_prefix='/vendor')
     app.register_blueprint(masters_bp, url_prefix='/admin/masters')
 
+    
+
     @app.errorhandler(RequestEntityTooLarge)
     def handle_file_too_large(e):
         flash("File upload error: One of your files is larger than 16MB.", "error")
@@ -54,5 +56,7 @@ def create_app(config_class=Config):
 
     with app.app_context():
         db.create_all()
+
+    
 
     return app

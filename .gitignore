@@ -53,3 +53,8 @@ csv_data/
 # Optional: ignore temp files
 *.tmp
 *.log
+
+
+# Flask / SQLAlchemy
+instance/
+migrations/
