@@ -1,7 +1,7 @@
 from flask import Flask, flash, redirect, url_for, request
 from config import Config
 # 1. Add 'csrf' to the imports
-from .extensions import db, login_manager, mail, migrate, celery, csrf 
+from .extensions import db, login_manager, mail, migrate, celery, csrf, limiter
 from .models import User
 from dotenv import load_dotenv
 from .celery_utils import init_celery
@@ -18,6 +18,9 @@ def create_app(config_class=Config):
     mail.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
+
+    # --- REGISTER LIMITER ---
+    limiter.init_app(app)
     
     # 2. IMPORTANT: Initialize CSRF Protection
     csrf.init_app(app) 

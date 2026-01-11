@@ -4,6 +4,8 @@ from flask_mail import Mail
 from flask_migrate import Migrate
 from celery import Celery
 from flask_wtf.csrf import CSRFProtect  # <--- IMPORT THIS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -11,3 +13,4 @@ mail = Mail()
 migrate = Migrate()
 celery = Celery()
 csrf = CSRFProtect()  # <--- INITIALIZE THIS
+limiter = Limiter(key_func=get_remote_address)

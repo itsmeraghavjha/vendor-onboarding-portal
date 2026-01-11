@@ -45,7 +45,7 @@
         .result-label { font-weight: 600; color: #15803d; opacity: 0.8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
     </style>
     
-    <script>
+    <!-- <script>
     // Global State for verification flags
     window.verificationState = {
         pan: {{ req.is_pan_verified | tojson }},
@@ -95,83 +95,344 @@
         let formData = new FormData();
         formData.append('vendor_request_id', '{{ req.request_id }}');
         
-        try {
-            // --- 1. GATHER DATA ---
-            if (type === 'gst') {
-                formData.append('gst_number', document.querySelector('[name="gst_no"]').value.trim());
-                const fileInput = document.querySelector('[name="gst_file"]');
-                if (fileInput && fileInput.files.length > 0) formData.append('gst_file', fileInput.files[0]);
-            } 
-            else if (type === 'pan') {
-                formData.append('pan_number', document.querySelector('[name="pan_no"]').value.trim());
-                const fileInput = document.querySelector('[name="pan_file"]');
-                if (fileInput && fileInput.files.length > 0) {
-                    formData.append('pan_file', fileInput.files[0]);
-                } else {
-                    formData.append('pan_file_path', "{{ req.pan_file_path }}");
-                }
-                const aadhaarInput = document.querySelector('[name="aadhaar_no"]'); 
-                if (aadhaarInput && aadhaarInput.offsetParent !== null) {
-                    formData.append('aadhaar_number', aadhaarInput.value.trim());
-                }
-            } 
-            else if (type === 'msme') {
-                formData.append('msme_number', document.querySelector('[name="msme_number"]').value.trim());
-                const fileInput = document.querySelector('[name="msme_file"]');
-                if (fileInput && fileInput.files.length > 0) formData.append('msme_file', fileInput.files[0]);
-            } 
-            else if (type === 'bank') {
-                formData.append('bank_account_no', document.querySelector('[name="acc_no"]').value.trim());
-                formData.append('ifsc_code', document.querySelector('[name="ifsc"]').value.trim());
-                const fileInput = document.querySelector('[name="bank_file"]');
-                if (fileInput && fileInput.files.length > 0) formData.append('bank_file', fileInput.files[0]);
+        if (type === 'gst') {
+             formData.append('gst_number', document.querySelector('[name="gst_no"]').value.trim());
+             const fileInput = document.querySelector('[name="gst_file"]');
+             if (fileInput && fileInput.files.length > 0) formData.append('gst_file', fileInput.files[0]);
+        } 
+        else if (type === 'pan') {
+            formData.append('pan_number', document.querySelector('[name="pan_no"]').value.trim());
+            const fileInput = document.querySelector('[name="pan_file"]');
+            if (fileInput && fileInput.files.length > 0) {
+                formData.append('pan_file', fileInput.files[0]);
+            } else {
+                formData.append('pan_file_path', "{{ req.pan_file_path }}");
             }
+            const aadhaarInput = document.querySelector('[name="aadhaar_no"]'); 
+            if (aadhaarInput) formData.append('aadhaar_number', aadhaarInput.value.trim());
+        }
+        else if (type === 'msme') {
+            formData.append('msme_number', document.querySelector('[name="msme_number"]').value.trim());
+            const fileInput = document.querySelector('[name="msme_file"]');
+            const typeInput = document.querySelector('[name="msme_type"]');
+            if (typeInput) formData.append('msme_type', typeInput.value);
+            if (fileInput && fileInput.files.length > 0) formData.append('msme_file', fileInput.files[0]);
+        }
+        else if (type === 'bank') {
+            formData.append('bank_account_no', document.querySelector('[name="acc_no"]').value.trim());
+            formData.append('ifsc_code', document.querySelector('[name="ifsc"]').value.trim());
+            const fileInput = document.querySelector('[name="bank_file"]');
+            if (fileInput && fileInput.files.length > 0) formData.append('bank_file', fileInput.files[0]);
+        }
 
-            // --- 2. SHOW SPINNER ---
-            btn.disabled = true;
-            btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-            resultDiv.style.display = 'none';
+        // --- UI LOADING ---
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        resultDiv.style.display = 'none';
 
-            // --- 3. API CALL ---
-            const response = await fetch('/vendor/api/verify-details', {
+        try {
+            // 1. TRIGGER TASK
+            const triggerResp = await fetch('/vendor/api/verify-details', {
                 method: 'POST',
                 headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
                 body: formData
             });
+            const triggerData = await triggerResp.json();
 
-            const data = await response.json();
+            if (triggerData.error) throw new Error(triggerData.error);
+            if (!triggerData.task_id) throw new Error("No Task ID returned");
+
+            // 2. POLL FOR STATUS
+            const taskId = triggerData.task_id;
+            const pollInterval = setInterval(async () => {
+                try {
+                    const statusResp = await fetch(`/vendor/api/task-status/${taskId}`);
+                    const statusData = await statusResp.json();
+
+                    if (statusData.state === 'SUCCESS') {
+                        clearInterval(pollInterval);
+                        handleSuccess(statusData.result);
+                    } else if (statusData.state === 'FAILURE') {
+                        clearInterval(pollInterval);
+                        handleError(statusData.error || "Verification failed");
+                    }
+                } catch (e) {
+                    clearInterval(pollInterval);
+                    handleError("Polling Error: " + e.message);
+                }
+            }, 2000); // Check every 2 seconds
+
+        } catch (e) {
+            handleError(e.message);
+        }
+
+        function handleSuccess(data) {
             let html = '';
-            let isSuccess = false;
+            let isSuccess = data.valid;
+            
+            // 1. GST SECTION (3-Column Grid)
+            if (type === 'gst' && data.details && data.details.gst) {
+                 const g = data.details.gst;
+                 
+                 if (isSuccess) {
+                     // Address Placeholder (As requested, we handle logic later)
+                     let addr = 'N/A'; 
+                     if(g.address) addr = g.address; // Simple fallback if backend sends string later
 
-            // --- 4. HANDLE RESPONSE ---
-            if (data.error || !data.details) {
-                html = `<strong>⚠️ System Error:</strong> ${data.error || 'Unknown Error'}`;
-                isSuccess = false;
-            } 
-            else {
-                // ... (Parsing logic remains the same, omitted for brevity but required in file) ...
-                if (type === 'gst' && data.details.gst) {
-                    const g = data.details.gst;
-                    isSuccess = (g.gstin_status === 'Active' || g.status === 'Active');
-                    html = isSuccess ? `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200"><span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">GST Verified</span></div><div class="result-grid"><div><span class="result-label">Legal Name</span>${g.legal_name || 'N/A'}</div><div><span class="result-label">Status</span>${g.gstin_status}</div></div>` : `<strong>❌ Failed:</strong> ${g.status}`;
+                     html = `
+                        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-200">
+                            <span class="text-xl">✅</span> 
+                            <span class="font-bold text-green-800 text-sm">GST Verified Successfully</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                            <div>
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Legal Name</span>
+                                <span class="font-bold text-gray-800">${g.legal_name || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Trade Name</span>
+                                <span class="font-bold text-gray-800">${g.trade_name || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Status</span>
+                                <span class="font-bold text-gray-800">${g.gstin_status || 'N/A'}</span>
+                            </div>
+                            
+                            <div>
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Reg. Date</span>
+                                <span class="font-bold text-gray-800">${g.registration_date || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Taxpayer Type</span>
+                                <span class="font-bold text-gray-800">${g.taxpayer_type || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Filing Status</span>
+                                <span class="font-bold text-gray-800">${g.filing_status || 'N/A'}</span>
+                            </div>
+                            
+                            <div class="md:col-span-3 border-t border-green-100 pt-2 mt-1">
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Registered Address</span>
+                                <span class="font-medium text-gray-800 break-words">${addr}</span>
+                            </div>
+                        </div>
+                     `;
+                 } else {
+                     html = `<strong>❌ Failed:</strong> Inactive/Invalid GST Number`;
+                 }
+            }
+
+            // 2. PAN SECTION
+            if (type === 'pan' && data.details && data.details.pan) {
+                const p = data.details.pan;
+                html = isSuccess ? 
+                    `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                        <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">PAN Validated</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Name on Card</span>${p.ocr_name || 'N/A'}</div>
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Match Score</span>${p.full_name || 'Matched'}</div>
+                    </div>` 
+                    : `<strong>❌ Failed:</strong> ${p.status_text || 'Verification Failed'}`;
+            }
+
+            // 3. MSME SECTION
+            if (type === 'msme' && data.details && data.details.msme) {
+                 const m = data.details.msme;
+                 html = isSuccess ? 
+                    `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                        <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Udyam Verified</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Enterprise</span>${m.enterprise_name || m.name || 'N/A'}</div>
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Type</span>${m.type || 'N/A'}</div>
+                    </div>` 
+                    : `<strong>❌ Failed:</strong> Check Number`;
+            }
+
+            // 4. BANK SECTION
+            if (type === 'bank' && data.details && data.details.bank) {
+                const b = data.details.bank;
+                html = isSuccess ? 
+                    `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                        <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Bank Verified</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Name at Bank</span>${b.name_at_bank || 'N/A'}</div>
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Account Exists</span>YES</div>
+                    </div>` 
+                    : `<strong>❌ Failed:</strong> Account not found or Name Mismatch`;
+            }
+
+            // RENDER HTML
+            resultDiv.innerHTML = html;
+            resultDiv.className = `result-box ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.style.display = 'block';
+
+            // UPDATE STATE & ALPINE
+            if (isSuccess) {
+                btn.classList.add('verified');
+                btn.innerHTML = `✓ VERIFIED`;
+                window.verificationState[type] = true;
+                
+                const appElement = document.querySelector('[x-data]');
+                if(appElement && window.Alpine) {
+                    const appData = Alpine.$data(appElement);
+                    if(type === 'pan') appData.dbValues.pan = formData.get('pan_number').toUpperCase();
+                    if(type === 'gst') appData.dbValues.gst = formData.get('gst_number').toUpperCase();
+                    if(type === 'msme') appData.dbValues.msme = formData.get('msme_number').toUpperCase();
+                    if(type === 'bank') {
+                        appData.dbValues.bank_acc = formData.get('bank_account_no');
+                        appData.dbValues.bank_ifsc = formData.get('ifsc_code').toUpperCase();
+                    }
                 }
-                else if (type === 'pan' && data.details.pan) {
-                    const p = data.details.pan;
-                    isSuccess = p.is_valid;
-                    html = isSuccess ? `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200"><span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">PAN Validated</span></div><div class="result-grid"><div><span class="result-label">Name on Card</span>${p.ocr_name || 'N/A'}</div><div><span class="result-label">Aadhaar</span>${p.aadhaar_linked ? 'Linked' : 'Not Linked'}</div></div>` : `<strong>❌ Failed:</strong> ${p.status_text}`;
-                }
-                else if (type === 'msme' && data.details.msme) {
-                    const m = data.details.msme;
-                    isSuccess = (m.status === 'id_found' || m.status === 'Verified');
-                    html = isSuccess ? `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200"><span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Udyam Verified</span></div><div class="result-grid"><div><span class="result-label">Enterprise</span>${m.name}</div></div>` : `<strong>❌ Failed:</strong> Check Number`;
-                }
-                else if (type === 'bank' && data.details.bank) {
-                    const b = data.details.bank;
-                    isSuccess = (String(b.account_exists).toUpperCase() === 'YES' || b.status === 'id_found' || String(b.account_exists) === 'true' || b.account_exists === true);
-                    html = isSuccess ? `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200"><span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Bank Verified</span></div><div class="result-grid"><div><span class="result-label">Name at Bank</span>${b.name_at_bank || 'N/A'}</div></div>` : `<strong>❌ Failed:</strong> Unable to verify account.`;
+            } else {
+                // On failure, reset button
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                window.verificationState[type] = false;
+            }
+        }
+
+        function handleSuccess(data) {
+            console.log("Verification Result:", data); // Debugging
+            
+            // 1. Get the Button and Box
+            const btn = document.getElementById(`btn-verify-${type}`);
+            const resultDiv = document.getElementById(`result-${type}`);
+            const originalContent = "VERIFY"; // Fallback text
+
+            let html = '';
+            let isSuccess = data.valid;
+
+            // ==========================================
+            // 1. GST SECTION (Already Working Perfect)
+            // ==========================================
+            if (type === 'gst' && data.details && data.details.gst) {
+                 const g = data.details.gst;
+                 if (isSuccess) {
+                     let addr = g.address || 'N/A';
+                     if (typeof addr === 'object' && addr !== null) {
+                         addr = [addr.building_name, addr.floor_no, addr.street, addr.location, addr.city, addr.state_name, addr.pincode]
+                                .filter(Boolean).join(', ');
+                     }
+
+                     html = `
+                        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-200">
+                            <span class="text-xl">✅</span> 
+                            <span class="font-bold text-green-800 text-sm">GST Verified Successfully</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                            <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Legal Name</span><span class="font-bold text-gray-800">${g.legal_name || 'N/A'}</span></div>
+                            <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Trade Name</span><span class="font-bold text-gray-800">${g.trade_name || 'N/A'}</span></div>
+                            <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Status</span><span class="font-bold text-gray-800">${g.gstin_status || 'N/A'}</span></div>
+                            <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Reg. Date</span><span class="font-bold text-gray-800">${g.registration_date || 'N/A'}</span></div>
+                            <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Taxpayer Type</span><span class="font-bold text-gray-800">${g.taxpayer_type || 'N/A'}</span></div>
+                            <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Filing Status</span><span class="font-bold text-gray-800">${g.filing_status || 'N/A'}</span></div>
+                            <div class="md:col-span-3 border-t border-green-100 pt-2 mt-1">
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Registered Address</span>
+                                <span class="font-medium text-gray-800 break-words">${addr}</span>
+                            </div>
+                        </div>`;
+                 } else {
+                     html = `<strong>❌ Failed:</strong> Inactive/Invalid GST Number`;
+                 }
+            }
+
+            // ==========================================
+            // 2. PAN SECTION (Fixing Old Layout)
+            // ==========================================
+            else if (type === 'pan' && data.details && data.details.pan) {
+                const p = data.details.pan;
+                if (isSuccess) {
+                    html = `
+                    <div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                        <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">PAN Validated</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Name on Card</span>
+                            <span class="font-bold text-gray-800">${p.ocr_name || 'N/A'}</span>
+                        </div>
+                        <div>
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Verification Status</span>
+                            <span class="font-bold text-gray-800">${p.full_name || 'Matched'}</span>
+                        </div>
+                        <div class="col-span-2">
+                             <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Aadhaar Seeding</span>
+                             <span class="font-bold text-gray-800">${p.aadhaar_seeding || 'N/A'}</span>
+                        </div>
+                    </div>`;
+                } else {
+                    html = `<strong>❌ Failed:</strong> ${p.status_text || 'Verification Failed'}`;
                 }
             }
 
+            // ==========================================
+            // 3. MSME SECTION (Fixing "Undefined")
+            // ==========================================
+            else if (type === 'msme' && data.details && data.details.msme) {
+                 const m = data.details.msme;
+                 // Fix: explicitly check for null/undefined to prevent printing "undefined"
+                 const entName = m.enterprise_name || m.name || 'N/A';
+                 const entType = m.type || 'N/A';
+                 
+                 if (isSuccess) {
+                    html = `
+                    <div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                        <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Udyam Verified</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div class="col-span-2">
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Enterprise Name</span>
+                            <span class="font-bold text-gray-800">${entName}</span>
+                        </div>
+                        <div>
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Type</span>
+                            <span class="font-bold text-gray-800">${entType}</span>
+                        </div>
+                         <div>
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Activity</span>
+                            <span class="font-bold text-gray-800">${m.activity || 'N/A'}</span>
+                        </div>
+                    </div>`;
+                 } else {
+                     html = `<strong>❌ Failed:</strong> Validation Failed`;
+                 }
+            }
+
+            // ==========================================
+            // 4. BANK SECTION
+            // ==========================================
+            else if (type === 'bank' && data.details && data.details.bank) {
+                const b = data.details.bank;
+                if (isSuccess) {
+                    html = `
+                    <div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                        <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Bank Verified</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div class="col-span-2">
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Name at Bank</span>
+                            <span class="font-bold text-gray-800">${b.name_at_bank || 'N/A'}</span>
+                        </div>
+                        <div>
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Account Status</span>
+                            <span class="font-bold text-gray-800 text-green-600">Active</span>
+                        </div>
+                        <div>
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">UTR/Ref</span>
+                            <span class="font-mono text-gray-600 text-[10px]">${b.utr || '-'}</span>
+                        </div>
+                    </div>`;
+                } else {
+                    html = `<strong>❌ Failed:</strong> Account not found / Name Mismatch`;
+                }
+            }
+
+            // ==========================================
+            // 5. RENDER & UPDATE STATE
+            // ==========================================
             resultDiv.innerHTML = html;
             resultDiv.className = `result-box ${isSuccess ? 'success' : 'error'}`;
             resultDiv.style.display = 'block';
@@ -181,36 +442,318 @@
                 btn.innerHTML = `✓ VERIFIED`;
                 window.verificationState[type] = true;
                 
-                // 🔥 THE FIX: Use Alpine.$data() for Version 3
+                // Update Alpine Data for submission
                 const appElement = document.querySelector('[x-data]');
                 if(appElement && window.Alpine) {
-                    const appData = Alpine.$data(appElement); // <--- THIS WAS THE FIX
-                    
-                    if(type === 'pan') appData.dbValues.pan = formData.get('pan_number').toUpperCase();
-                    if(type === 'gst') appData.dbValues.gst = formData.get('gst_number').toUpperCase();
-                    if(type === 'msme') appData.dbValues.msme = formData.get('msme_number').toUpperCase();
+                    const appData = Alpine.$data(appElement);
+                    // Ensure form data exists before reading
+                    if(formData.get('pan_number')) appData.dbValues.pan = formData.get('pan_number').toUpperCase();
+                    if(formData.get('gst_number')) appData.dbValues.gst = formData.get('gst_number').toUpperCase();
+                    if(formData.get('msme_number')) appData.dbValues.msme = formData.get('msme_number').toUpperCase();
                     if(type === 'bank') {
                         appData.dbValues.bank_acc = formData.get('bank_account_no');
                         appData.dbValues.bank_ifsc = formData.get('ifsc_code').toUpperCase();
                     }
                 }
-
             } else {
-                btn.innerHTML = originalContent;
+                btn.innerHTML = "VERIFY";
+                btn.disabled = false;
                 window.verificationState[type] = false;
             }
+        }
+    
+    
+    </script> -->
+
+<script>
+    // Global State for verification flags
+    window.verificationState = {
+        pan: {{ req.is_pan_verified | tojson }},
+        gst: {{ req.is_gst_verified | tojson }},
+        msme: {{ req.is_msme_verified | tojson }},
+        bank: {{ req.is_bank_verified | tojson }}
+    };
+
+    console.log("✅ VENDOR PORTAL SCRIPT LOADED v7.0");
+
+    function markUnverified(type) {
+        if (!window._pageHydrated) return;
+        if (document.activeElement?.type === 'submit') return;
+        if (window.verificationState[type] !== true) return;
+
+        console.log('[UNVERIFY]', type);
+        window.verificationState[type] = false;
+
+        const btn = document.getElementById(`btn-verify-${type}`);
+        if (btn) {
+            btn.classList.remove('verified');
+            btn.innerHTML = 'VERIFY';
+            btn.disabled = false;
+        }
+
+        fetch('/vendor/api/unverify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                vendor_request_id: '{{ req.request_id }}',
+                section: type
+            })
+        });
+    }
+
+    // ---------------------------------------------------------
+    //  HANDLE SUCCESS (UPDATED v7)
+    // ---------------------------------------------------------
+    function handleSuccess(data, type) {
+        console.log("Handling Success for:", type, data);
+        
+        const btn = document.getElementById(`btn-verify-${type}`);
+        const resultDiv = document.getElementById(`result-${type}`);
+        const originalContent = "VERIFY";
+
+        let html = '';
+        let isSuccess = data.valid;
+        
+        // --- 1. GST SECTION ---
+        if (type === 'gst' && data.details && data.details.gst) {
+             const g = data.details.gst;
+             if (isSuccess) {
+                 let addr = g.address || 'N/A'; 
+                 if (typeof addr === 'object' && addr !== null) {
+                     addr = [addr.building_name, addr.floor_no, addr.street, addr.location, addr.city, addr.state_name, addr.pincode]
+                            .filter(Boolean).join(', ');
+                 }
+
+                 html = `
+                    <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-200">
+                        <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">GST Verified Successfully</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Legal Name</span><span class="font-bold text-gray-800">${g.legal_name || 'N/A'}</span></div>
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Trade Name</span><span class="font-bold text-gray-800">${g.trade_name || 'N/A'}</span></div>
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Status</span><span class="font-bold text-gray-800">${g.gstin_status || 'N/A'}</span></div>
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Reg. Date</span><span class="font-bold text-gray-800">${g.registration_date || 'N/A'}</span></div>
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Taxpayer Type</span><span class="font-bold text-gray-800">${g.taxpayer_type || 'N/A'}</span></div>
+                        <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Filing Status</span><span class="font-bold text-gray-800">${g.filing_status || 'N/A'}</span></div>
+                        <div class="md:col-span-3 border-t border-green-100 pt-2 mt-1">
+                            <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px] mb-1">Registered Address</span>
+                            <span class="font-medium text-gray-800 break-words">${addr}</span>
+                        </div>
+                    </div>`;
+             } else {
+                 html = `<strong>❌ Failed:</strong> Inactive/Invalid GST Number`;
+             }
+        }
+
+        // --- 2. PAN SECTION (Added Status Field) ---
+        else if (type === 'pan' && data.details && data.details.pan) {
+            const p = data.details.pan;
+            if (isSuccess) {
+                html = `
+                <div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                    <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">PAN Validated</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Name on Card</span>
+                        <span class="font-bold text-gray-800">${p.ocr_name || 'N/A'}</span>
+                    </div>
+                    <div>
+                        <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Status</span>
+                        <span class="font-bold text-gray-800">${p.status_text || 'Valid'}</span>
+                    </div>
+                    <div>
+                        <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Match Score</span>
+                        <span class="font-bold text-gray-800">${p.full_name || 'Matched'}</span>
+                    </div>
+                    <div>
+                        <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Aadhaar Seeding</span>
+                        <span class="font-bold text-gray-800">${p.aadhaar_seeding || 'N/A'}</span>
+                    </div>
+                </div>`; 
+            } else {
+                html = `<strong>❌ Failed:</strong> ${p.status_text || 'Verification Failed'}`;
+            }
+        }
+
+        // --- 3. MSME SECTION (With Dropdown Auto-Fill) ---
+        else if (type === 'msme' && data.details && data.details.msme) {
+             const m = data.details.msme;
+             const entName = m.enterprise_name || m.name || 'N/A';
+             const entType = m.type || 'N/A';
+             
+             if (isSuccess) {
+                // **AUTO-FILL DROPDOWN LOGIC**
+                if (entType !== 'N/A') {
+                    const typeSelect = document.querySelector('select[name="msme_type"]');
+                    if (typeSelect) {
+                        // Loop to find matching option (Case Insensitive)
+                        for (let i = 0; i < typeSelect.options.length; i++) {
+                            if (typeSelect.options[i].text.toLowerCase() === entType.toLowerCase() || 
+                                typeSelect.options[i].value.toLowerCase() === entType.toLowerCase()) {
+                                typeSelect.selectedIndex = i;
+                                typeSelect.dispatchEvent(new Event('change')); // Notify Alpine/Listeners
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                html = `
+                <div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                    <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Udyam Verified</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div class="col-span-2"><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Enterprise Name</span>${entName}</div>
+                    <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Type</span>${entType}</div>
+                    <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Activity</span>${m.activity || 'N/A'}</div>
+                </div>`; 
+             } else {
+                 html = `<strong>❌ Failed:</strong> Validation Failed`;
+             }
+        }
+
+        // --- 4. BANK SECTION ---
+        else if (type === 'bank' && data.details && data.details.bank) {
+            const b = data.details.bank;
+            if (isSuccess) {
+                html = `
+                <div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                    <span class="text-xl">✅</span> <span class="font-bold text-green-800 text-sm">Bank Verified</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div class="col-span-2"><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Name at Bank</span>${b.name_at_bank || 'N/A'}</div>
+                    <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Account Status</span><span class="text-green-600 font-bold">Active</span></div>
+                    <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Ref/UTR</span><span class="font-mono text-gray-500">${b.utr || '-'}</span></div>
+                </div>`; 
+            } else {
+                html = `<strong>❌ Failed:</strong> Account not found or Name Mismatch`;
+            }
+        }
+
+        // RENDER
+        resultDiv.innerHTML = html;
+        resultDiv.className = `result-box ${isSuccess ? 'success' : 'error'}`;
+        resultDiv.style.display = 'block';
+
+        if (isSuccess) {
+            btn.classList.add('verified');
+            btn.innerHTML = `✓ VERIFIED`;
+            window.verificationState[type] = true;
+            
+            const appElement = document.querySelector('[x-data]');
+            if(appElement && window.Alpine) {
+                const appData = Alpine.$data(appElement);
+                const form = document.querySelector('form');
+                const fd = new FormData(form);
+
+                if(type === 'pan') appData.dbValues.pan = fd.get('pan_no')?.toUpperCase();
+                if(type === 'gst') appData.dbValues.gst = fd.get('gst_no')?.toUpperCase();
+                if(type === 'msme') appData.dbValues.msme = fd.get('msme_number')?.toUpperCase();
+                if(type === 'bank') {
+                    appData.dbValues.bank_acc = fd.get('acc_no');
+                    appData.dbValues.bank_ifsc = fd.get('ifsc')?.toUpperCase();
+                }
+            }
+        } else {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+            window.verificationState[type] = false;
+        }
+    }
+
+    async function verifySingle(type) {
+        const btn = document.getElementById(`btn-verify-${type}`);
+        const resultDiv = document.getElementById(`result-${type}`);
+        const originalContent = btn.innerHTML;
+
+        let formData = new FormData();
+        formData.append('vendor_request_id', '{{ req.request_id }}');
+        
+        // --- DATA COLLECTION ---
+        if (type === 'gst') {
+             formData.append('gst_number', document.querySelector('[name="gst_no"]').value.trim());
+             const fileInput = document.querySelector('[name="gst_file"]');
+             if (fileInput && fileInput.files.length > 0) formData.append('gst_file', fileInput.files[0]);
+             formData.append('gst_file_path', '{{ req.gst_file_path }}');
+        } 
+        else if (type === 'pan') {
+            formData.append('pan_number', document.querySelector('[name="pan_no"]').value.trim());
+            const fileInput = document.querySelector('[name="pan_file"]');
+            if (fileInput && fileInput.files.length > 0) formData.append('pan_file', fileInput.files[0]);
+            formData.append('pan_file_path', '{{ req.pan_file_path }}');
+            
+            const aadhaarInput = document.querySelector('[name="aadhaar_no"]'); 
+            if (aadhaarInput) formData.append('aadhaar_number', aadhaarInput.value.trim());
+        }
+        else if (type === 'msme') {
+            formData.append('msme_number', document.querySelector('[name="msme_number"]').value.trim());
+            const fileInput = document.querySelector('[name="msme_file"]');
+            const typeInput = document.querySelector('[name="msme_type"]');
+            if (typeInput) formData.append('msme_type', typeInput.value);
+            if (fileInput && fileInput.files.length > 0) formData.append('msme_file', fileInput.files[0]);
+            formData.append('msme_file_path', '{{ req.msme_file_path }}');
+        }
+        else if (type === 'bank') {
+            formData.append('bank_account_no', document.querySelector('[name="acc_no"]').value.trim());
+            formData.append('ifsc_code', document.querySelector('[name="ifsc"]').value.trim());
+            const fileInput = document.querySelector('[name="bank_file"]');
+            if (fileInput && fileInput.files.length > 0) formData.append('bank_file', fileInput.files[0]);
+            formData.append('bank_proof_file_path', '{{ req.bank_proof_file_path }}');
+        }
+
+        // --- UI LOADING ---
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        resultDiv.style.display = 'none';
+
+        try {
+            const triggerResp = await fetch('/vendor/api/verify-details', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                body: formData
+            });
+            const triggerData = await triggerResp.json();
+
+            if (triggerData.error) throw new Error(triggerData.error);
+            if (!triggerData.task_id) throw new Error("No Task ID returned");
+
+            const taskId = triggerData.task_id;
+            const pollInterval = setInterval(async () => {
+                try {
+                    const statusResp = await fetch(`/vendor/api/task-status/${taskId}`);
+                    const statusData = await statusResp.json();
+
+                    if (statusData.state === 'SUCCESS') {
+                        clearInterval(pollInterval);
+                        handleSuccess(statusData.result, type); // Fixed: Pass type
+                    } else if (statusData.state === 'FAILURE') {
+                        clearInterval(pollInterval);
+                        handleError(statusData.error || "Verification failed");
+                    }
+                } catch (e) {
+                    clearInterval(pollInterval);
+                    handleError("Polling Error: " + e.message);
+                }
+            }, 2000);
 
         } catch (e) {
-            console.error(e);
-            resultDiv.innerHTML = `<strong>Error:</strong> ${e.message}`;
+            handleError(e.message);
+        }
+
+        function handleError(msg) {
+            console.error(msg);
+            resultDiv.innerHTML = `<strong>⚠️ Error:</strong> ${msg}`;
             resultDiv.className = 'result-box error';
             resultDiv.style.display = 'block';
             btn.innerHTML = originalContent;
-        } finally {
-            if(!window.verificationState[type]) btn.disabled = false; 
+            btn.disabled = false;
         }
     }
-    </script>
+</script>
 </head>
 <body class="bg-gray-50 min-h-screen pb-20">
 
@@ -230,6 +773,8 @@
             </div>
         </div>
     </header>
+
+    
 
     {% if req.status == 'PENDING_VENDOR' and req.last_query %}
     <div class="max-w-4xl mx-auto px-4 mt-6">

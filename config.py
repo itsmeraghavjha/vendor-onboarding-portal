@@ -53,7 +53,6 @@
 #     AWS_REGION = os.environ.get('AWS_DEFAULT_REGION', 'ap-south-2') 
 #     S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
 
-
 import os
 from dotenv import load_dotenv
 
@@ -64,30 +63,39 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 class Config:
     # 1. Environment & Security
     ENV = os.environ.get('FLASK_ENV', 'production')
-    # Fail-safe: In production, this MUST be set. In dev, we fall back.
     SECRET_KEY = os.environ.get('SECRET_KEY')
-    if not SECRET_KEY:
-        if ENV == 'production':
-            # In a real scenario, we might raise an error here, but for now we warn
-            print("WARNING: Default SECRET_KEY used in production. This is unsafe.")
-        SECRET_KEY = 'dev-fallback-key-do-not-use-in-prod'
 
-    # 2. Database (SQLite for now, ready for Postgres)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'app.db')
+    # --- STRICT PRODUCTION CHECK ---
+    if ENV == 'production':
+        if not SECRET_KEY:
+            raise ValueError("FATAL: SECRET_KEY is missing in production environment.")
+    else:
+        # Only fallback in dev
+        if not SECRET_KEY:
+            SECRET_KEY = 'dev-fallback-key-do-not-use-in-prod'
+
+    # 2. Database
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    
+    if not SQLALCHEMY_DATABASE_URI:
+        if ENV == 'production':
+             # We can default to SQLite for now per your request, 
+             # but normally this should also raise error if you wanted strict Postgres enforcement
+             pass 
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'app.db')
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # 3. File Storage
-    # Switch this to True in .env when ready for S3
     USE_S3 = os.environ.get('USE_S3', 'False').lower() == 'true'
     UPLOAD_FOLDER = os.path.join(basedir, 'app', 'static', 'uploads')
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'} 
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB limit
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
     # 4. AWS S3 Credentials
     AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    AWS_REGION = os.environ.get('AWS_REGION', 'ap-south-1')
+    AWS_REGION = os.environ.get('AWS_DEFAULT_REGION', 'ap-south-2') 
     S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
 
     # 5. Email & Notifications
@@ -99,10 +107,10 @@ class Config:
     MAIL_DEFAULT_SENDER = MAIL_USERNAME
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL') or 'admin@heritage.com'
 
-    # 6. Background Tasks (Celery)
+    # 6. Background Tasks
     CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL') or 'redis://localhost:6379/0'
     CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND') or 'redis://localhost:6379/0'
     
-    # 7. Integrations (IDfy)
+    # 7. Integrations
     IDFY_API_KEY = os.environ.get('IDFY_API_KEY')
     IDFY_ACCOUNT_ID = os.environ.get('IDFY_ACCOUNT_ID')
