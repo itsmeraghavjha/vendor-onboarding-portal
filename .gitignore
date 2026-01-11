@@ -58,3 +58,6 @@ csv_data/
 # Flask / SQLAlchemy
 instance/
 migrations/
+
+
+app/static/uploads/

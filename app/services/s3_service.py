@@ -1,15 +1,22 @@
 import boto3
 from botocore.exceptions import ClientError
 from flask import current_app
+from botocore.client import Config
 
 class S3Service:
     def __init__(self):
         """Initializes the S3 client using Flask config."""
+        region = current_app.config['AWS_REGION']
+        
         self.s3_client = boto3.client(
             's3',
             aws_access_key_id=current_app.config['AWS_ACCESS_KEY_ID'],
             aws_secret_access_key=current_app.config['AWS_SECRET_ACCESS_KEY'],
-            region_name=current_app.config['AWS_REGION']
+            region_name=region,
+            # 👇 THIS IS THE FIX: Explicitly set the regional endpoint
+            endpoint_url=f'https://s3.{region}.amazonaws.com',
+            # 👇 RECOMMENDED: Enforce S3v4 signature
+            config=Config(signature_version='s3v4')
         )
         self.bucket = current_app.config['S3_BUCKET_NAME']
 
