@@ -3,697 +3,998 @@
 {% block content %}
 
 {# ================================================================= #}
-{# MACRO: Smart Comparison Row (Visual Diffs)                        #}
+{# MACRO: Modern Comparison Row (High Contrast)                      #}
 {# ================================================================= #}
 {% macro comparison_row(label, input_val, api_val) %}
     {% set match = (input_val|string|upper|trim == api_val|string|upper|trim) %}
     {% set has_api = (api_val is not none and api_val != '') %}
     
-    <div class="group relative grid grid-cols-1 md:grid-cols-2 gap-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition p-2 rounded 
-        {{ 'bg-red-50/50' if (has_api and not match) else '' }}">
-        
-        {# Left: User Input #}
-        <div>
-            <div class="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">{{ label }}</div>
-            <div class="text-sm font-medium text-gray-900 break-words">{{ input_val or '-' }}</div>
+    <div class="group grid grid-cols-1 md:grid-cols-12 gap-0 overflow-hidden transition-all duration-200
+    {{ 'bg-white' if match else 'bg-rose-50 border-rose-300' if has_api else 'bg-white' }}">
+
+        {# Label & User Input #}
+        <div class="md:col-span-5 p-3 flex flex-col justify-center border-b md:border-b-0 md:border-r border-gray-200">
+            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1 flex items-center gap-1.5">
+                <div class="w-1.5 h-1.5 rounded-full bg-gray-400"></div> {{ label }}
+            </div>
+            <div class="text-sm font-bold text-gray-800 break-words font-sans pl-3">
+                {{ input_val or '-' }}
+            </div>
         </div>
 
-        {# Right: API Data #}
-        <div class="relative pl-3 md:border-l {{ 'border-green-300' if (has_api and match) else 'border-orange-300' if has_api else 'border-gray-200' }}">
-            <div class="text-[10px] uppercase font-bold tracking-wider mb-0.5 flex items-center gap-1 {{ 'text-green-600' if (has_api and match) else 'text-orange-600' if has_api else 'text-gray-400' }}">
-                API Record
-                {% if has_api %}
-                    {% if match %}
-                        <span class="ml-auto text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200">MATCH</span>
-                    {% else %}
-                        <span class="ml-auto text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-200 animate-pulse">MISMATCH</span>
-                    {% endif %}
+        {# Verification Status Icon #}
+        <div class="md:col-span-1 flex items-center justify-center py-2 bg-gray-50 border-r border-gray-200">
+            {% if has_api %}
+                {% if match %}
+                    <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center shadow-sm" title="Data Matches">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                {% else %}
+                    <div class="w-7 h-7 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center shadow-sm animate-pulse" title="Data Mismatch">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </div>
                 {% endif %}
+            {% else %}
+                <div class="w-7 h-7 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center">
+                    <span class="text-xs font-bold">?</span>
+                </div>
+            {% endif %}
+        </div>
+
+        {# API Data #}
+        <div class="md:col-span-6 p-3 flex flex-col justify-center">
+            <div class="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1 flex items-center gap-1">
+                <svg class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                Verified Source
             </div>
             {% if has_api %}
-                <div class="text-sm font-mono font-bold text-gray-700 break-words">{{ api_val }}</div>
+                <div class="text-sm font-mono font-medium {{ 'text-rose-700 font-bold' if not match else 'text-gray-700' }} break-words pl-1">
+                    {{ api_val }}
+                </div>
             {% else %}
-                <div class="text-xs text-gray-400 italic">Not available</div>
+                <div class="text-xs text-gray-400 italic pl-1">Source data unavailable</div>
             {% endif %}
         </div>
     </div>
 {% endmacro %}
 
-<div class="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+{# ================================================================= #}
+{# MACRO: Toggle Switch                                              #}
+{# ================================================================= #}
+{% macro section_toggle(id, label, section_name, req) %}
+<label class="relative inline-flex items-center cursor-pointer group border border-gray-200 rounded-full px-2 py-1 hover:bg-gray-50 transition" title="{{ label }}">
+    <input type="checkbox" onchange="toggleSectionFlag('{{ section_name }}')" id="{{ id }}" class="sr-only peer"
+           {% if req.editable_sections and section_name in req.editable_sections %}checked{% endif %}>
+    <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-rose-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600 shadow-inner"></div>
+    <span class="ml-2 text-[10px] font-bold uppercase text-gray-500 group-hover:text-rose-600 transition-colors">Flag Correction</span>
+</label>
+{% endmacro %}
 
-    {# ================================================================= #}
-    {# HEADER: Status & Global Actions                                   #}
-    {# ================================================================= #}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
-        <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-600 to-indigo-600"></div>
-        
+
+<div class="min-h-screen bg-gray-100 pb-24 font-sans">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {# --- HEADER CARD --- #}
+        {# --- HEADER CARD (Fixed Alignment) --- #}
+<div class="bg-white rounded-xl shadow-md border border-gray-300 p-6 mb-8 relative overflow-hidden group">
+    <div class="absolute top-0 left-0 w-2 h-full bg-emerald-600"></div>
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10 pl-2">
+        {# Left Side: Title & ID #}
         <div>
-            <div class="flex items-center gap-3 mb-1">
+            <div class="flex items-center gap-3 mb-2">
                 <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">{{ req.vendor_name_basic }}</h1>
-                <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm
-                    {% if req.status == 'COMPLETED' %} bg-green-100 text-green-800 border border-green-200
-                    {% elif req.status == 'REJECTED' %} bg-red-100 text-red-800 border border-red-200
-                    {% else %} bg-blue-50 text-blue-700 border border-blue-200 {% endif %}">
+                <span class="px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider shadow-sm border
+                    {% if req.status == 'COMPLETED' %} bg-emerald-100 text-emerald-800 border-emerald-300
+                    {% elif req.status == 'REJECTED' %} bg-rose-100 text-rose-800 border-rose-300
+                    {% else %} bg-sky-100 text-sky-800 border-sky-300 {% endif %}">
                     {{ req.status }}
                 </span>
             </div>
-            <div class="flex flex-wrap items-center text-sm text-gray-500 gap-x-6 gap-y-2">
-                <span class="flex items-center gap-1.5 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                    <span class="text-gray-400">#</span>{{ req.request_id }}
+            <div class="flex items-center text-sm text-gray-600 gap-4">
+                <span class="flex items-center gap-1.5 font-mono bg-gray-100 px-2 py-1 rounded border border-gray-200 text-xs font-bold">
+                    <span class="text-gray-400">ID:</span>{{ req.request_id }}
                 </span>
-                <span class="flex items-center gap-1">
-                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                <span class="flex items-center gap-1 text-xs font-semibold bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                    <svg class="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                     {{ req.vendor_type }}
-                </span>
-                <span class="flex items-center gap-1">
-                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    {{ req.created_at.strftime('%d %b, %Y') }}
                 </span>
             </div>
         </div>
-
-        <div class="flex items-center gap-4">
+        
+        {# Right Side: Bottleneck & Action Button (Flex Container for Alignment) #}
+        <div class="flex items-stretch gap-3 h-full">
+            {# 1. BOTTLENECK INDICATOR #}
             {% if req.status not in ['COMPLETED', 'REJECTED'] %}
-            <div class="text-right bg-orange-50 px-4 py-2 rounded-xl border border-orange-100 shadow-sm hidden sm:block">
-                 <div class="text-[10px] uppercase font-bold text-orange-400 tracking-wider">Current Bottleneck</div>
-                 <div class="text-base font-bold text-gray-800 leading-tight">{{ stage_name or 'Processing...' }}</div>
-                 <div class="text-[10px] text-gray-500 truncate max-w-[150px]">{{ pending_email }}</div>
+            <div class="flex flex-col justify-center text-right bg-orange-50 px-4 py-2 rounded-lg border border-orange-200 shadow-sm min-w-[180px]">
+                <div class="text-[10px] uppercase font-bold text-orange-500 tracking-wider mb-0.5">Current Bottleneck</div>
+                <div class="text-sm font-bold text-gray-900 leading-tight">{{ stage_name or 'Processing...' }}</div>
+                {% if pending_email %}
+                <div class="text-[10px] text-gray-500 truncate max-w-[150px] font-mono mt-0.5 ml-auto" title="{{ pending_email }}">{{ pending_email }}</div>
+                {% endif %}
             </div>
             {% endif %}
-            
+
+            {# 2. ACTION BUTTON #}
             {% if is_my_turn %}
-            <a href="#action-section" class="flex flex-col items-center justify-center w-14 h-14 bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-700 transition transform hover:-translate-y-1">
-                <span class="text-lg">👇</span>
-                <span class="text-[9px] font-bold uppercase">Act</span>
+            <a href="#action-section" class="flex flex-col justify-center items-center px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 border border-emerald-700 min-w-[140px]">
+                <span class="text-lg animate-bounce mb-0.5">👇</span>
+                <span class="text-xs font-bold uppercase tracking-wide">Action Required</span>
             </a>
             {% endif %}
         </div>
     </div>
+</div>
 
-    <form method="POST" class="space-y-8" id="reviewForm">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <form method="POST" class="space-y-8" id="reviewForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        {% if req.last_query %}
-        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-8 rounded-r-lg shadow-sm">
-            <h3 class="text-sm font-bold text-yellow-900 uppercase">⚠️ Resubmission Context</h3>
-            <p class="text-sm text-yellow-800 italic mt-1">"{{ req.last_query }}"</p>
-        </div>
-        {% endif %}
-
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-            
-            {# ================================================================= #}
-            {# LEFT SIDEBAR: Navigation & Contact Widget                         #}
-            {# ================================================================= #}
-            <div class="hidden xl:block xl:col-span-3 sticky top-6 space-y-6">
+            <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
                 
-                {# Contact Widget (New Design) #}
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                        <h3 class="font-bold text-gray-800 text-xs uppercase tracking-wider">Contact Person</h3>
-                        <span class="text-lg">👤</span>
-                    </div>
-                    <div class="p-4">
-                        <div class="font-bold text-gray-900 text-sm">{{ req.contact_person_name }}</div>
-                        <div class="text-xs text-gray-500 mb-3">{{ req.contact_person_designation }}</div>
-                        
-                        <div class="space-y-2">
-                            <a href="tel:{{ req.mobile_number }}" class="flex items-center gap-2 text-xs text-gray-600 hover:text-blue-600 transition p-1.5 rounded hover:bg-gray-50">
-                                <span class="bg-green-100 text-green-700 w-5 h-5 flex items-center justify-center rounded-full text-[10px]">📞</span>
-                                {{ req.mobile_number }}
-                            </a>
-                            <a href="mailto:{{ req.vendor_email }}" class="flex items-center gap-2 text-xs text-gray-600 hover:text-blue-600 transition p-1.5 rounded hover:bg-gray-50">
-                                <span class="bg-blue-100 text-blue-700 w-5 h-5 flex items-center justify-center rounded-full text-[10px]">✉️</span>
-                                <span class="truncate max-w-[150px]">{{ req.vendor_email }}</span>
-                            </a>
+                {# --- LEFT SIDEBAR --- #}
+                <div class="hidden xl:block xl:col-span-3 sticky top-6 space-y-6">
+                    
+                    {# Contact Card #}
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                            <h3 class="font-bold text-gray-700 text-xs uppercase tracking-wider">Point of Contact</h3>
                         </div>
-                        
-                        <div class="mt-4 pt-3 border-t border-gray-100">
-                             <div class="text-[10px] font-bold text-gray-400 uppercase mb-1">Location</div>
-                             <div class="text-xs text-gray-600 leading-tight">
-                                {{ req.city }}, {{ req.state }}<br>
-                                <span class="font-mono">{{ req.postal_code }}</span>
-                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                {# Navigation #}
-                <nav class="space-y-1" aria-label="Sidebar">
-                    <a href="#company-section" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition">
-                        <span class="w-2 h-2 rounded-full bg-purple-400 mr-2"></span> Company Profile
-                    </a>
-                    <a href="#compliance-section" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition">
-                        <span class="w-2 h-2 rounded-full bg-blue-400 mr-2"></span> Compliance & ID
-                    </a>
-                    <a href="#banking-section" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition">
-                        <span class="w-2 h-2 rounded-full bg-indigo-400 mr-2"></span> Banking Info
-                    </a>
-                    <a href="#config-section" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition">
-                        <span class="w-2 h-2 rounded-full bg-gray-400 mr-2"></span> Internal Config
-                    </a>
-                    <a href="#tax-section" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition">
-                        <span class="w-2 h-2 rounded-full bg-yellow-400 mr-2"></span> Tax Details
-                    </a>
-                    <a href="#history-section" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition">
-                        <span class="w-2 h-2 rounded-full bg-gray-400 mr-2"></span> Audit Trail
-                    </a>
-                </nav>
-            </div>
-
-            {# ================================================================= #}
-            {# MAIN CONTENT                                                      #}
-            {# ================================================================= #}
-            <div class="xl:col-span-9 space-y-10">
-                
-                {# 1. COMPANY PROFILE SECTION #}
-                <div id="company-section" class="scroll-mt-24">
-                    <div class="bg-gray-50 px-6 py-4 border border-gray-200 rounded-t-xl flex justify-between items-center">
-                        <h3 class="font-bold text-gray-800 flex items-center gap-2"><span>🏢</span> Organization Profile</h3>
-                    </div>
-                    <div class="bg-white border-x border-b border-gray-200 p-6 rounded-b-xl shadow-sm">
-                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Legal Entity Type</label>
-                                <div class="text-sm font-medium text-gray-900 p-2 bg-gray-50 rounded border border-gray-100">{{ req.constitution }}</div>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">CIN / Registration No.</label>
-                                <div class="text-sm font-medium text-gray-900 p-2 bg-gray-50 rounded border border-gray-100 font-mono">{{ req.cin_number or 'N/A' }}</div>
-                            </div>
-                            <div class="md:col-span-2">
-                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Product / Service Description</label>
-                                <div class="text-sm text-gray-600 bg-gray-50 p-3 rounded border border-gray-100 leading-relaxed italic">
-                                    "{{ req.product_service_description }}"
+                        <div class="p-4">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl border border-emerald-200">
+                                    {{ req.contact_person_name[0] | upper }}
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 text-sm">{{ req.contact_person_name }}</div>
+                                    <div class="text-[10px] text-gray-500 uppercase font-semibold tracking-wide">{{ req.contact_person_designation }}</div>
                                 </div>
                             </div>
-                         </div>
-                    </div>
-                </div>
-
-                {# 2. COMPLIANCE SECTION #}
-                <div id="compliance-section" class="scroll-mt-24 relative group/section">
-                    <div class="bg-gradient-to-r from-blue-50 to-white px-6 py-4 border border-blue-100 rounded-t-xl flex justify-between items-center">
-                        <h3 class="font-bold text-blue-900 flex items-center gap-2"><span>⚖️</span> Compliance & Identity</h3>
-                        
-                        {# SECTION FLAGGING TOGGLE #}
-                        <label class="inline-flex items-center cursor-pointer gap-2 select-none">
-                            <span class="text-[10px] font-bold uppercase text-gray-500">Flag for Correction</span>
-                            <input type="checkbox" onchange="toggleSectionFlag('compliance')" class="sr-only peer">
-                            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-red-500 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-                        </label>
+                            <div class="space-y-3">
+                                <a href="tel:{{ req.mobile_number }}" class="flex items-center gap-3 text-xs font-bold text-gray-700 hover:text-emerald-700 transition p-2.5 rounded-lg bg-gray-50 border border-gray-200 hover:bg-white hover:border-emerald-300 hover:shadow-sm">
+                                    <span class="bg-emerald-100 text-emerald-700 w-6 h-6 flex items-center justify-center rounded-md">📞</span> {{ req.mobile_number }}
+                                </a>
+                                <a href="mailto:{{ req.vendor_email }}" class="flex items-center gap-3 text-xs font-bold text-gray-700 hover:text-emerald-700 transition p-2.5 rounded-lg bg-gray-50 border border-gray-200 hover:bg-white hover:border-emerald-300 hover:shadow-sm">
+                                    <span class="bg-blue-100 text-blue-700 w-6 h-6 flex items-center justify-center rounded-md">✉️</span> <span class="truncate">{{ req.vendor_email }}</span>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="bg-white border-x border-b border-gray-200 p-6 rounded-b-xl shadow-sm space-y-8">
-                        {# GST CARD #}
-                        {% set gst_api = req.get_api_data('GST') %}
-                        <div class="border border-gray-100 rounded-xl p-5 bg-slate-50 relative hover:shadow-md transition">
-                            <div class="flex justify-between items-start mb-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="bg-white p-2.5 rounded-lg border border-gray-200 text-xl shadow-sm">📜</div>
-                                    <div>
-                                        <h4 class="font-bold text-gray-900 text-sm">GST Verification</h4>
-                                        <div class="text-xs text-gray-500 font-mono">{{ req.gst_number or 'Unregistered' }}</div>
+                    {# Navigation #}
+                    <nav class="space-y-2" aria-label="Sidebar">
+                        {% set nav_items = [
+                            ('company-section', 'Organization Profile', '🏢', 'text-gray-600'),
+                            ('compliance-section', 'Compliance & ID', '⚖️', 'text-gray-600'),
+                            ('banking-section', 'Banking Details', '🏦', 'text-gray-600'),
+                            ('config-section', 'Internal Config', '⚙️', 'text-gray-600'),
+                            ('tax-section', 'Tax Records', '🧾', 'text-gray-600'),
+                            ('history-section', 'Audit Trail', '📜', 'text-gray-600')
+                        ] %}
+                        
+                        {% for id, label, icon, text_color in nav_items %}
+                        <a href="#{{ id }}" class="group flex items-center px-4 py-3 text-sm font-bold text-gray-600 bg-white rounded-lg border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:shadow-md transition-all">
+                            <span class="mr-3 text-lg group-hover:scale-110 transition-transform">{{ icon }}</span>
+                            {{ label }}
+                        </a>
+                        {% endfor %}
+                    </nav>
+                </div>
+
+                {# --- MAIN CONTENT --- #}
+                <div class="xl:col-span-9 space-y-8">
+                    
+                    {# 1. ORGANIZATION #}
+                    <div id="company-section" class="scroll-mt-24 bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                            <h3 class="font-bold text-gray-800 flex items-center gap-2 text-lg">Organization Profile</h3>
+                            {{ section_toggle('toggle_organization', 'Unlock Section', 'organization', req) }}
+                        </div>
+                        
+                        <div class="p-6 space-y-8">
+                            {# ... [Keep existing Organization Content] ... #}
+                            {# Row 1: Legal Info #}
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Legal Entity Type</label>
+                                    <div class="text-sm font-bold text-gray-900 px-3 py-2.5 bg-white border border-gray-300 rounded-md shadow-sm">{{ req.constitution }}</div>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">CIN / Registration No.</label>
+                                    <div class="text-sm font-mono font-bold text-gray-900 px-3 py-2.5 bg-white border border-gray-300 rounded-md shadow-sm">{{ req.cin_number or 'N/A' }}</div>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Product / Service Description</label>
+                                    <div class="text-sm text-gray-700 bg-gray-50 px-4 py-3 rounded-md border border-gray-300 italic leading-relaxed">
+                                        "{{ req.product_service_description }}"
                                     </div>
                                 </div>
-                                {% if gst_api %}
-                                    <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider
-                                        {% if gst_api.gstin_status == 'Active' %} bg-green-100 text-green-700 {% else %} bg-red-100 text-red-700 {% endif %}">
-                                        {{ gst_api.gstin_status or 'Inactive' }}
-                                    </span>
-                                {% endif %}
                             </div>
 
-                            {% if gst_api %}
-                                <div class="bg-white rounded-lg border border-gray-200 px-4 shadow-sm mb-4">
-                                    {{ comparison_row('Legal Name', req.vendor_name_basic, gst_api.legal_name) }}
-                                    {{ comparison_row('Trade Name', req.trade_name, gst_api.trade_name) }}
+                            <div class="border-t border-gray-200"></div>
+
+                            {# Row 2: Address & Contact #}
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {# Address Card #}
+                                <div class="bg-white rounded-xl p-5 border border-gray-300 shadow-sm relative group hover:border-emerald-300 transition-colors">
+                                    <div class="absolute top-4 right-4 text-gray-300 group-hover:text-emerald-300 transition-colors">📍</div>
+                                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Registered Address</h4>
+                                    <div class="text-sm text-gray-800 space-y-1 font-medium leading-snug">
+                                        <p>{{ req.street }} {{ req.street_2 }}</p>
+                                        {% if req.street_3 %}<p>{{ req.street_3 }}</p>{% endif %}
+                                        <p class="mt-2 text-base">
+                                            <span class="text-gray-900 font-bold">{{ req.city }}</span>, {{ req.state }}
+                                        </p>
+                                        <div class="flex gap-3 mt-3 text-xs">
+                                            <span class="bg-gray-100 border border-gray-300 px-2 py-1 rounded text-gray-700 font-mono font-bold">PIN: {{ req.postal_code }}</span>
+                                            {% if req.region_code %}
+                                            <span class="bg-gray-100 border border-gray-300 px-2 py-1 rounded text-gray-700 font-bold">Reg: {{ req.region_code }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="text-xs text-gray-500 bg-white p-2 rounded border border-gray-100">
-                                    <span class="font-bold">Registered Address:</span> {{ gst_api.address }}
+
+                                {# Contact Person Card #}
+                                <div class="bg-white rounded-xl p-5 border border-gray-300 shadow-sm relative group hover:border-emerald-300 transition-colors">
+                                    <div class="absolute top-4 right-4 text-gray-300 group-hover:text-emerald-300 transition-colors">👤</div>
+                                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Key Contact</h4>
+                                    
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-lg border border-emerald-200 shadow-sm">
+                                            {{ req.contact_person_name[0] | upper }}
+                                        </div>
+                                        <div>
+                                            <div class="font-bold text-gray-900 text-sm">{{ req.contact_person_name }}</div>
+                                            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-wide">{{ req.contact_person_designation }}</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <a href="tel:{{ req.mobile_number }}" class="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-emerald-700 transition">
+                                            <span class="bg-gray-100 border border-gray-300 w-6 h-6 flex items-center justify-center rounded-md">📞</span> 
+                                            {{ req.mobile_number }}
+                                        </a>
+                                        <a href="mailto:{{ req.vendor_email }}" class="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-emerald-700 transition">
+                                            <span class="bg-gray-100 border border-gray-300 w-6 h-6 flex items-center justify-center rounded-md">✉️</span> 
+                                            {{ req.vendor_email }}
+                                        </a>
+                                    </div>
                                 </div>
-                            {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# 2. COMPLIANCE SECTION #}
+                    <div id="compliance-section" class="scroll-mt-24 space-y-6">
+                        {# ... [GST/PAN/MSME Cards - Keep your existing layout] ... #}
+                        {# GST CARD #}
+                        {% set gst_api = req.get_api_data('GST') %}
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden relative group transition-all hover:shadow-md">
+                            <div class="absolute top-0 left-0 w-1.5 h-full bg-blue-600"></div>
                             
-                            {% if req.gst_file_path %}
-                            <div class="mt-3 text-right">
-                                <a href="{{ url_for('main.serve_protected_file', filename=req.gst_file_path) }}" target="_blank" class="inline-flex items-center gap-1 text-blue-600 text-xs font-bold hover:underline bg-blue-50 px-2 py-1 rounded border border-blue-100">
-                                    <span>📄</span> View Certificate
+                            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                <div class="flex items-center gap-4">
+                                    <div class="p-2 bg-blue-100 text-blue-700 rounded-lg shadow-sm">📜</div>
+                                    <div>
+                                        <h3 class="font-bold text-gray-900 text-sm uppercase tracking-wide">GST Registration</h3>
+                                        <div class="flex items-center gap-2 mt-0.5">
+                                            <div class="text-sm font-mono font-bold text-gray-700">{{ req.gst_number or 'Unregistered' }}</div>
+                                            {% if gst_api and gst_api.gstin_status %}
+                                                {% if gst_api.gstin_status|lower == 'active' %}
+                                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">ACTIVE</span>
+                                                {% else %}
+                                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">{{ gst_api.gstin_status|upper }}</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {{ section_toggle('toggle_gst', 'Unlock GST', 'gst', req) }}
+                            </div>
+
+                            <div class="p-6">
+                                {# HEATMAP #}
+                                {% if gst_api and gst_api.filing_history %}
+                                <div class="mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h5 class="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                            GST Filing Health
+                                            <span class="px-2 py-0.5 rounded-full bg-white text-gray-600 text-[9px] border border-gray-200 shadow-sm font-bold">Last 6 Months</span>
+                                        </h5>
+                                        <div class="flex gap-3 text-[10px] text-gray-500 font-bold">
+                                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm border border-emerald-600"></span> On Time</span>
+                                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm border border-rose-600"></span> Pending</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-6 gap-2">
+                                        {% for m in gst_api.filing_history|reverse %}
+                                        {% set is_filed = (m.status|upper == 'FILED') %}
+                                        <div class="relative flex flex-col items-center justify-center p-2 rounded-lg border transition-all duration-200 group/tile
+                                            {{ 'bg-emerald-50 border-emerald-200 hover:border-emerald-400 shadow-sm' if is_filed else 'bg-rose-50 border-rose-200 hover:border-rose-400 shadow-sm' }}">
+                                            
+                                            <div class="text-[10px] font-bold tracking-wider mb-1 {{ 'text-emerald-800' if is_filed else 'text-rose-800' }}">
+                                                {{ m.period }}
+                                            </div>
+                                            <div class="mb-1">
+                                                {% if is_filed %}
+                                                    <div class="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="w-5 h-5 rounded-full bg-rose-200 flex items-center justify-center text-rose-700">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="text-[9px] font-mono font-bold {{ 'text-emerald-700' if is_filed else 'text-rose-700' }}">
+                                                {{ m.dof.split('-')[0] + '-' + m.dof.split('-')[1] if m.dof else 'Pending' }}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {# COMPARISON GRID #}
+                                {% if gst_api %}
+                                    <div class="mt-4 border border-rose-300 rounded-xl overflow-hidden divide-y divide-rose-200 bg-rose-50">
+                                    {{ comparison_row('Legal Name', req.vendor_name_basic, gst_api.legal_name) }}
+                                    {% if gst_api.trade_name and gst_api.trade_name != gst_api.legal_name %}
+                                        {{ comparison_row('Trade Name', req.trade_name, gst_api.trade_name) }}
+                                    {% endif %}
+                                    {{ comparison_row('Taxpayer Type', req.constitution, gst_api.taxpayer_type) }}
+                                    {% set user_addr = [req.street, req.street_2, req.city, req.state, req.postal_code]|select("string")|join(", ") %}
+                                    {{ comparison_row('Registered Address', user_addr, gst_api.address) }}
+                                    </div>
+                                {% endif %}
+
+                                {% if req.gst_file_path %}
+                                <div class="mt-5 pt-4 border-t border-gray-100 flex justify-end">
+                                    <a href="{{ url_for('main.serve_protected_file', filename=req.gst_file_path) }}" target="_blank" class="group inline-flex items-center gap-2 text-gray-600 bg-white border border-gray-300 hover:border-blue-400 hover:text-blue-600 px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm">
+                                        <svg class="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        View Certificate
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {# PAN & MSME GRID #}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" style="margin-top: 24px;">
+                            {# PAN CARD #}
+                            {% set pan_api = req.get_api_data('PAN') %}
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden flex flex-col">
+                                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                    <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2"><span>🪪</span> PAN Verification</h3>
+                                    {{ section_toggle('toggle_pan', 'Unlock PAN', 'pan', req) }}
+                                </div>
+                                <div class="p-6 flex-1 bg-white">
+                                    <div class="rounded-xl border border-gray-200 overflow-hidden">
+                                        <div class="relative">
+                                            <div class="absolute top-0 left-0 w-1 h-full bg-slate-500"></div>
+                                            {% if pan_api %}
+                                                {{ comparison_row('PAN Holder Name', req.vendor_name_basic, pan_api.verified_name) }}
+                                                <div class="grid grid-cols-2 divide-x divide-gray-200 border-t border-gray-200">
+                                                    <div class="p-4 flex flex-col items-center text-center bg-white">
+                                                        <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">PAN Status</span>
+                                                        {% if 'Valid' in pan_api.pan_status or 'Operative' in pan_api.pan_status %}
+                                                            <div class="text-emerald-700 font-bold text-xs bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1"><span class="text-emerald-600">✔</span> OPERATIVE</div>
+                                                            <div class="text-[9px] text-gray-400 mt-1 leading-tight">{{ pan_api.pan_status }}</div>
+                                                        {% else %}
+                                                            <div class="text-rose-700 font-bold text-xs bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">INVALID</div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="p-4 flex flex-col items-center text-center bg-white">
+                                                        <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Aadhaar Seeding</span>
+                                                        {% if pan_api.aadhaar_seeded %}
+                                                            <div class="text-blue-700 font-bold text-xs bg-blue-50 border border-blue-200 px-3 py-1 rounded-full flex items-center gap-1"><span class="text-blue-600">🔗</span> LINKED</div>
+                                                        {% else %}
+                                                            <div class="text-orange-700 font-bold text-xs bg-orange-50 border border-orange-200 px-3 py-1 rounded-full">NOT LINKED</div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% else %}
+                                                 <div class="p-8 text-center text-gray-400 text-xs italic bg-gray-50">No verification data available.</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% if req.pan_file_path %}
+                                    <div class="mt-3 text-right">
+                                        <a href="{{ url_for('main.serve_protected_file', filename=req.pan_file_path) }}" target="_blank" class="text-xs font-bold text-slate-600 hover:text-slate-800 hover:underline">View Document &rarr;</a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {# MSME CARD #}
+                            {% set msme_api = req.get_api_data('MSME') %}
+                            {% if req.msme_number %}
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden flex flex-col">
+                                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                    <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2"><span>🏭</span> MSME Details</h3>
+                                    {{ section_toggle('toggle_msme', 'Unlock MSME', 'msme', req) }}
+                                </div>
+                                <div class="p-6 flex-1 bg-white">
+                                    <div class="rounded-xl border border-gray-200 overflow-hidden">
+                                        <div class="relative">
+                                            <div class="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+                                            {% if msme_api %}
+                                                {{ comparison_row('Enterprise Name', req.vendor_name_basic, msme_api.name) }}
+                                                <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 border-t border-gray-200">
+                                                    <div class="bg-white p-3">
+                                                        <div class="text-[9px] text-gray-400 font-bold uppercase mb-1">Type</div>
+                                                        <div class="font-bold text-orange-600 text-xs">{{ msme_api.type or '-' }}</div>
+                                                    </div>
+                                                    <div class="bg-white p-3">
+                                                        <div class="text-[9px] text-gray-400 font-bold uppercase mb-1">Org</div>
+                                                        <div class="font-bold text-gray-700 text-xs truncate" title="{{ msme_api.org_type }}">{{ msme_api.org_type or '-' }}</div>
+                                                    </div>
+                                                    <div class="bg-white p-3">
+                                                        <div class="text-[9px] text-gray-400 font-bold uppercase mb-1">Inc. Date</div>
+                                                        <div class="font-mono font-bold text-gray-700 text-xs">{{ msme_api.date_inc or '-' }}</div>
+                                                    </div>
+                                                    <div class="bg-white p-3">
+                                                        <div class="text-[9px] text-gray-400 font-bold uppercase mb-1">Category</div>
+                                                        <div class="font-bold text-gray-700 text-xs">{{ msme_api.social_cat or '-' }}</div>
+                                                    </div>
+                                                </div>
+                                                <div class="px-4 py-2 bg-orange-50 border-t border-orange-100 flex justify-between items-center">
+                                                     <span class="text-[10px] font-bold text-orange-800 uppercase">Major Activity</span>
+                                                     <span class="text-xs font-bold text-orange-900">{{ msme_api.activity }}</span>
+                                                </div>
+                                            {% else %}
+                                                <div class="p-8 text-center text-gray-400 text-xs italic bg-gray-50">Pending Verification...</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% if req.msme_file_path %}
+                                    <div class="mt-3 text-right">
+                                        <a href="{{ url_for('main.serve_protected_file', filename=req.msme_file_path) }}" target="_blank" class="text-xs font-bold text-orange-600 hover:text-orange-800 hover:underline">View Certificate &rarr;</a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# 3. BANKING #}
+                    <div id="banking-section" class="scroll-mt-24 bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-emerald-50">
+                            <h3 class="font-bold text-emerald-900 flex items-center gap-2"><span>🏦</span> Banking Details</h3>
+                            {{ section_toggle('toggle_banking', 'Unlock Banking', 'banking', req) }}
+                        </div>
+                        <div class="p-6">
+                            {% set bank_api = req.get_api_data('BANK') %}
+                            {% set bank_res = bank_api.result if bank_api else {} %}
+                            
+                            <div class="flex flex-col lg:flex-row gap-6">
+                                {# 1. ACCOUNT DETAILS CARD #}
+                                <div class="flex-1 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-300 relative overflow-hidden">
+                                    <div class="p-5 border-b border-gray-200 flex justify-between items-start">
+                                        <div>
+                                            <h4 class="font-bold text-gray-900 text-lg">{{ req.bank_name }}</h4>
+                                            <div class="text-xs font-mono font-bold text-gray-500 mt-1">{{ req.bank_ifsc }}</div>
+                                        </div>
+                                        {% if bank_res.account_exists == 'YES' %}
+                                            <span class="px-2 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase rounded border border-emerald-200 shadow-sm">Verified</span>
+                                        {% else %}
+                                            <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-[10px] font-bold uppercase rounded border border-yellow-200">Pending</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="p-5 bg-white">
+                                        <label class="block text-[9px] font-bold text-gray-400 uppercase mb-1">Account Number</label>
+                                        <div class="font-mono text-2xl font-bold text-gray-800 tracking-wider">{{ req.bank_account_no }}</div>
+                                    </div>
+                                </div>
+
+                                {# 2. PENNY DROP VERIFICATION (Regulator View) #}
+                                <div class="flex-1 rounded-xl border border-gray-300 overflow-hidden flex flex-col">
+                                    <div class="bg-gray-100 px-4 py-2 border-b border-gray-200 flex justify-between items-center">
+                                        <h5 class="text-xs font-bold text-gray-600 uppercase tracking-widest flex items-center gap-2"><span>⚡</span> Penny Drop Check</h5>
+                                        {% if bank_res.utr %}<span class="text-[9px] font-mono text-gray-400">UTR: {{ bank_res.utr }}</span>{% endif %}
+                                    </div>
+                                    <div class="flex-1 bg-white">
+                                        {{ comparison_row('Beneficiary Name', req.bank_account_holder_name, bank_res.name_at_bank) }}
+                                        <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                                            <div>
+                                                <div class="text-[9px] font-bold text-gray-400 uppercase">Account Status</div>
+                                                {% if bank_res.account_exists == 'YES' %}
+                                                    <div class="text-xs font-bold text-emerald-600 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ACTIVE / EXISTS</div>
+                                                {% elif bank_res.account_exists == 'NO' %}
+                                                    <div class="text-xs font-bold text-rose-600 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> INVALID</div>
+                                                {% else %}
+                                                    <div class="text-xs font-bold text-gray-400">-</div>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                 <div class="text-[9px] font-bold text-gray-400 uppercase text-right">Message</div>
+                                                 <div class="text-xs font-bold text-gray-700">{{ bank_res.message }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% if req.bank_proof_file_path %}
+                            <div class="mt-4 flex justify-end">
+                                <a href="{{ url_for('main.serve_protected_file', filename=req.bank_proof_file_path) }}" target="_blank" class="flex items-center gap-2 text-xs font-bold text-gray-600 hover:text-emerald-700 bg-white border border-gray-300 hover:border-emerald-400 px-3 py-1.5 rounded-lg transition-colors">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                    View Cancelled Cheque
                                 </a>
                             </div>
                             {% endif %}
                         </div>
+                    </div>
 
-                        {# PAN & MSME #}
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {# PAN #}
-                            {% set pan_api = req.get_api_data('PAN') %}
-                            <div class="border border-gray-100 rounded-xl p-5 bg-slate-50 hover:shadow-md transition">
-                                <div class="flex justify-between items-center mb-4">
-                                    <h4 class="font-bold text-gray-900 text-sm">PAN Details</h4>
-                                    {% if pan_api and pan_api.is_valid %}
-                                        <span class="text-green-600 text-xs font-bold">✅ Valid</span>
-                                    {% endif %}
-                                </div>
-                                {% if pan_api %}
-                                    <div class="bg-white rounded-lg border border-gray-200 px-3 shadow-sm">
-                                         {{ comparison_row('Name on Card', req.vendor_name_basic, pan_api.ocr_name) }}
+                    {# 4. CONFIG #}
+                    <div id="config-section" class="scroll-mt-24">
+                        {% if req.account_group or req.gl_account or req.house_bank or req.sap_id %}
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden p-6">
+                            <h2 class="text-xs font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">⚙️ Internal Configuration</h2>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {% macro config_badge(label, value) %}
+                                    {% if value %}
+                                    <div class="bg-white p-3 rounded-lg border border-gray-300 group hover:border-emerald-400 transition-colors shadow-sm">
+                                        <label class="block text-[9px] font-bold text-gray-400 uppercase mb-1">{{ label }}</label>
+                                        <div class="text-sm font-mono font-bold text-gray-800 group-hover:text-emerald-700">{{ value }}</div>
                                     </div>
-                                {% endif %}
-                                {% if req.pan_file_path %}
-                                <div class="mt-3 text-right">
-                                    <a href="{{ url_for('main.serve_protected_file', filename=req.pan_file_path) }}" target="_blank" class="text-blue-600 text-xs font-bold hover:underline">View PAN Card &rarr;</a>
-                                </div>
-                                {% endif %}
-                            </div>
-
-                            {# MSME #}
-                            {% set msme_api = req.get_api_data('MSME') %}
-                            {% if req.msme_number %}
-                            <div class="border border-orange-100 rounded-xl p-5 bg-orange-50/30 hover:shadow-md transition">
-                                <div class="flex justify-between items-center mb-4">
-                                    <h4 class="font-bold text-gray-900 text-sm">MSME / Udyam</h4>
-                                    {% if msme_api and msme_api.active %}
-                                        <span class="text-orange-600 text-xs font-bold">{{ msme_api.type }}</span>
                                     {% endif %}
-                                </div>
-                                {% if msme_api %}
-                                    <div class="bg-white rounded-lg border border-orange-100 px-3 shadow-sm">
-                                         {{ comparison_row('Name', req.vendor_name_basic, msme_api.name) }}
-                                    </div>
-                                {% endif %}
-                                {% if req.msme_file_path %}
-                                <div class="mt-3 text-right">
-                                    <a href="{{ url_for('main.serve_protected_file', filename=req.msme_file_path) }}" target="_blank" class="text-orange-600 text-xs font-bold hover:underline">View Document &rarr;</a>
-                                </div>
-                                {% endif %}
+                                {% endmacro %}
+                                
+                                {{ config_badge('Account Group', req.account_group) }}
+                                {{ config_badge('GL Account', req.gl_account) }}
+                                {{ config_badge('House Bank', req.house_bank) }}
+                                {{ config_badge('Pay Terms', req.payment_terms) }}
                             </div>
-                            {% endif %}
                         </div>
-                    </div>
-                </div>
-
-                {# 3. BANKING SECTION #}
-                <div id="banking-section" class="scroll-mt-24">
-                    <div class="bg-gradient-to-r from-blue-50 to-white px-6 py-4 border border-blue-100 rounded-t-xl flex justify-between items-center">
-                        <h3 class="font-bold text-blue-900 flex items-center gap-2"><span>🏦</span> Banking Details</h3>
-                        
-                        {# SECTION FLAGGING TOGGLE #}
-                        <label class="inline-flex items-center cursor-pointer gap-2 select-none">
-                            <span class="text-[10px] font-bold uppercase text-gray-500">Flag for Correction</span>
-                            <input type="checkbox" onchange="toggleSectionFlag('banking')" class="sr-only peer">
-                            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-red-500 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-                        </label>
+                        {% endif %}
                     </div>
 
-                    <div class="p-6 bg-white border-x border-b border-gray-200 rounded-b-xl shadow-sm">
-                        {% set bank_api = req.get_api_data('BANK') %}
-                        <div class="flex flex-col lg:flex-row gap-6">
-                            <div class="flex-1 bg-gradient-to-br from-blue-50 to-white rounded-xl p-5 border border-blue-100 relative overflow-hidden">
-                                <div class="flex justify-between items-start mb-6 relative z-10">
-                                     <div>
-                                        <h4 class="font-bold text-blue-900 text-lg">{{ req.bank_name }}</h4>
-                                        <div class="text-xs text-blue-600 mt-1">IFSC: <span class="font-mono font-bold bg-white px-1 rounded">{{ req.bank_ifsc }}</span></div>
-                                     </div>
-                                </div>
-                                <div class="bg-white rounded-lg p-4 border border-blue-100 shadow-sm mb-4 relative z-10">
-                                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Account Number</label>
-                                    <div class="font-mono text-xl font-bold text-gray-800 tracking-wider">
-                                        {{ req.bank_account_no }}
-                                    </div>
-                                </div>
-                                <div class="mt-4 relative z-10">
-                                    {% if bank_api and bank_api.account_exists %}
-                                        <div class="inline-flex items-center gap-2 text-green-700 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200 shadow-sm">
-                                            <span class="text-xs font-bold uppercase">Penny Drop Verified</span>
-                                        </div>
-                                    {% else %}
-                                         <div class="inline-flex items-center gap-2 text-red-700 bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm">
-                                            <span class="text-xs font-bold uppercase">Pending / Failed</span>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <div class="flex-1 space-y-4">
-                                <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm h-full flex flex-col justify-center">
-                                    <h5 class="text-xs font-bold text-gray-900 uppercase border-b border-gray-100 pb-2 mb-3">Beneficiary Validation</h5>
-                                    {{ comparison_row('Account Holder', req.bank_account_holder_name, bank_api.name_at_bank if bank_api else '') }}
-                                    
-                                    {% if req.bank_proof_file_path %}
-                                    <a href="{{ url_for('main.serve_protected_file', filename=req.bank_proof_file_path) }}" target="_blank" class="mt-4 block text-center w-full bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-600 py-2 rounded-lg text-xs font-bold transition">
-                                        View Cancelled Cheque
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {# 4. INTERNAL CONFIG (Read Only) #}
-                <div id="config-section" class="scroll-mt-24">
-                    {% if req.account_group or req.gl_account or req.house_bank or req.sap_id %}
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-6">
-                        <h2 class="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
-                            ⚙️ Internal Configuration
-                        </h2>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {% if req.account_group %}
-                            <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Account Group</label>
-                                <div class="text-sm font-mono font-bold text-slate-700">{{ req.account_group }}</div>
-                            </div>
-                            {% endif %}
-                            {% if req.gl_account %}
-                            <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">GL Account</label>
-                                <div class="text-sm font-mono font-bold text-slate-700">{{ req.gl_account }}</div>
-                            </div>
-                            {% endif %}
-                            {% if req.house_bank %}
-                            <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">House Bank</label>
-                                <div class="text-sm font-mono font-bold text-slate-700">{{ req.house_bank }}</div>
-                            </div>
-                            {% endif %}
-                             {% if req.payment_terms %}
-                            <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pay Terms</label>
-                                <div class="text-sm font-mono font-bold text-slate-700">{{ req.payment_terms }}</div>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-
-                {# 5. TAX DETAILS #}
-                <div id="tax-section" class="scroll-mt-24">
-                     {% set tax1_rows = req.get_tax1_rows() %}
-                     {% if tax1_rows %}
-                     <div class="bg-white rounded-xl shadow-sm border border-yellow-300 overflow-hidden">
-                        <div class="bg-yellow-50 px-6 py-4 border-b border-yellow-200 flex justify-between items-center">
-                            <h3 class="font-bold text-yellow-900 flex items-center gap-2"><span>🧾</span> Tax Compliance Record</h3>
-                            
-                            {# SECTION FLAGGING TOGGLE #}
-                            <label class="inline-flex items-center cursor-pointer gap-2 select-none">
-                                <span class="text-[10px] font-bold uppercase text-gray-500">Flag for Correction</span>
-                                <input type="checkbox" onchange="toggleSectionFlag('tax')" class="sr-only peer">
-                                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-red-500 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-                            </label>
-                        </div>
-                        <div class="p-6">
-                            <div class="overflow-x-auto border border-gray-200 rounded-lg">
-                                <table class="w-full text-xs text-left text-gray-600">
-                                    <thead class="bg-gray-50 font-bold text-gray-800">
-                                        <tr>
-                                            <th class="px-3 py-2 border-r">Type</th>
-                                            <th class="px-3 py-2 border-r">Code</th>
-                                            <th class="px-3 py-2 border-r">Rate</th>
-                                            <th class="px-3 py-2 border-r">Cert No</th>
-                                            <th class="px-3 py-2">Dates</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        {% for row in tax1_rows %}
-                                        <tr>
-                                            <td class="px-3 py-2 border-r font-mono">{{ row.type }}</td>
-                                            <td class="px-3 py-2 border-r font-mono">{{ row.code }}</td>
-                                            <td class="px-3 py-2 border-r">{{ row.rate }}%</td>
-                                            <td class="px-3 py-2 border-r">{{ row.cert or '-' }}</td>
-                                            <td class="px-3 py-2 text-[10px]">{{ row.start }} - {{ row.end }}</td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-
-                {# 6. AUDIT TRAIL #}
-                <div id="history-section" class="scroll-mt-24">
-                     <div class="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-                        <div class="px-5 py-3 border-b border-gray-200">
-                            <h3 class="font-bold text-gray-700 text-sm">📜 Audit Trail</h3>
-                        </div>
-                        <div class="p-4 max-h-60 overflow-y-auto space-y-4">
-                            {% if req.audit_logs %}
-                                {% for log in req.audit_logs|sort(attribute='timestamp', reverse=True) %}
-                                <div class="flex gap-3 text-sm relative">
-                                    <div class="absolute left-0 top-0 bottom-0 w-px bg-gray-300 ml-1.5 z-0"></div>
-                                    <div class="w-3 h-3 rounded-full bg-gray-400 border-2 border-white z-10 mt-1 shrink-0"></div>
-                                    <div>
-                                        <div class="text-[10px] text-gray-400 font-mono mb-0.5">
-                                            {{ log.timestamp.strftime('%d-%b %H:%M') }}
-                                        </div>
-                                        <div class="text-xs">
-                                            <span class="font-bold text-gray-700">{% if log.user %}{{ log.user.username }}{% else %}System{% endif %}</span> 
-                                            <span class="font-mono bg-white border border-gray-200 px-1 py-px rounded text-[10px] font-bold text-gray-600">{{ log.action }}</span>
-                                        </div>
-                                        {% if log.details %}
-                                        <p class="text-gray-500 text-[10px] mt-1 italic bg-white p-1.5 rounded border border-gray-100 inline-block">"{{ log.details }}"</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                    {# 5. TAX DETAILS (Conditional Edit/View) #}
+                    <div id="tax-section" class="scroll-mt-24">
+    {# Only show this block if it is NOT the tax stage (Read Only Mode) #}
+    {% if not (req.finance_stage == 'TAX' and is_my_turn) %}
+        {% set tax1_rows = req.get_tax1_rows() %}
+        {% set tax2_rows = req.get_tax2_rows() %}
+        
+        {% if tax1_rows or tax2_rows %}
+        <div class="bg-white rounded-xl shadow-sm border border-yellow-300 overflow-hidden">
+            <div class="bg-yellow-50 px-6 py-4 border-b border-yellow-200 flex justify-between items-center">
+                <h3 class="font-bold text-yellow-900 flex items-center gap-2"><span>🧾</span> Tax Compliance Record</h3>
+                {{ section_toggle('toggle_tax', 'Unlock Tax', 'tax', req) }}
+            </div>
+            <div class="p-6 space-y-6">
+                {% if tax1_rows %}
+                <div>
+                    <h5 class="text-xs font-bold text-gray-500 uppercase mb-2">Withholding Tax</h5>
+                    <div class="overflow-hidden border border-gray-200 rounded-lg">
+                        <table class="w-full text-xs text-left text-gray-700">
+                            <thead class="bg-gray-50 font-bold text-gray-800 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-3 py-2 border-r">Type</th>
+                                    <th class="px-3 py-2 border-r">Code</th>
+                                    <th class="px-3 py-2 border-r">Rate</th>
+                                    <th class="px-3 py-2 border-r">Cert</th>
+                                    <th class="px-3 py-2">Validity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in tax1_rows %}
+                                <tr class="border-b border-gray-100 last:border-0">
+                                    <td class="px-3 py-2 border-r font-mono">{{ row.type }}</td>
+                                    <td class="px-3 py-2 border-r font-mono">{{ row.code }}</td>
+                                    <td class="px-3 py-2 border-r">{{ row.rate }}%</td>
+                                    <td class="px-3 py-2 border-r">{{ row.cert or '-' }}</td>
+                                    <td class="px-3 py-2">{{ row.start }} to {{ row.end }}</td>
+                                </tr>
                                 {% endfor %}
-                            {% else %}
-                                <p class="text-gray-400 text-xs italic text-center py-4">No history recorded yet.</p>
-                            {% endif %}
-                        </div>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+                {% endif %}
 
-                {# ================================================================= #}
-                {# ACTION FORMS (VISIBLE ONLY IF MY TURN)                            #}
-                {# ================================================================= #}
-                
-                {% if is_my_turn %}
-                <div class="mt-8 border-t-2 border-gray-100 pt-8 scroll-mt-24" id="action-section">
-                    <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <span class="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-md">✍️</span>
-                        Your Action Required
-                    </h2>
-
-                    {# --- INITIATOR FORM --- #}
-                    {% if req.current_dept_flow == 'INITIATOR_REVIEW' %}
-                    <div class="bg-white rounded-xl shadow-lg border-2 border-indigo-500 overflow-hidden">
-                        <div class="bg-indigo-50 px-6 py-4 border-b border-indigo-100">
-                            <h3 class="font-bold text-indigo-900">Define Commercial Terms</h3>
-                            <p class="text-xs text-indigo-600">Please categorize this vendor for SAP.</p>
-                        </div>
-                        <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Account Group <span class="text-red-500">*</span></label>
-                                <select name="account_group" class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
-                                    {% for item in acc_groups %}<option value="{{ item.code }}" {% if req.account_group == item.code %}selected{% endif %}>{{ item.code }} - {{ item.label }}</option>{% endfor %}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Purchase Org <span class="text-red-500">*</span></label>
-                                <select name="purchase_org" required class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
-                                    <option value="">Select...</option>
-                                    {% for item in purch_orgs %}<option value="{{ item.code }}" {% if req.purchase_org == item.code %}selected{% endif %}>{{ item.label }} ({{ item.code }})</option>{% endfor %}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Payment Terms <span class="text-red-500">*</span></label>
-                                <select name="payment_terms" required class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
-                                    <option value="">Select...</option>
-                                    {% for item in pay_terms %}<option value="{{ item.code }}" {% if req.payment_terms == item.code %}selected{% endif %}>{{ item.code }} - {{ item.label }}</option>{% endfor %}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Incoterms <span class="text-red-500">*</span></label>
-                                <select name="incoterms" required class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
-                                    <option value="">Select...</option>
-                                    {% for item in incoterms %}<option value="{{ item.code }}" {% if req.incoterms == item.code %}selected{% endif %}>{{ item.code }} - {{ item.label }}</option>{% endfor %}
-                                </select>
-                            </div>
-                        </div>
+                {% if tax2_rows %}
+                <div>
+                    <h5 class="text-xs font-bold text-gray-500 uppercase mb-2">194Q Details</h5>
+                    <div class="overflow-hidden border border-gray-200 rounded-lg">
+                        <table class="w-full text-xs text-left text-gray-700">
+                            <thead class="bg-gray-50 font-bold text-gray-800 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-3 py-2 border-r">Section</th>
+                                    <th class="px-3 py-2 border-r">Code</th>
+                                    <th class="px-3 py-2 border-r">Rate</th>
+                                    <th class="px-3 py-2 border-r">Thresh</th>
+                                    <th class="px-3 py-2">Validity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in tax2_rows %}
+                                <tr class="border-b border-gray-100 last:border-0">
+                                    <td class="px-3 py-2 border-r font-mono">{{ row.section }}</td>
+                                    <td class="px-3 py-2 border-r font-mono">{{ row.code }}</td>
+                                    <td class="px-3 py-2 border-r">{{ row.rate }}%</td>
+                                    <td class="px-3 py-2 border-r">{{ row.thresh }}</td>
+                                    <td class="px-3 py-2">{{ row.start }} to {{ row.end }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
-                    {% endif %}
-
-                    {# --- FINANCE: BILL PASSING --- #}
-                    {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'BILL_PASSING' %}
-                    <div class="bg-white rounded-xl shadow-lg border-2 border-indigo-500 p-8">
-                        <h3 class="font-bold text-indigo-900 mb-4">💰 Bill Passing: Assign GL</h3>
-                        <label class="block text-sm font-bold text-indigo-700 mb-2">General Ledger (GL) Account <span class="text-red-500">*</span></label>
-                        <select name="gl_account" required class="w-full bg-white border border-indigo-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-indigo-500">
-                            <option value="">Select Vendor GL...</option>
-                            {% for item in gl_list %}<option value="{{ item.code }}" {% if req.gl_account == item.code %}selected{% endif %}>{{ item.code }} - {{ item.label }}</option>{% endfor %}
-                        </select>
-                    </div>
-                    {% endif %}
-
-                    {# --- FINANCE: TREASURY --- #}
-                    {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TREASURY' %}
-                    <div class="bg-white rounded-xl shadow-lg border-2 border-emerald-500 p-8">
-                        <h3 class="font-bold text-emerald-900 mb-4">🏦 Treasury: Assign House Bank</h3>
-                        <label class="block text-sm font-bold text-emerald-700 mb-2">House Bank <span class="text-red-500">*</span></label>
-                        <select name="house_bank" required class="w-full bg-white border border-emerald-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-emerald-500">
-                            <option value="">Select House Bank...</option>
-                            {% for item in house_banks %}<option value="{{ item.code }}" {% if req.house_bank == item.code %}selected{% endif %}>{{ item.code }} - {{ item.account }} - {{ item.label }}</option>{% endfor %}
-                        </select>
-                    </div>
-                    {% endif %}
-
-                    {# --- FINANCE: TAX TEAM --- #}
-                    {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TAX' %}
-                    <div class="bg-white rounded-xl shadow-lg border-2 border-yellow-400 overflow-hidden">
-                        <div class="bg-yellow-50 px-6 py-4 border-b border-yellow-200">
-                            <h3 class="font-bold text-yellow-900">🧾 Tax Compliance Input</h3>
-                        </div>
-                        <div class="p-6">
-                            <div class="mb-8">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h4 class="text-sm font-bold text-gray-800">1. Withholding Tax Details</h4>
-                                    <button type="button" onclick="addTax1Row()" class="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-green-700 transition">+ Add Row</button>
-                                </div>
-                                <div class="overflow-x-auto border border-gray-200 rounded-lg">
-                                    <table class="w-full text-xs text-left text-gray-500">
-                                        <thead class="bg-gray-100 uppercase text-gray-700 font-bold">
-                                            <tr>
-                                                <th class="px-3 py-2 border-r">W/Tax Type</th>
-                                                <th class="px-3 py-2 border-r">W/Tax Code</th>
-                                                <th class="px-3 py-2 border-r text-center">Subj?</th>
-                                                <th class="px-3 py-2 border-r">Recipient</th>
-                                                <th class="px-3 py-2 border-r">Reason</th>
-                                                <th class="px-3 py-2 border-r">Cert No.</th>
-                                                <th class="px-3 py-2 border-r">Rate %</th>
-                                                <th class="px-3 py-2 border-r">Start</th>
-                                                <th class="px-3 py-2 border-r">End</th>
-                                                <th class="px-2 py-2 text-center">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tax1_body" class="divide-y divide-gray-100"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between items-center mb-3">
-                                    <h4 class="text-sm font-bold text-gray-800">2. 194Q & Section Details</h4>
-                                    <button type="button" onclick="addTax2Row()" class="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-green-700 transition">+ Add Row</button>
-                                </div>
-                                <div class="overflow-x-auto border border-gray-200 rounded-lg">
-                                    <table class="w-full text-xs text-left text-gray-500">
-                                        <thead class="bg-gray-100 uppercase text-gray-700 font-bold">
-                                            <tr>
-                                                <th class="px-3 py-2 border-r">Section</th>
-                                                <th class="px-3 py-2 border-r">Cert No.</th>
-                                                <th class="px-3 py-2 border-r">Rate %</th>
-                                                <th class="px-3 py-2 border-r">Threshold</th>
-                                                <th class="px-3 py-2 border-r">Start</th>
-                                                <th class="px-3 py-2 border-r">End</th>
-                                                <th class="px-3 py-2 border-r bg-gray-50">Reason</th>
-                                                <th class="px-3 py-2 border-r">Type</th>
-                                                <th class="px-3 py-2 border-r">Code</th>
-                                                <th class="px-3 py-2 border-r bg-gray-50">Curr</th>
-                                                <th class="px-2 py-2 text-center">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tax2_body" class="divide-y divide-gray-100"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {# --- IT TEAM --- #}
-                    {% if req.current_dept_flow == 'IT' %}
-                    <div class="bg-white rounded-xl shadow-lg border-2 border-purple-500 overflow-hidden">
-                        <div class="bg-purple-50 px-6 py-4 border-b border-purple-100 flex justify-between items-center">
-                            <h3 class="font-bold text-purple-900">🖥️ IT Team: SAP Creation</h3>
-                            <a href="{{ url_for('main.download_sap_report', req_id=req.id) }}" class="bg-white text-purple-700 border border-purple-200 px-4 py-2 rounded-lg font-bold text-xs shadow-sm hover:bg-purple-50 flex items-center gap-2 transition">
-                                <span>📥</span> Download SAP Data CSV
-                            </a>
-                        </div>
-                        <div class="p-8">
-                            <label class="block text-lg font-bold text-gray-800 mb-3">Final Step: Assign SAP Vendor Code <span class="text-red-500">*</span></label>
-                            <div class="flex gap-4 items-center bg-purple-50 p-4 rounded-lg border border-purple-100">
-                                <span class="text-2xl">🔑</span>
-                                <input type="text" name="sap_id" required placeholder="Enter generated SAP Vendor Code (e.g. 30001234)" class="flex-1 border-gray-300 rounded-lg p-3 text-lg font-mono tracking-wider focus:ring-purple-500 focus:border-purple-500 shadow-sm">
-                                <button type="submit" name="action" value="approve" class="px-8 py-3 bg-purple-600 text-white font-bold rounded-lg shadow-md hover:bg-purple-700 transition transform hover:-translate-y-0.5">
-                                   Complete Onboarding
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {# --- STICKY ACTION BAR --- #}
-                    {% if req.current_dept_flow != 'IT' %}
-                    <div class="mt-8 flex flex-col md:flex-row justify-end gap-3 sticky bottom-6 z-40 pointer-events-none">
-                        <div class="pointer-events-auto bg-white/95 backdrop-blur-md p-2 rounded-xl shadow-2xl border border-gray-200 flex gap-3">
-                            <button type="button" onclick="showQueryModal()" class="px-6 py-2.5 bg-white border border-yellow-400 text-yellow-700 font-bold rounded-lg hover:bg-yellow-50 transition shadow-sm">
-                                ❓ Raise Query
-                            </button>
-                            <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')" class="px-6 py-2.5 bg-white border border-red-400 text-red-700 font-bold rounded-lg hover:bg-red-50 transition shadow-sm">
-                                🚫 Reject
-                            </button>
-                            <div class="w-px bg-gray-300 my-1 mx-2"></div>
-                            <button type="submit" name="action" value="approve" class="px-8 py-2.5 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 transition transform hover:-translate-y-0.5 flex items-center gap-2">
-                                <span>✅</span> Approve & Next
-                            </button>
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
                 {% endif %}
             </div>
         </div>
+        {% endif %}
+    {% endif %}
+</div>
 
-        {# ================================================================= #}
-        {# MODALS                                                            #}
-        {# ================================================================= #}
+                    {# 6. AUDIT TRAIL #}
+                    <div id="history-section" class="scroll-mt-24">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200"><h3 class="font-bold text-gray-700 text-sm uppercase tracking-wider">Audit Trail</h3></div>
+                            <div class="p-6 max-h-60 overflow-y-auto space-y-6">
+                                {% if req.audit_logs %}
+                                    {% for log in req.audit_logs|sort(attribute='timestamp', reverse=True) %}
+                                    <div class="flex gap-4 text-sm relative group">
+                                        <div class="absolute left-[5px] top-2 bottom-[-24px] w-0.5 bg-gray-200 group-last:hidden"></div>
+                                        <div class="w-3 h-3 rounded-full bg-gray-300 border-2 border-white ring-2 ring-gray-100 z-10 mt-1.5 shrink-0 group-hover:bg-emerald-500 group-hover:ring-emerald-200 transition-colors"></div>
+                                        <div>
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="font-bold text-gray-800">{% if log.user %}{{ log.user.username }}{% else %}System{% endif %}</span>
+                                                <span class="text-[10px] bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded font-mono text-gray-600 font-bold">{{ log.action }}</span>
+                                                <span class="text-[10px] text-gray-400 font-bold">{{ log.timestamp.strftime('%d-%b %H:%M') }}</span>
+                                            </div>
+                                            {% if log.details %}
+                                            <p class="text-gray-600 text-xs bg-gray-50 p-2 rounded-lg border border-gray-200 inline-block font-medium">
+                                                {{ log.details }}
+                                            </p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-gray-400 text-xs italic text-center">No history recorded yet.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ACTION BUTTONS #}
+                    {% if is_my_turn %}
+                    <div class="mt-8 border-t border-gray-300 pt-8 scroll-mt-24" id="action-section">
+                        <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                            <span class="bg-emerald-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm shadow-md shadow-emerald-200">✍️</span> 
+                            Your Action Required
+                        </h2>
+                        
+                        {# INITIATOR FORM #}
+                        {% if req.current_dept_flow == 'INITIATOR_REVIEW' %}
+<div class="bg-white rounded-2xl shadow-lg shadow-gray-200 border border-gray-300 overflow-hidden">
+    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+        <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wide">
+            Define Commercial Terms
+        </h3>
+    </div>
+
+    <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Account Group -->
+        <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-2">
+                Account Group <span class="text-rose-500">*</span>
+            </label>
+            <select name="account_group"
+                    class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                <option value="">Select...</option>
+                {% for item in acc_groups %}
+                    <option value="{{ item.code }}">
+                        {{ item.code }} - {{ item.label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Purchase Org -->
+        <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-2">
+                Purchase Org <span class="text-rose-500">*</span>
+            </label>
+            <select name="purchase_org"
+                    class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                <option value="">Select...</option>
+                {% for item in purch_orgs %}
+                    <option value="{{ item.code }}">
+                        {{ item.label }} ({{ item.code }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Payment Terms -->
+        <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-2">
+                Payment Terms <span class="text-rose-500">*</span>
+            </label>
+            <select name="payment_terms"
+                    class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                <option value="">Select...</option>
+                {% for item in pay_terms %}
+                    <option value="{{ item.code }}">
+                        {{ item.code }} - {{ item.label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Incoterms -->
+        <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-2">
+                Incoterms <span class="text-rose-500">*</span>
+            </label>
+            <select name="incoterms"
+                    class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                <option value="">Select...</option>
+                {% for item in incoterms %}
+                    <option value="{{ item.code }}">
+                        {{ item.code }} - {{ item.label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+    </div>
+</div>
+{% endif %}
+
+
+                        {# FINANCE FORMS #}
+                        {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'BILL_PASSING' %}
+<div class="bg-white rounded-2xl shadow-lg border border-gray-300 p-8">
+    <h3 class="font-bold text-emerald-800 mb-4 flex items-center gap-2">
+        <span class="bg-emerald-100 p-1 rounded">💰</span>
+        Assign GL Account
+    </h3>
+
+    <select name="gl_account"
+            class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
+                   focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+        <option value="">Select...</option>
+        {% for item in gl_list %}
+            <option value="{{ item.code }}">
+                {{ item.code }} - {{ item.label }}
+            </option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}
+
+
+                        {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TREASURY' %}
+<div class="bg-white rounded-2xl shadow-lg border border-gray-300 p-8">
+    <h3 class="font-bold text-emerald-900 mb-4 flex items-center gap-2">
+        <span class="bg-emerald-100 p-1 rounded">🏦</span>
+        Assign House Bank
+    </h3>
+
+    <select name="house_bank"
+            class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
+                   focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+        <option value="">Select...</option>
+        {% for item in house_banks %}
+            <option value="{{ item.code }}">
+                {{ item.code }} - {{ item.account }} - {{ item.label }}
+            </option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}
+
+
+
+
+                        {# ... inside id="action-section" ... #}
+
+{# --- NEW: TAX TEAM ACTION BLOCK --- #}
+{% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TAX' %}
+<div class="bg-white rounded-xl shadow-lg border-2 border-yellow-400 overflow-hidden mb-6">
+    <div class="bg-yellow-50 px-6 py-4 border-b border-yellow-200 flex justify-between items-center">
+        <h3 class="font-bold text-yellow-900">🧾 Tax Compliance Record</h3>
+        <span class="text-xs font-bold text-yellow-700 bg-yellow-100 px-2 py-1 rounded">Action Required</span>
+    </div>
+    <div class="p-6 space-y-8">
         
-        <div id="queryModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-60 backdrop-blur-sm">
-            <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
-                <h3 class="font-bold text-xl mb-4 text-gray-900">Raise Query & Unlock Sections</h3>
-                
-                <div class="bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-100">
-                    <p class="text-xs text-yellow-800 font-bold mb-2">Select sections to UNLOCK for vendor:</p>
-                    <div class="space-y-2">
-                        <label class="flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" name="unlock_sections[]" value="compliance" id="chk_compliance" class="rounded text-yellow-600 focus:ring-yellow-500">
-                            Compliance (GST, PAN, MSME)
-                        </label>
-                        <label class="flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" name="unlock_sections[]" value="banking" id="chk_banking" class="rounded text-yellow-600 focus:ring-yellow-500">
-                            Banking Details
-                        </label>
-                        <label class="flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" name="unlock_sections[]" value="tax" id="chk_tax" class="rounded text-yellow-600 focus:ring-yellow-500">
-                            Tax & Commercials
-                        </label>
+        {# 1. Withholding Tax Table #}
+        <div>
+            <div class="flex justify-between items-center mb-3">
+                <h4 class="text-sm font-bold text-gray-800">1. Withholding Tax Details</h4>
+                <button type="button" onclick="addTax1Row()" class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-emerald-700 transition shadow-sm">+ Add Row</button>
+            </div>
+            <div class="overflow-x-auto border border-gray-300 rounded-lg shadow-sm">
+                <table class="w-full text-xs text-left text-gray-700">
+                    <thead class="bg-gray-100 uppercase text-gray-800 font-bold">
+                        <tr>
+                            <th class="px-3 py-2 border-r border-gray-300">W/Tax Type</th>
+                            <th class="px-3 py-2 border-r border-gray-300">W/Tax Code</th>
+                            <th class="px-3 py-2 border-r border-gray-300 text-center">Subj?</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Recipient</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Reason</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Cert No.</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Rate %</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Start</th>
+                            <th class="px-3 py-2 border-r border-gray-300">End</th>
+                            <th class="px-2 py-2 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tax1_body" class="divide-y divide-gray-200 bg-white"></tbody>
+                </table>
+            </div>
+        </div>
+
+        {# 2. 194Q & Section Details Table (Updated Columns) #}
+        <div>
+            <div class="flex justify-between items-center mb-3">
+                <h4 class="text-sm font-bold text-gray-800">2. 194Q & Section Details</h4>
+                <button type="button" onclick="addTax2Row()" class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-emerald-700 transition shadow-sm">+ Add Row</button>
+            </div>
+            <div class="overflow-x-auto border border-gray-300 rounded-lg shadow-sm">
+                <table class="w-full text-xs text-left text-gray-700">
+                    <thead class="bg-gray-100 uppercase text-gray-800 font-bold">
+                        <tr>
+                            <th class="px-3 py-2 border-r border-gray-300">Section</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Cert No.</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Rate %</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Threshold</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Start</th>
+                            <th class="px-3 py-2 border-r border-gray-300">End</th>
+                            {# Added Missing Columns #}
+                            <th class="px-3 py-2 border-r border-gray-300 bg-gray-50">Reason</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Type</th>
+                            <th class="px-3 py-2 border-r border-gray-300">Code</th>
+                            <th class="px-3 py-2 border-r border-gray-300 bg-gray-50">Curr</th>
+                            <th class="px-2 py-2 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tax2_body" class="divide-y divide-gray-200 bg-white"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+                        {# IT FORM #}
+                        {% if req.current_dept_flow == 'IT' %}
+                        <div class="bg-white rounded-2xl shadow-lg shadow-purple-100 border border-purple-200 overflow-hidden">
+                            <div class="bg-purple-50 px-6 py-4 border-b border-purple-200 flex justify-between items-center"><h3 class="font-bold text-purple-900">🖥️ SAP Creation</h3></div>
+                            <div class="p-8">
+                                <label class="block text-lg font-bold text-gray-800 mb-3">Final Step: Assign SAP Vendor Code <span class="text-rose-500">*</span></label>
+                                <div class="flex gap-4 items-center bg-purple-50 p-4 rounded-xl border border-purple-200">
+                                    <span class="text-2xl bg-white p-2 rounded-lg shadow-sm border border-purple-100">🔑</span>
+                                    <input type="text" name="sap_id" required placeholder="Enter generated SAP Vendor Code" class="flex-1 border border-gray-300 bg-white rounded-lg p-3 text-lg font-mono focus:ring-purple-500 focus:border-purple-500 shadow-sm">
+                                    <button type="submit" name="action" value="approve" class="px-8 py-3 bg-purple-600 text-white font-bold rounded-lg shadow-lg shadow-purple-200 hover:bg-purple-700 hover:-translate-y-0.5 transition-all">Complete Onboarding</button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {# STICKY ACTION BAR #}
+                        <!-- {% if req.current_dept_flow != 'IT' and req.finance_stage != 'TAX' %}
+                        <div class="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 duration-500">
+                            <div class="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-gray-300 flex gap-3 items-center ring-1 ring-black/5">
+                                <button type="button" onclick="showQueryModal()" class="px-5 py-2.5 bg-white border border-yellow-400 text-yellow-800 font-bold rounded-xl hover:bg-yellow-50 transition shadow-sm">❓ Raise Query</button>
+                                <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')" class="px-5 py-2.5 bg-white border border-rose-300 text-rose-700 font-bold rounded-xl hover:bg-rose-50 transition shadow-sm">🚫 Reject</button>
+                                <div class="w-px h-8 bg-gray-300 mx-1"></div>
+                                <button type="submit" name="action" value="approve" class="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 hover:-translate-y-0.5 transition-all flex items-center gap-2 border border-emerald-700">
+                                    <span>Approve & Next</span>
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                        {% endif %} -->
+
+                        <!-- {% if req.finance_stage == 'TAX' %}
+                        <div class="fixed bottom-6 right-6 z-50">
+                            <div class="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-gray-300 flex gap-3 items-center">
+                                 <button type="button" onclick="showQueryModal()" class="px-5 py-2.5 bg-white border border-yellow-400 text-yellow-800 font-bold rounded-xl hover:bg-yellow-50">❓ Raise Query</button>
+                                 <button type="submit" name="action" value="approve" class="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 hover:-translate-y-0.5 transition-all border border-emerald-700">✅ Approve Tax Data</button>
+                            </div>
+                        </div>
+                        {% endif %} -->
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# ================= MODALS ================= #}
+            
+            <div id="queryModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm transition-all">
+                <div class="bg-white rounded-2xl p-0 w-full max-w-lg shadow-2xl border border-gray-200 overflow-hidden transform transition-all scale-100">
+                    <div class="bg-yellow-50 px-6 py-4 border-b border-yellow-200 flex justify-between items-center">
+                        <h3 class="font-bold text-lg text-yellow-800">Raise Query & Unlock</h3>
+                        <button type="button" onclick="document.getElementById('queryModal').classList.add('hidden')" class="text-yellow-700 hover:bg-yellow-100 rounded-full p-1"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
+                    
+                    <div class="p-6">
+                        <p class="text-xs font-bold text-gray-500 uppercase mb-3">Select sections to unlock for vendor:</p>
+                        <div class="grid grid-cols-2 gap-3 mb-6">
+                            {% set sections = [('organization', 'Organization'), ('gst', 'GST Details'), ('pan', 'PAN Details'), ('msme', 'MSME Info'), ('tax', 'Tax Data'), ('banking', 'Banking')] %}
+                            {% for val, lbl in sections %}
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50 has-[:checked]:ring-1 has-[:checked]:ring-yellow-500">
+                                <input type="checkbox" name="unlock_sections[]" value="{{ val }}" id="chk_{{ val }}" class="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500" {% if req.editable_sections and val in req.editable_sections %}checked{% endif %}>
+                                <span class="ml-2 text-sm font-bold text-gray-700">{{ lbl }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Remarks for Vendor</label>
+                        <textarea name="comments" id="queryComments" class="w-full border border-gray-300 rounded-xl p-3 h-32 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white shadow-sm" placeholder="Please explain what needs to be corrected..."></textarea>
+                    </div>
+                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+                        <button type="button" onclick="document.getElementById('queryModal').classList.add('hidden')" class="px-4 py-2 text-gray-600 font-bold hover:bg-white rounded-lg border border-transparent hover:border-gray-300 transition-colors">Cancel</button>
+                        <button type="submit" name="action" value="send_back" formnovalidate class="px-6 py-2 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600 shadow-md shadow-yellow-200 border border-yellow-600">Send Back</button>
                     </div>
                 </div>
+            </div>
 
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Remarks for Vendor</label>
-                <textarea name="comments" id="queryComments" class="w-full border-gray-300 rounded-lg p-3 mb-4 h-32 text-sm focus:ring-yellow-500 focus:border-yellow-500" placeholder="Describe what needs to be corrected..."></textarea>
-                
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="document.getElementById('queryModal').classList.add('hidden')" class="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-                    <button type="submit" name="action" value="send_back" formnovalidate class="px-6 py-2 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600 shadow-md">Send Back</button>
+            <div id="rejectModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">
+                 <div class="bg-white rounded-2xl p-0 w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden">
+                    <div class="bg-rose-50 px-6 py-4 border-b border-rose-200">
+                        <h3 class="font-bold text-lg text-rose-800">Reject Application</h3>
+                        <p class="text-xs text-rose-600 mt-1 font-semibold">This action is permanent.</p>
+                    </div>
+                    <div class="p-6">
+                        <textarea name="comments" class="w-full border border-gray-300 rounded-xl p-3 h-32 text-sm focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-white shadow-sm" placeholder="Reason for rejection..."></textarea>
+                    </div>
+                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+                        <button type="button" onclick="document.getElementById('rejectModal').classList.add('hidden')" class="px-4 py-2 text-gray-600 font-bold hover:bg-white rounded-lg border border-transparent hover:border-gray-300">Cancel</button>
+                        <button type="submit" name="action" value="reject" formnovalidate class="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold hover:bg-rose-700 shadow-md shadow-rose-200 border border-rose-700">Confirm Rejection</button>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div id="rejectModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-60 backdrop-blur-sm">
-             <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
-                <h3 class="font-bold text-xl mb-2 text-red-600">Reject Application</h3>
-                <p class="text-sm text-gray-500 mb-4">This action cannot be undone.</p>
-                <textarea name="comments" class="w-full border-gray-300 rounded-lg p-3 mb-4 h-32 text-sm focus:ring-red-500 focus:border-red-500" placeholder="Reason for rejection..."></textarea>
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="document.getElementById('rejectModal').classList.add('hidden')" class="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-                    <button type="submit" name="action" value="reject" formnovalidate class="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-md">Confirm Rejection</button>
-                </div>
-            </div>
-        </div>
+            {% if is_my_turn %}
+<div class="fixed bottom-6 right-6 z-50">
+    <div class="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-gray-300 flex gap-3 items-center">
 
-    </form>
+        <!-- Raise Query -->
+        <button type="button"
+                onclick="showQueryModal()"
+                class="px-5 py-2.5 bg-white border border-yellow-400 text-yellow-800 font-bold rounded-xl hover:bg-yellow-50">
+            ❓ Raise Query
+        </button>
+
+        <!-- Reject (ALWAYS VISIBLE ON TURN) -->
+        <button type="button"
+                onclick="document.getElementById('rejectModal').classList.remove('hidden')"
+                class="px-5 py-2.5 bg-white border border-rose-300 text-rose-700 font-bold rounded-xl hover:bg-rose-50">
+            🚫 Reject
+        </button>
+
+        <!-- Approve -->
+        <button type="submit"
+                name="action"
+                value="approve"
+                class="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 border border-emerald-700">
+            {% if req.finance_stage == 'TAX' %}
+                ✅ Approve Tax Data
+            {% else %}
+                Approve & Next
+            {% endif %}
+        </button>
+
+    </div>
+</div>
+{% endif %}
+
+
+        </form>
+    </div>
 </div>
 
 <script>
@@ -704,60 +1005,98 @@
     const SAVED_TAX2 = {{ req.get_tax2_rows() | tojson | safe }};
 
     function createSelect(name, options, selectedVal, onChangeStr) {
-        let html = `<select name="${name}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0" ${onChangeStr ? `onchange="${onChangeStr}"` : ''}>`;
-        options.forEach(o => { html += `<option value="${o.code}" ${o.code == selectedVal ? 'selected' : ''}>${o.label}</option>`; });
+        // High Contrast: White bg, visible gray border, rounded corners
+        let html = `<select name="${name}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm" ${onChangeStr ? `onchange="${onChangeStr}"` : ''}>`;
+        // DEFAULT EMPTY OPTION
+        html += `<option value="" selected>Select...</option>`;
+        
+        options.forEach(o => { 
+            // Only add options that have a code (skip dummy data if needed)
+            if(o.code) {
+                // Remove 'selected' check here if we want strictly empty by default for new rows,
+                // but for saved data we need it.
+                let isSel = (o.code == selectedVal) ? 'selected' : '';
+                html += `<option value="${o.code}" ${isSel}>${o.label}</option>`; 
+            }
+        });
         html += `</select>`;
         return html;
     }
 
     function addTax1Row(data = {}) {
         const tbody = document.getElementById('tax1_body');
+        if(!tbody) return; // Guard clause in case we are in read-only mode
+        
         const row = document.createElement('tr');
-        row.className = "bg-white border-b border-gray-50 hover:bg-gray-50 transition";
-        let codes = [{code:"", label:"--"}];
+        row.className = "hover:bg-gray-50 transition-colors";
+        let codes = [];
         if(data.type && TAX_CODE_MAP[data.type]) codes = TAX_CODE_MAP[data.type];
 
         row.innerHTML = `
-            <td class="px-1 py-1 border-r">${createSelect('tax1_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
-            <td class="px-1 py-1 border-r"><select name="tax1_code[]" class="w-full border-0 p-1 bg-transparent tax-code-select text-sm focus:ring-0">${codes.map(c => `<option value="${c.code}" ${c.code == data.code ? 'selected' : ''}>${c.label}</option>`).join('')}</select></td>
-            <td class="px-1 py-1 border-r text-center"><input type="checkbox" class="accent-indigo-600 w-4 h-4" ${data.subject == '1' ? 'checked' : ''} onchange="this.nextElementSibling.value = this.checked ? '1' : '0'"><input type="hidden" name="tax1_subject_hidden[]" value="${data.subject || '0'}"></td>
-            <td class="px-1 py-1 border-r"><select name="tax1_recipient_type[]" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"><option value="">Select...</option><option value="CO" ${data.recipient == 'CO' ? 'selected' : ''}>CO</option><option value="OT" ${data.recipient == 'OT' ? 'selected' : ''}>OT</option></select></td>
-            <td class="px-1 py-1 border-r">${createSelect('tax1_exemption_reason[]', EXEMPTIONS, data.reason)}</td>
-            <td class="px-1 py-1 border-r"><input type="text" name="tax1_cert_no[]" value="${data.cert || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
-            <td class="px-1 py-1 border-r"><input type="text" name="tax1_rate[]" value="${data.rate || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
-            <td class="px-1 py-1 border-r"><input type="date" name="tax1_start_date[]" value="${data.start || ''}" class="w-full border-0 p-1 bg-transparent font-mono text-xs focus:ring-0"></td>
-            <td class="px-1 py-1 border-r"><input type="date" name="tax1_end_date[]" value="${data.end || ''}" class="w-full border-0 p-1 bg-transparent font-mono text-xs focus:ring-0"></td>
-            <td class="px-1 py-1 text-center"><button type="button" class="text-red-400 hover:text-red-600 font-bold" onclick="this.closest('tr').remove()">×</button></td>`;
+            <td class="px-3 py-2 border-b border-gray-200 border-r">${createSelect('tax1_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r">
+                <select name="tax1_code[]" class="w-full border border-gray-300 bg-white rounded px-2 py-1 tax-code-select text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                    <option value="">Select...</option>
+                    ${codes.map(c => `<option value="${c.code}" ${c.code == data.code ? 'selected' : ''}>${c.label}</option>`).join('')}
+                </select>
+            </td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r text-center">
+                <input type="checkbox" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4" ${data.subject == '1' ? 'checked' : ''} onchange="this.nextElementSibling.value = this.checked ? '1' : '0'">
+                <input type="hidden" name="tax1_subject_hidden[]" value="${data.subject || '0'}">
+            </td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r">
+                <select name="tax1_recipient_type[]" class="w-full border border-gray-300 bg-white rounded px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                    <option value="">Select...</option>
+                    <option value="CO" ${data.recipient == 'CO' ? 'selected' : ''}>CO</option>
+                    <option value="OT" ${data.recipient == 'OT' ? 'selected' : ''}>OT</option>
+                </select>
+            </td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r">${createSelect('tax1_exemption_reason[]', EXEMPTIONS, data.reason)}</td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="text" name="tax1_cert_no[]" value="${data.cert || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm" placeholder="-"></td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="text" name="tax1_rate[]" value="${data.rate || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm" placeholder="0.00"></td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="date" name="tax1_start_date[]" value="${data.start || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"></td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="date" name="tax1_end_date[]" value="${data.end || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"></td>
+            <td class="px-2 py-2 border-b border-gray-200 text-center"><button type="button" class="text-gray-400 hover:text-rose-500 transition-colors font-bold text-lg" onclick="this.closest('tr').remove()">×</button></td>`;
         tbody.appendChild(row);
     }
 
     function addTax2Row(data = {}) {
         const tbody = document.getElementById('tax2_body');
+        if(!tbody) return;
+
         const row = document.createElement('tr');
-        row.className = "bg-white border-b border-gray-50 hover:bg-gray-50 transition";
-        let codes = [{code:"", label:"--"}];
+        row.className = "hover:bg-gray-50 transition-colors";
+        let codes = [];
         if(data.type && TAX_CODE_MAP[data.type]) codes = TAX_CODE_MAP[data.type];
 
+        // ADDED MISSING COLUMNS: Reason, Type, Code, Curr
         row.innerHTML = `
-            <td class="px-1 py-1 border-r"><input type="text" name="tax2_section_code[]" value="${data.section || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
-            <td class="px-1 py-1 border-r"><input type="text" name="tax2_cert_no[]" value="${data.cert || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
-            <td class="px-1 py-1 border-r"><input type="text" name="tax2_rate[]" value="${data.rate || ''}" class="w-full border-0 p-1 bg-transparent text-sm focus:ring-0"></td>
-            <td class="px-1 py-1 border-r"><input type="text" name="tax2_threshold_amount[]" value="${data.thresh || '5,000,000.00'}" class="w-full border-0 p-1 bg-transparent text-right text-sm focus:ring-0"></td>
-            <td class="px-1 py-1 border-r"><input type="date" name="tax2_start_date[]" value="${data.start || ''}" class="w-full border-0 p-1 bg-transparent font-mono text-xs focus:ring-0"></td>
-            <td class="px-1 py-1 border-r"><input type="date" name="tax2_end_date[]" value="${data.end || ''}" class="w-full border-0 p-1 bg-transparent font-mono text-xs focus:ring-0"></td>
-            <td class="px-1 py-1 border-r bg-gray-50 font-medium text-center text-xs">T7</td>
-            <td class="px-1 py-1 border-r">${createSelect('tax2_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
-            <td class="px-1 py-1 border-r"><select name="tax2_code[]" class="w-full border-0 p-1 bg-transparent tax-code-select text-sm focus:ring-0">${codes.map(c => `<option value="${c.code}" ${c.code == data.code ? 'selected' : ''}>${c.label}</option>`).join('')}</select></td>
-            <td class="px-1 py-1 border-r bg-gray-50 font-medium text-center text-xs">INR</td>
-            <td class="px-1 py-1 text-center"><button type="button" class="text-red-400 hover:text-red-600 font-bold" onclick="this.closest('tr').remove()">×</button></td>`;
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="text" name="tax2_section_code[]" value="${data.section || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 text-sm shadow-sm"></td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="text" name="tax2_cert_no[]" value="${data.cert || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 text-sm shadow-sm"></td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="text" name="tax2_rate[]" value="${data.rate || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 text-sm shadow-sm"></td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="text" name="tax2_threshold_amount[]" value="${data.thresh || '5000000'}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 text-sm shadow-sm"></td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="date" name="tax2_start_date[]" value="${data.start || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 font-mono text-xs shadow-sm"></td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="date" name="tax2_end_date[]" value="${data.end || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 font-mono text-xs shadow-sm"></td>
+            
+            <td class="px-3 py-2 border-b border-gray-200 border-r bg-gray-50">${createSelect('tax1_exemption_reason[]', EXEMPTIONS, data.reason)}</td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r">${createSelect('tax2_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r">
+                <select name="tax2_code[]" class="w-full border border-gray-300 bg-white rounded px-2 py-1 tax-code-select text-sm focus:ring-2 focus:ring-emerald-500 shadow-sm">
+                    <option value="">Select...</option>
+                    ${codes.map(c => `<option value="${c.code}" ${c.code == data.code ? 'selected' : ''}>${c.label}</option>`).join('')}
+                </select>
+            </td>
+            <td class="px-3 py-2 border-b border-gray-200 border-r bg-gray-50 font-medium text-center text-xs text-gray-500">INR</td>
+            
+            <td class="px-2 py-2 border-b border-gray-200 text-center"><button type="button" class="text-gray-400 hover:text-rose-500 transition-colors font-bold text-lg" onclick="this.closest('tr').remove()">×</button></td>`;
         tbody.appendChild(row);
     }
-
+    
     function filterTaxCodes(typeSelect) {
         const row = typeSelect.closest('tr');
         const codeSelect = row.querySelector('.tax-code-select');
         const selectedType = typeSelect.value;
-        codeSelect.innerHTML = '<option value="">--</option>';
+        codeSelect.innerHTML = '<option value="">Select...</option>';
         if (selectedType && TAX_CODE_MAP[selectedType]) {
             TAX_CODE_MAP[selectedType].forEach(c => {
                 const opt = document.createElement('option');
@@ -767,12 +1106,9 @@
         }
     }
 
-    // --- LOGIC: Sync Flags with Query Modal ---
     function toggleSectionFlag(section) {
         const checkbox = document.getElementById(`chk_${section}`);
-        if(checkbox) {
-            checkbox.checked = !checkbox.checked;
-        }
+        if(checkbox) { checkbox.checked = !checkbox.checked; }
     }
 
     function showQueryModal() {
@@ -780,8 +1116,11 @@
     }
 
     window.addEventListener('load', () => {
-        if(SAVED_TAX1.length > 0) SAVED_TAX1.forEach(r => addTax1Row(r));
-        if(SAVED_TAX2.length > 0) SAVED_TAX2.forEach(r => addTax2Row(r));
+        // Only load data if we are on the page that has the tables (Action section)
+        if(document.getElementById('tax1_body')) {
+            if(SAVED_TAX1.length > 0) SAVED_TAX1.forEach(r => addTax1Row(r));
+            if(SAVED_TAX2.length > 0) SAVED_TAX2.forEach(r => addTax2Row(r));
+        }
     });
 </script>
 {% endblock %}

@@ -7,7 +7,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 from sqlalchemy.dialects.postgresql import JSON
 
-
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=False, nullable=False)
@@ -25,7 +24,6 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     def get_reset_token(self, expires_sec=1800):
-        """Generates a JWT token valid for 30 minutes."""
         payload = {
             'user_id': self.id,
             'exp': datetime.utcnow() + timedelta(seconds=expires_sec)
@@ -34,7 +32,6 @@ class User(UserMixin, db.Model):
 
     @staticmethod
     def verify_reset_token(token):
-        """Verifies the JWT token and returns the user."""
         try:
             payload = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
             user_id = payload['user_id']
@@ -48,7 +45,6 @@ class Department(db.Model):
 
 class MasterData(db.Model):
     __tablename__ = 'master_data'
-    
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(50), index=True)
     code = db.Column(db.String(100), index=True)
@@ -159,11 +155,19 @@ class VendorRequest(db.Model):
     is_gst_verified = db.Column(db.Boolean, default=False)
     is_msme_verified = db.Column(db.Boolean, default=False)
     is_bank_verified = db.Column(db.Boolean, default=False)
+
+    # --- NEW: SNAPSHOT COLUMNS (For "Teleport" Logic) ---
+    previous_dept_flow = db.Column(db.String(20), nullable=True)
+    previous_step_number = db.Column(db.Integer, nullable=True)
+    previous_finance_stage = db.Column(db.String(20), nullable=True)
     
+    # --- NEW: SECTION LOCKING ---
+    editable_sections = db.Column(db.JSON, default=list)
+
     # Relationships
     tax_details = db.relationship('VendorTaxDetail', backref='vendor_request', lazy=True, cascade="all, delete-orphan")
     verification_logs = db.relationship('VerificationLog', backref='vendor_request', lazy='dynamic')
-
+    
     def get_tax1_rows(self):
         return [
             {
@@ -194,145 +198,156 @@ class VendorRequest(db.Model):
             }
             for t in self.tax_details if t.tax_category == '194Q'
         ]
-    
-    # ------------------------------------------------------------------
-    #  PASTE THIS INSIDE class VendorRequest IN models.py
-    # ------------------------------------------------------------------
-    # Inside class VendorRequest(db.Model):
-    
-    # ------------------------------------------------------------------
-    #  PASTE THIS INSIDE class VendorRequest IN models.py
-    # ------------------------------------------------------------------
+
     def get_api_data(self, v_type):
+        """
+        Retrieves and parses the latest successful API response for a specific verification type.
+        """
         from app.models import VerificationLog
         import json
-        
-        # 1. Get the latest SUCCESS/COMPLETED log
+
+        # 1. Fetch the latest successful verification log for this type
         log = VerificationLog.query.filter(
             VerificationLog.vendor_request_id == self.id,
             VerificationLog.verification_type == v_type.upper(),
             VerificationLog.status.in_(['SUCCESS', 'COMPLETED', 'completed'])
         ).order_by(VerificationLog.created_at.desc()).first()
-        
+
+        # If no log or empty response, return None
         if not log or not log.api_response:
             return None
 
-        # 2. Safe JSON Parse
         try:
+            # 2. Parse the JSON response
             raw = log.api_response
             if isinstance(raw, str):
                 raw = json.loads(raw)
-            
-            result = raw.get('result', {})
-            # Bank API returns keys directly in 'result', others in 'source_output'
-            data = result.get('source_output', result) 
-            
-            if not data: return None
 
-            # --- GST LOGIC ---
+            # Common keys based on your JSON structure
+            result = raw.get('result', {})
+            # PAN and MSME usually nest data inside 'source_output'
+            source_output = result.get('source_output', {})
+
+            # =========================================================
+            # BANKING VERIFICATION
+            # =========================================================
+            if v_type.upper() == 'BANK':
+                # Parse account existence (Handles "YES", "TRUE", 1)
+                acc_exists_raw = result.get('account_exists', 'NO')
+                account_exists = str(acc_exists_raw).upper() in ['YES', 'TRUE', '1', 'ACTIVE', 'VALID']
+
+                return {
+                    "status": "completed",
+                    "result": {
+                        "account_exists": "YES" if account_exists else "NO",
+                        "name_at_bank": result.get('name_at_bank'),
+                        "status": result.get('status'),          # e.g., "id_found"
+                        "message": result.get('message'),        # e.g., "Bank Account Verified"
+                        "utr": result.get('utr') or result.get('bank_transfer_ref_no')
+                    }
+                }
+
+            # =========================================================
+            # MSME / UDYAM VERIFICATION
+            # =========================================================
+            if v_type.upper() == 'MSME':
+                # General details are nested deep in source_output
+                gen = source_output.get('general_details', {})
+                
+                return {
+                    "active": source_output.get('status') == 'id_found',
+                    "name": gen.get('enterprise_name'),
+                    "type": gen.get('enterprise_type'),       # e.g. "Micro"
+                    "org_type": gen.get('organization_type'), # e.g. "Partnership"
+                    "activity": gen.get('major_activity'),    # e.g. "Services"
+                    "social_cat": gen.get('social_category'), # e.g. "General"
+                    "date_inc": gen.get('date_of_inc'),       # e.g. "2017-01-20"
+                    "state": gen.get('state')
+                }
+
+            # =========================================================
+            # PAN VERIFICATION
+            # =========================================================
+            if v_type.upper() == 'PAN':
+                # Input details usually contain the name used for verification
+                input_details = source_output.get('input_details', {})
+                
+                return {
+                    "pan_status": source_output.get('pan_status', 'Unknown'),
+                    "aadhaar_seeded": source_output.get('aadhaar_seeding_status'), # boolean true/false
+                    "name_match": source_output.get('name_match'),                 # boolean true/false
+                    "verified_name": input_details.get('input_name') or source_output.get('name_on_card')
+                }
+
+            # =========================================================
+            # GST VERIFICATION (Standard)
+            # =========================================================
             if v_type.upper() == 'GST':
-                # A. Extract Address
+                # GST often puts data directly in source_output or result
+                data = result.get('source_output', result)
+                if not data: return None
+
+                # Address formatting
                 addr_obj = data.get('principal_place_of_business_fields', {}).get('principal_place_of_business_address', {})
                 addr_parts = [
                     addr_obj.get('door_number'),
-                    addr_obj.get('floor_no'),
                     addr_obj.get('building_name'),
                     addr_obj.get('street'),
                     addr_obj.get('location'),
-                    addr_obj.get('dst'), # District
-                    addr_obj.get('state_name'),
-                    f"Pin: {addr_obj.get('pincode')}" if addr_obj.get('pincode') else None
+                    addr_obj.get('city'),
+                    addr_obj.get('dst'),
+                    addr_obj.get('state_name')
                 ]
-                # Filter out None or 'null' strings and join
+                # Filter None/Null values and join
                 full_address = ", ".join([str(x) for x in addr_parts if x and str(x).lower() != 'null'])
+                if addr_obj.get('pincode'):
+                    full_address += f" - {addr_obj.get('pincode')}"
 
-                # B. Extract Nature of Business (List to String)
+                # Activity
                 activity = data.get('nature_of_business_activity', [])
                 if isinstance(activity, list):
                     activity = ", ".join(activity)
 
-                # C. Filing History
+                # Filing History (Last 6 entries)
                 filings = data.get('filing_details', {}).get('gstr3b', [])
                 history = []
                 filed_count = 0
-                # Sort by date descending
-                filings.sort(key=lambda x: x.get('date_of_filing', ''), reverse=True)
-                
-                for f in filings[:6]: # Last 6 filings
+                # Sort by date descending usually helps
+                try:
+                    filings.sort(key=lambda x: x.get('date_of_filing', ''), reverse=True)
+                except:
+                    pass # Fallback if dates are missing
+
+                for f in filings[:6]:
                     status = f.get('status', 'Unknown')
                     if status == 'Filed': filed_count += 1
-                    
-                    # Convert period "122024" or "December" to short label
                     period = str(f.get('tax_period', ''))
-                    # If period is numeric (e.g. 122024), map to JAN/FEB
-                    label = period[:3].upper() 
-                    
+                    # Format period (e.g., "July 2023" -> "JUL")
+                    label = period[:3].upper() if period else '?'
                     history.append({'period': label, 'status': status, 'dof': f.get('date_of_filing')})
 
                 return {
                     'legal_name': data.get('legal_name'),
                     'trade_name': data.get('trade_name'),
-                    'taxpayer_type': data.get('taxpayer_type'), # e.g. "Regular", "Composition"
+                    'taxpayer_type': data.get('taxpayer_type'),
                     'gstin_status': data.get('gstin_status'),
                     'score': f"{filed_count}/6",
                     'filing_history': history,
-                    'address': full_address, 
+                    'address': full_address,
                     'activity': activity
                 }
 
-            # --- PAN LOGIC ---
-            if v_type.upper() == 'PAN':
-                details = data.get('input_details', {})
-                return {
-                    'is_valid': 'Valid' in data.get('pan_status', '') or data.get('status') == 'id_found',
-                    'status_text': data.get('pan_status'),
-                    'ocr_name': data.get('name_on_card') or details.get('input_name'),
-                    'aadhaar_linked': data.get('aadhaar_seeding_status')
-                }
-
-            # --- BANK LOGIC ---
-            if v_type.upper() == 'BANK':
-                return {
-                    'account_exists': str(data.get('account_exists')).upper() in ['YES', 'TRUE', '1'],
-                    'name_at_bank': data.get('name_at_bank'),
-                    'utr': data.get('bank_transfer_ref_no')
-                }
-
-            # --- MSME LOGIC ---
-            if v_type.upper() == 'MSME':
-                # Handle nested enterprise type list
-                e_type = "Unknown"
-                if data.get('enterprise_type'):
-                    types = data.get('enterprise_type', [])
-                    if types and isinstance(types, list):
-                        # Extract first key's value from list of dicts
-                        first_entry = types[0]
-                        if first_entry:
-                            val = list(first_entry.values())[0]
-                            e_type = val.get('enterprise_type', 'Unknown')
-
-                general = data.get('general_details', {})
-                return {
-                    'active': data.get('status') == 'id_found',
-                    'name': general.get('enterprise_name'),
-                    'type': e_type, # Micro, Small, Medium
-                    'activity': general.get('major_activity')
-                }
-
         except Exception as e:
-            # Log error in production
+            # Helpful error logging for debugging API mismatches
             print(f"Error parsing API data for {v_type}: {e}")
             return None
-        
+
         return {}
-    
-    
 class VendorTaxDetail(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vendor_request_id = db.Column(db.Integer, db.ForeignKey('vendor_request.id'), nullable=False)
     
-    tax_category = db.Column(db.String(20), nullable=False) # 'WHT' or '194Q'
-    
+    tax_category = db.Column(db.String(20), nullable=False)
     tax_code = db.Column(db.String(50)) 
     rate = db.Column(db.String(20))
     cert_no = db.Column(db.String(100))
@@ -359,26 +374,24 @@ class MockEmail(db.Model):
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vendor_request_id = db.Column(db.Integer, db.ForeignKey('vendor_request.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Nullable for system actions
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) 
     
-    action = db.Column(db.String(50), nullable=False) # e.g., 'APPROVED_TAX', 'REJECTED'
-    details = db.Column(db.String(255)) # e.g., "Comments: Invalid GST No"
+    action = db.Column(db.String(50), nullable=False) 
+    details = db.Column(db.String(255)) 
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Relationships
     user = db.relationship('User', backref='audit_logs')
     vendor_request = db.relationship('VendorRequest', backref='audit_logs')
 
-# --- NEW MODEL: API VERIFICATION LOGS ---
 class VerificationLog(db.Model):
     __tablename__ = 'verification_logs'
 
     id = db.Column(db.Integer, primary_key=True)
     vendor_request_id = db.Column(db.Integer, db.ForeignKey('vendor_request.id'), nullable=True)
     
-    verification_type = db.Column(db.String(50), nullable=False) # PAN, GST, BANK, MSME
-    external_ref_id = db.Column(db.String(100)) # IDfy Task ID
-    status = db.Column(db.String(20)) # SUCCESS, FAILED
+    verification_type = db.Column(db.String(50), nullable=False)
+    external_ref_id = db.Column(db.String(100))
+    status = db.Column(db.String(20))
     
     input_payload = db.Column(db.JSON)
     api_response = db.Column(db.JSON)

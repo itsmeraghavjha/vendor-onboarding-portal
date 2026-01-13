@@ -531,6 +531,7 @@ class VerificationService:
         Returns: { "task_id": "..." }
         """
         req_id = data.get("vendor_request_id")
+        print(f"🔥 [MAIN THREAD] Received Data: {json.dumps(data, default=str)}")
         req = VendorRequest.query.filter_by(request_id=req_id).first()
         if not req:
             return {"error": "Invalid Request ID"}
@@ -618,14 +619,49 @@ class VerificationService:
     def _verify_gst(req: VendorRequest, data: dict) -> dict:
         gst = data.get("gst_number", "").strip().upper()
         req_id = run_task("ind_gst_certificate", {
-            "task_id": str(uuid.uuid4()), "group_id": f"VENDOR_{req.id}",
+            "task_id": str(uuid.uuid4()), 
+            "group_id": f"VENDOR_{req.id}",
             "data": { "gstin": gst, "filing_details": True, "e_invoice_details": True }
         })
-        api_resp = poll_task(req_id)
         
-        result_block = api_resp.get("result", {}).get("source_output", {})
-        gst_status = result_block.get("gstin_status", "Inactive")
-        is_active = (api_resp.get("status") == "completed") and (gst_status == "Active")
+        api_resp = poll_task(req_id)
+
+        # --- FIX 1: Handle List Response ---
+        # The log shows the response is [{...}]. We need to get the first element.
+        if isinstance(api_resp, list) and len(api_resp) > 0:
+            task_data = api_resp[0]
+        else:
+            task_data = api_resp
+
+        # --- FIX 2: Correct Data Extraction Path ---
+        result_container = task_data.get("result", {})
+        source_block = result_container.get("source_output", {})
+
+        gst_status = source_block.get("gstin_status", "Inactive")
+        # Use task_data for status check
+        is_active = (task_data.get("status") == "completed") and (gst_status == "Active")
+
+        # --- FIX 3: Robust Address Mapping ---
+        # Access: source_output -> principal_place_of_business_fields -> principal_place_of_business_address
+        fields = source_block.get("principal_place_of_business_fields", {})
+        addr_obj = fields.get("principal_place_of_business_address")
+
+        extracted_address = "N/A"
+        if isinstance(addr_obj, dict):
+            addr_parts = [
+                addr_obj.get("door_number"),
+                addr_obj.get("building_name"),
+                addr_obj.get("street"),
+                addr_obj.get("location"),
+                addr_obj.get("city"),
+                addr_obj.get("dst"),
+                addr_obj.get("state_name"),
+                addr_obj.get("pincode"),
+            ]
+            # Filter out empty/None values and join with comma
+            extracted_address = ", ".join(str(p).strip() for p in addr_parts if p and str(p).strip())
+        elif isinstance(addr_obj, str):
+            extracted_address = addr_obj
 
         VerificationService._log(req, "GST", "SUCCESS" if is_active else "FAILED", data, api_resp)
 
@@ -634,34 +670,76 @@ class VerificationService:
             req.gst_number = gst
 
         return {
-            "gstin_status": gst_status, 
-            "legal_name": result_block.get("legal_name"),
-            "trade_name": result_block.get("trade_name"), 
-            "address": result_block.get("principal_place_of_business_address"),
-            "last_6_gstr3b": VerificationService._analyze_gst_filings(result_block.get("filing_details", {}))
+            "valid": is_active,
+            "details": {
+                "gst": {
+                    "gstin_status": gst_status,
+                    "legal_name": source_block.get("legal_name"),
+                    "trade_name": source_block.get("trade_name"),
+                    "registration_date": source_block.get("date_of_registration"), # Key name in your log
+                    "taxpayer_type": source_block.get("taxpayer_type"),
+                    "filing_status": VerificationService._analyze_gst_filings(source_block.get("filing_details", {})),
+                    "address": extracted_address
+                }
+            }
         }
 
     @staticmethod
     def _verify_msme(req: VendorRequest, data: dict) -> dict:
+        # 1. Re-fetch request to ensure attached to current DB session
+        # (This is crucial for Celery tasks to avoid DetachedInstanceError)
+        current_req = VendorRequest.query.get(req.id)
+        
         raw_msme = data.get("msme_number", "").strip().upper()
+        user_selected_type = data.get("msme_type") 
+
+        # DEBUG LOG
+        print(f"🔍 [WORKER] Verifying MSME: {raw_msme} | User Type: {user_selected_type}")
+
         req_id = run_task("udyam_aadhaar", {
-            "task_id": str(uuid.uuid4()), "group_id": f"VENDOR_{req.id}",
+            "task_id": str(uuid.uuid4()), "group_id": f"VENDOR_{current_req.id}",
             "data": {"uam_number": raw_msme}
         })
         api_resp = poll_task(req_id)
         
-        result_block = api_resp.get("result", {}).get("source_output", {})
-        found = (api_resp.get("status") == "completed") and (result_block.get("status") == "id_found")
+        result_main = api_resp.get("result", {})
+        source_block = result_main.get("source_output", {})
+        found = (api_resp.get("status") == "completed") and (source_block.get("status") == "id_found")
 
-        VerificationService._log(req, "MSME", "SUCCESS" if found else "FAILED", data, api_resp)
+        VerificationService._log(current_req, "MSME", "SUCCESS" if found else "FAILED", data, api_resp)
+
+        # Extract API Type for Display
+        ent_type_list = source_block.get("enterprise_type", [])
+        latest_type = "N/A"
+        if ent_type_list:
+            latest_type = ent_type_list[0].get("enterprise_type_1", {}).get("enterprise_type", "N/A")
 
         if found:
-            req.is_msme_verified = True
-            req.msme_number = raw_msme
-            req.msme_registered = "YES"
+            # Update fields on the FRESH object
+            current_req.is_msme_verified = True
+            current_req.msme_number = raw_msme
+            current_req.msme_registered = "YES"
 
-        return {"status": result_block.get("status"), "name": result_block.get("enterprise_name")}
+            # FORCE SAVE USER SELECTION
+            if user_selected_type:
+                print(f"💾 [WORKER] Saving MSME Type: {user_selected_type}")
+                current_req.msme_type = user_selected_type
+            
+            # EXPLICIT COMMIT
+            try:
+                db.session.add(current_req)
+                db.session.commit()
+                print("✅ [WORKER] Database Commit Successful")
+            except Exception as e:
+                db.session.rollback()
+                print(f"❌ [WORKER] Database Commit Failed: {e}")
 
+        return {
+            "status": source_block.get("status"), 
+            "name": source_block.get("general_details", {}).get("enterprise_name"),
+            "type": latest_type.capitalize()
+        }
+    
     @staticmethod
     def _verify_bank(req: VendorRequest, data: dict) -> dict:
         acc = data.get("bank_account_no", "")

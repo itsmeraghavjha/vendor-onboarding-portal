@@ -665,11 +665,19 @@ def verify_document_async(self, vendor_req_id, doc_type, data):
                     req.msme_number = msme
                     req.msme_registered = "YES"
                     if msme_file_path: req.msme_file_path = msme_file_path
+
+
+                    if data.get("msme_type"):
+                        req.msme_type = data["msme_type"]
+
+
+                    print("✅ MSME TYPE SAVED:", req.msme_type)
+
                     
-                    if api_msme_type:
-                        req.msme_type = str(api_msme_type).capitalize()
-                    else:
-                        req.msme_type = data.get("msme_type", "Micro")
+                    # if api_msme_type:
+                    #     req.msme_type = str(api_msme_type).capitalize()
+                    # else:
+                    #     req.msme_type = data.get("msme_type", "Micro")
 
                 result = {
                     "valid": is_valid,

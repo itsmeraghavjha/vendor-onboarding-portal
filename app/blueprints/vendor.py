@@ -43,6 +43,15 @@ def vendor_portal(token):
     states = MasterData.query.filter_by(category="REGION").all()
     form.state.choices = [("", "-- Select State --")] + [(s.code, s.label) for s in states]
 
+    # --- HELPER: Check if a section is editable ---
+    # If no query has ever been raised (Fresh), everything is editable.
+    # If queried, strict locking applies based on editable_sections.
+    def is_editable(section):
+        if not req.last_query: 
+            return True
+        allowed = req.editable_sections or []
+        return section in allowed
+
     # =====================================================
     # 1. POST: SAVE DATA (Immediate Persistence)
     # =====================================================
@@ -55,72 +64,77 @@ def vendor_portal(token):
                     if new_val != old_val:
                         setattr(req, flag, False)
 
-            # --- Basic Info ---
-            if "legal_name" in request.form:
-                req.vendor_name_basic = request.form["legal_name"].strip().upper()
+            # --- Basic Info (Organization) ---
+            if is_editable("organization"):
+                if "legal_name" in request.form:
+                    req.vendor_name_basic = request.form["legal_name"].strip().upper()
 
             # --- PAN & Aadhaar ---
-            current_pan = request.form.get("pan_no", "").strip().upper()
-            if "pan_no" in request.form:
-                reset_if_changed("pan_no", "is_pan_verified", req.pan_number)
-                req.pan_number = current_pan
+            if is_editable("pan"):
+                if "pan_no" in request.form:
+                    current_pan = request.form.get("pan_no", "").strip().upper()
+                    reset_if_changed("pan_no", "is_pan_verified", req.pan_number)
+                    req.pan_number = current_pan
 
-            # FIX: Explicitly save Aadhaar if present
-            if "aadhaar_no" in request.form:
-                req.aadhaar_number = request.form.get("aadhaar_no", "").strip()
+                # FIX: Explicitly save Aadhaar and reset PAN verification if changed
+                if "aadhaar_no" in request.form:
+                    reset_if_changed("aadhaar_no", "is_pan_verified", req.aadhaar_number)
+                    req.aadhaar_number = request.form.get("aadhaar_no", "").strip()
 
             # --- GST ---
-            if "gst_no" in request.form:
-                reset_if_changed("gst_no", "is_gst_verified", req.gst_number)
-                req.gst_number = request.form.get("gst_no", "").strip().upper()
+            if is_editable("gst"):
+                if "gst_no" in request.form:
+                    reset_if_changed("gst_no", "is_gst_verified", req.gst_number)
+                    req.gst_number = request.form.get("gst_no", "").strip().upper()
+                
+                # --- Flags (Radio Buttons) for GST ---
+                if "gst_reg" in request.form:
+                    val = request.form.get("gst_reg")
+                    if req.gst_registered != val:
+                        req.gst_registered = val
+                        if val == "NO":
+                            req.is_gst_verified = False 
 
             # --- MSME ---
-            if "msme_number" in request.form:
-                reset_if_changed("msme_number", "is_msme_verified", req.msme_number)
-                req.msme_number = request.form.get("msme_number", "").strip().upper()
-            
-            # FIX: Explicitly save MSME Type
-            if "msme_type" in request.form:
-                req.msme_type = request.form.get("msme_type")
+            if is_editable("msme"):
+                if "msme_number" in request.form:
+                    reset_if_changed("msme_number", "is_msme_verified", req.msme_number)
+                    req.msme_number = request.form.get("msme_number", "").strip().upper()
+                
+                if "msme_type" in request.form:
+                    req.msme_type = request.form.get("msme_type")
+
+                # --- Flags (Radio Buttons) for MSME ---
+                if "msme_reg" in request.form:
+                    val = request.form.get("msme_reg")
+                    if req.msme_registered != val:
+                        req.msme_registered = val
+                        if val == "NO":
+                            req.is_msme_verified = False 
 
             # --- Bank ---
-            if "acc_no" in request.form:
-                reset_if_changed("acc_no", "is_bank_verified", req.bank_account_no)
-                req.bank_account_no = request.form.get("acc_no", "").strip()
-            
-            if "ifsc" in request.form:
-                reset_if_changed("ifsc", "is_bank_verified", req.bank_ifsc)
-                req.bank_ifsc = request.form.get("ifsc", "").strip().upper()
+            if is_editable("banking"):
+                if "acc_no" in request.form:
+                    reset_if_changed("acc_no", "is_bank_verified", req.bank_account_no)
+                    req.bank_account_no = request.form.get("acc_no", "").strip()
+                
+                if "ifsc" in request.form:
+                    reset_if_changed("ifsc", "is_bank_verified", req.bank_ifsc)
+                    req.bank_ifsc = request.form.get("ifsc", "").strip().upper()
 
-            # --- Flags (Radio Buttons) ---
-            if "gst_reg" in request.form:
-                val = request.form.get("gst_reg")
-                # Only reset if changing from YES to NO or vice versa
-                if req.gst_registered != val:
-                    req.gst_registered = val
-                    if val == "NO":
-                        req.is_gst_verified = False # Reset if they say NO
-            
-            if "msme_reg" in request.form:
-                val = request.form.get("msme_reg")
-                if req.msme_registered != val:
-                    req.msme_registered = val
-                    if val == "NO":
-                        req.is_msme_verified = False # Reset if they say NO
-
-            # --- Files ---
-            def save_doc(field, db_col):
-                if field in request.files:
+            # --- Files (Check locking inside helper) ---
+            def save_doc(field, db_col, section):
+                if is_editable(section) and field in request.files:
                     f = request.files[field]
                     if f and f.filename:
                         path = save_file(f, field.upper())
                         if path: setattr(req, db_col, path)
 
-            save_doc("pan_file", "pan_file_path")
-            save_doc("gst_file", "gst_file_path")
-            save_doc("msme_file", "msme_file_path")
-            save_doc("bank_file", "bank_proof_file_path")
-            save_doc("tds_file", "tds_file_path")
+            save_doc("pan_file", "pan_file_path", "pan")
+            save_doc("gst_file", "gst_file_path", "gst")
+            save_doc("msme_file", "msme_file_path", "msme")
+            save_doc("bank_file", "bank_proof_file_path", "banking")
+            save_doc("tds_file", "tds_file_path", "tax") # Assuming 'tax' or 'organization'
 
             db.session.commit()
             db.session.refresh(req)
@@ -148,34 +162,36 @@ def vendor_portal(token):
 
         if not errors:
             try:
-                # Save Form Fields
-                req.title = form.title.data
-                req.trade_name = form.trade_name.data
-                req.constitution = form.constitution.data
-                if form.cin_no.data: req.cin_number = form.cin_no.data.upper()
+                # Save Form Fields (Respect Locking)
+                if is_editable("organization"):
+                    req.title = form.title.data
+                    req.trade_name = form.trade_name.data
+                    req.constitution = form.constitution.data
+                    if form.cin_no.data: req.cin_number = form.cin_no.data.upper()
+                    
+                    req.contact_person_name = form.contact_name.data
+                    req.contact_person_designation = form.designation.data
+                    req.mobile_number = form.mobile_1.data
+                    req.mobile_number_2 = form.mobile_2.data
+                    req.landline_number = form.landline.data
+                    req.product_service_description = form.product_desc.data
+                    
+                    req.street = form.street_1.data
+                    req.street_2 = form.street_2.data
+                    req.street_3 = form.street_3.data
+                    req.street_4 = form.street_4.data
+                    req.city = form.city.data
+                    req.postal_code = form.pincode.data
+                    req.state = form.state.data
                 
-                req.contact_person_name = form.contact_name.data
-                req.contact_person_designation = form.designation.data
-                req.mobile_number = form.mobile_1.data
-                req.mobile_number_2 = form.mobile_2.data
-                req.landline_number = form.landline.data
-                req.product_service_description = form.product_desc.data
-                
-                req.street = form.street_1.data
-                req.street_2 = form.street_2.data
-                req.street_3 = form.street_3.data
-                req.street_4 = form.street_4.data
-                req.city = form.city.data
-                req.postal_code = form.pincode.data
-                req.state = form.state.data
-                
-                req.bank_name = form.bank_name.data
-                req.bank_account_holder_name = form.holder_name.data
-                req.bank_account_no = form.acc_no.data
-                req.bank_ifsc = form.ifsc.data.upper()
+                if is_editable("banking"):
+                    req.bank_name = form.bank_name.data
+                    req.bank_account_holder_name = form.holder_name.data
+                    req.bank_account_no = form.acc_no.data
+                    req.bank_ifsc = form.ifsc.data.upper()
 
-                # TDS Logic
-                if form.tds_cert_no.data or req.tds_file_path:
+                # TDS Logic (Locking: 'tax')
+                if is_editable("tax") and (form.tds_cert_no.data or req.tds_file_path):
                      # Clear old, add new
                      for old in req.tax_details: db.session.delete(old)
                      db.session.add(VendorTaxDetail(
@@ -201,7 +217,7 @@ def vendor_portal(token):
             for e in errors: flash(e, "error")
 
     # =====================================================
-    # 3. GET: PREFILL DATA (Corrected)
+    # 3. GET: PREFILL DATA
     # =====================================================
     if request.method == "GET":
         form.title.data = req.title
@@ -233,7 +249,6 @@ def vendor_portal(token):
         form.pan_no.data = req.pan_number
         if req.aadhaar_number: form.aadhaar_no.data = req.aadhaar_number
 
-        # 🔥 FIX: Ensure Radio Button Data Persists
         if req.gst_registered: form.gst_reg.data = req.gst_registered
         if req.gst_number: form.gst_no.data = req.gst_number
 
@@ -254,8 +269,44 @@ def vendor_portal(token):
     if form.errors:
         if any(k in form.errors for k in ["bank_name", "acc_no", "ifsc"]): initial_step = 3
         elif any(k in form.errors for k in ["gst_no", "pan_no", "msme_number"]): initial_step = 2
+    # 1. Define all possible sections
+   # 1. Standard sections
+    target_sections = ["organization", "pan", "gst", "msme", "banking", "tax"]
 
-    return render_template("vendor/portal.html", req=req, form=form, initial_step=initial_step)
+    # 2. Ensure editable_sections is a Python list
+    # (Handles cases where DB might return a string or None)
+    import json
+    allowed_list = req.editable_sections
+    if isinstance(allowed_list, str):
+        try:
+            allowed_list = json.loads(allowed_list)
+        except:
+            allowed_list = []
+
+    # 3. Build the locks dictionary with priority logic
+    locks = {}
+    for s in target_sections:
+        # PRIORITY: If admin has specifically listed sections, follow that list
+        if allowed_list and len(allowed_list) > 0:
+            locks[s] = s in allowed_list
+        # FALLBACK: If list is empty, but a query exists, lock everything
+        elif req.last_query:
+            locks[s] = False
+        # DEFAULT: If no query and no list, it's a fresh form
+        else:
+            locks[s] = True
+
+    # This will now correctly output:
+    # {'organization': False, 'pan': False, 'gst': True, 'msme': False, 'banking': False, 'tax': True}
+    print(f"FIXED LOCKS FOR {req.request_id}: {locks}")
+    return render_template(
+        "vendor/portal.html", 
+        req=req, 
+        form=form, 
+        initial_step=initial_step, 
+        locks=locks  
+    )
+
 
 
 # =========================================================
@@ -347,3 +398,49 @@ def check_task_status(task_id):
         })
     
 
+
+# app/blueprints/vendor.py
+
+@vendor_bp.route("/portal/file/<token>/<doc_type>")
+def view_file(token, doc_type):
+    """
+    Securely serves files to the vendor by generating a temporary S3 link.
+    """
+    req = VendorRequest.query.filter_by(token=token).first()
+    if not req:
+        return "Access Denied", 403
+
+    # Map the URL parameter to the actual database field
+    file_map = {
+        'pan': req.pan_file_path,
+        'gst': req.gst_file_path,
+        'msme': req.msme_file_path,
+        'bank': req.bank_proof_file_path,
+        'tds': req.tds_file_path
+    }
+    
+    file_path = file_map.get(doc_type)
+    
+    # Safety check: ensure file exists in DB
+    if not file_path:
+        return "File not found", 404
+
+    # 1. S3 Strategy (The Fix)
+    if current_app.config.get('USE_S3'):
+        try:
+            # Import here to avoid circular dependency issues
+            from app.services.s3_service import S3Service
+            s3 = S3Service()
+            
+            # Generate a temporary link valid for 60 seconds
+            presigned_url = s3.generate_presigned_url(file_path, expiration=60)
+            if presigned_url:
+                return redirect(presigned_url)
+            else:
+                return "Error generating link", 500
+        except Exception as e:
+            current_app.logger.error(f"S3 Link Generation Error: {e}")
+            return "System Error", 500
+    
+    # 2. Local Strategy (Fallback for Development)
+    return redirect(url_for('static', filename='uploads/' + file_path))
