@@ -77,6 +77,20 @@ class AdminService:
         }
 
     def generate_sap_csv(self, request_ids):
+
+
+        TITLE_MAP = {
+            'MS': '0001',
+            'MS.': '0001',
+            'MR': '0002',
+            'MR.': '0002',
+            'COMPANY': '0003',
+            'MR AND MRS': '0004',
+            'MR. AND MRS.': '0004',
+            'M/S': '0005',
+            'M/S.': '0005'
+        }
+
         """Generates the SAP Upload CSV using the specific requested format."""
         output = io.StringIO()
         writer = csv.writer(output)
@@ -122,7 +136,11 @@ class AdminService:
                 # Fields only on First Row
                 vlms_no = req.request_id if is_first else ""  # Mapped from CSV 'VLMS Number'
                 account_group = (req.account_group or "ZDOM") if is_first else ""
-                title = req.title if is_first else ""
+                title = TITLE_MAP.get(
+                    (req.title or '').upper().strip(),
+                    '0003'   # Default → Company
+                ) if is_first else ""
+
                 city = (req.city or '').upper() if is_first else ""
                 
                 # [cite_start]Trade Name is now Name 3 [cite: 4]

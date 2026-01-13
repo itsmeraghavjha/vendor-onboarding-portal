@@ -870,18 +870,79 @@
 
                         {# IT FORM #}
                         {% if req.current_dept_flow == 'IT' %}
-                        <div class="bg-white rounded-2xl shadow-lg shadow-purple-100 border border-purple-200 overflow-hidden">
-                            <div class="bg-purple-50 px-6 py-4 border-b border-purple-200 flex justify-between items-center"><h3 class="font-bold text-purple-900">🖥️ SAP Creation</h3></div>
-                            <div class="p-8">
-                                <label class="block text-lg font-bold text-gray-800 mb-3">Final Step: Assign SAP Vendor Code <span class="text-rose-500">*</span></label>
-                                <div class="flex gap-4 items-center bg-purple-50 p-4 rounded-xl border border-purple-200">
-                                    <span class="text-2xl bg-white p-2 rounded-lg shadow-sm border border-purple-100">🔑</span>
-                                    <input type="text" name="sap_id" required placeholder="Enter generated SAP Vendor Code" class="flex-1 border border-gray-300 bg-white rounded-lg p-3 text-lg font-mono focus:ring-purple-500 focus:border-purple-500 shadow-sm">
-                                    <button type="submit" name="action" value="approve" class="px-8 py-3 bg-purple-600 text-white font-bold rounded-lg shadow-lg shadow-purple-200 hover:bg-purple-700 hover:-translate-y-0.5 transition-all">Complete Onboarding</button>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
+<div class="bg-white rounded-2xl shadow-lg shadow-emerald-100 border border-emerald-200 overflow-hidden">
+
+    <!-- Header -->
+    <div class="bg-emerald-50 px-6 py-4 border-b border-emerald-200 flex justify-between items-center">
+        <h3 class="font-bold text-emerald-900 flex items-center gap-2">
+            🖥️ SAP Creation
+        </h3>
+
+        <!-- SAP Upload Format Download -->
+        <a href="{{ url_for('main.download_sap_report', req_id=req.id) }}"
+           class="inline-flex items-center gap-2 px-4 py-2
+                  bg-white border border-emerald-300 text-emerald-700
+                  text-xs font-bold rounded-lg shadow-sm
+                  hover:bg-emerald-50 hover:border-emerald-500 transition">
+
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+            </svg>
+
+            Download SAP Upload Format
+        </a>
+    </div>
+
+    <!-- Body -->
+    <div class="p-8 space-y-6">
+
+        <div>
+            <label class="block text-lg font-bold text-gray-800 mb-2">
+                Final Step: Assign SAP Vendor Code
+                <span class="text-rose-500">*</span>
+            </label>
+            <p class="text-xs text-gray-500 font-medium">
+                Enter the SAP Vendor Code after successful creation in SAP system.
+            </p>
+        </div>
+
+        <!-- Input + Action -->
+        <div class="flex gap-4 items-center bg-emerald-50 p-5 rounded-xl border border-emerald-200">
+
+            <span class="text-2xl bg-white p-3 rounded-xl shadow-sm border border-emerald-100">
+                🔑
+            </span>
+
+            <input type="text"
+                   name="sap_id"
+                   required
+                   placeholder="Enter generated SAP Vendor Code"
+                   class="flex-1 border border-gray-300 bg-white rounded-lg p-3
+                          text-lg font-mono tracking-wider
+                          focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+
+            <button type="submit"
+                    name="action"
+                    value="approve"
+                    class="px-8 py-3 bg-emerald-600 text-white font-bold rounded-lg
+                           shadow-lg shadow-emerald-200
+                           hover:bg-emerald-700 hover:-translate-y-0.5 transition-all
+                           border border-emerald-700">
+                Complete Onboarding
+            </button>
+        </div>
+
+        <!-- Helper Info -->
+        <div class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            ✔ SAP upload file must be processed before assigning vendor code<br>
+            ✔ This action will <b>complete the onboarding</b> and notify the vendor
+        </div>
+
+    </div>
+</div>
+{% endif %}
+
 
                         {# STICKY ACTION BAR #}
                         <!-- {% if req.current_dept_flow != 'IT' and req.finance_stage != 'TAX' %}
@@ -977,16 +1038,23 @@
         </button>
 
         <!-- Approve -->
-        <button type="submit"
-                name="action"
-                value="approve"
-                class="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 border border-emerald-700">
-            {% if req.finance_stage == 'TAX' %}
-                ✅ Approve Tax Data
-            {% else %}
-                Approve & Next
-            {% endif %}
-        </button>
+        {% if current_user.role != 'id_admin'
+      and req.current_dept_flow != 'IT'
+      and req.status != 'COMPLETED' %}
+
+<button type="submit"
+        name="action"
+        value="approve"
+        class="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 border border-emerald-700">
+    {% if req.finance_stage == 'TAX' %}
+        ✅ Approve Tax Data
+    {% else %}
+        Approve & Next
+    {% endif %}
+</button>
+
+{% endif %}
+
 
     </div>
 </div>
