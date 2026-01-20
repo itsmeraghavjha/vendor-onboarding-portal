@@ -126,7 +126,6 @@ fieldset[disabled]::after {
                             <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Legal Name</span><span class="font-bold text-gray-800">${g.legal_name || '-'}</span></div>
                             <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Trade Name</span><span class="font-bold text-gray-800">${g.trade_name || '-'}</span></div>
                             <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Status</span><span class="font-bold text-gray-800">${g.gstin_status || '-'}</span></div>
-                            <div class="md:col-span-3 border-t border-green-100 pt-2 mt-1"><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Address</span><span class="font-medium text-gray-800">${addr}</span></div>
                          </div>`;
              } else { html = `<strong>❌ Failed:</strong> Invalid GST Number`; }
         }
