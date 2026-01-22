@@ -127,7 +127,8 @@ def vendor_portal(token):
                 if is_editable(section) and field in request.files:
                     f = request.files[field]
                     if f and f.filename:
-                        path = save_file(f, field.upper())
+                        # path = save_file(f, field.upper())
+                        path = save_file(f, req.request_id)
                         if path: setattr(req, db_col, path)
 
             save_doc("pan_file", "pan_file_path", "pan")
@@ -347,12 +348,15 @@ def verify_details():
     try:
         data = request.form.to_dict()
 
+        # 1. GET THE ID
+        req_id = data.get("vendor_request_id")
+
         # Handle Files (Upload to temp/S3 before passing to Task)
         def save_temp(file_key, prefix):
             if file_key in request.files:
                 f = request.files[file_key]
                 if f and f.filename:
-                    return save_file(f, prefix)
+                    return save_file(f, req_id)
             return None
 
         if "pan_file" in request.files: data["pan_file_path"] = save_temp("pan_file", "PAN")

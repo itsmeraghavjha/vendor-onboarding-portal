@@ -608,6 +608,10 @@ def verify_document_async(self, vendor_req_id, doc_type, data):
                 filing_txt = "N/A"
                 if filing_source:
                     gstr3b = filing_source.get("gstr3b", [])
+                    try:
+                        gstr3b.sort(key=lambda x: x.get('date_of_filing', ''), reverse=True)
+                    except:
+                        pass
                     recent = gstr3b[:6] 
                     filed_count = sum(1 for f in recent if f.get("status") == "Filed")
                     filing_txt = f"{filed_count}/{len(recent)} Filed"

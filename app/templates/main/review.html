@@ -670,7 +670,7 @@
                         </h2>
                         
                         {# INITIATOR FORM #}
-                        {% if req.current_dept_flow == 'INITIATOR_REVIEW' %}
+{% if req.current_dept_flow == 'INITIATOR_REVIEW' %}
 <div class="bg-white rounded-2xl shadow-lg shadow-gray-200 border border-gray-300 overflow-hidden">
     <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
         <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wide">
@@ -680,14 +680,14 @@
 
     <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <!-- Account Group -->
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">
                 Account Group <span class="text-rose-500">*</span>
             </label>
-            <select name="account_group"
+            <select name="account_group" required
                     class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
-                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm
+                           invalid:border-rose-500 invalid:text-rose-600 focus:invalid:border-rose-500 focus:invalid:ring-rose-500">
                 <option value="">Select...</option>
                 {% for item in acc_groups %}
                     <option value="{{ item.code }}">
@@ -697,14 +697,14 @@
             </select>
         </div>
 
-        <!-- Purchase Org -->
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">
                 Purchase Org <span class="text-rose-500">*</span>
             </label>
-            <select name="purchase_org"
+            <select name="purchase_org" required
                     class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
-                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm
+                           invalid:border-rose-500 invalid:text-rose-600 focus:invalid:border-rose-500 focus:invalid:ring-rose-500">
                 <option value="">Select...</option>
                 {% for item in purch_orgs %}
                     <option value="{{ item.code }}">
@@ -714,14 +714,14 @@
             </select>
         </div>
 
-        <!-- Payment Terms -->
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">
                 Payment Terms <span class="text-rose-500">*</span>
             </label>
-            <select name="payment_terms"
+            <select name="payment_terms" required
                     class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
-                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm
+                           invalid:border-rose-500 invalid:text-rose-600 focus:invalid:border-rose-500 focus:invalid:ring-rose-500">
                 <option value="">Select...</option>
                 {% for item in pay_terms %}
                     <option value="{{ item.code }}">
@@ -731,14 +731,14 @@
             </select>
         </div>
 
-        <!-- Incoterms -->
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">
                 Incoterms <span class="text-rose-500">*</span>
             </label>
-            <select name="incoterms"
+            <select name="incoterms" required
                     class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
-                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm
+                           invalid:border-rose-500 invalid:text-rose-600 focus:invalid:border-rose-500 focus:invalid:ring-rose-500">
                 <option value="">Select...</option>
                 {% for item in incoterms %}
                     <option value="{{ item.code }}">
@@ -754,16 +754,17 @@
 
 
                         {# FINANCE FORMS #}
-                        {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'BILL_PASSING' %}
+{% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'BILL_PASSING' %}
 <div class="bg-white rounded-2xl shadow-lg border border-gray-300 p-8">
     <h3 class="font-bold text-emerald-800 mb-4 flex items-center gap-2">
         <span class="bg-emerald-100 p-1 rounded">💰</span>
-        Assign GL Account
+        Assign GL Account <span class="text-rose-500">*</span>
     </h3>
 
-    <select name="gl_account"
+    <select name="gl_account" required
             class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
-                   focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                   focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm
+                   invalid:border-rose-500 invalid:text-rose-600">
         <option value="">Select...</option>
         {% for item in gl_list %}
             <option value="{{ item.code }}">
@@ -775,16 +776,17 @@
 {% endif %}
 
 
-                        {% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TREASURY' %}
+{% if req.current_dept_flow == 'FINANCE' and req.finance_stage == 'TREASURY' %}
 <div class="bg-white rounded-2xl shadow-lg border border-gray-300 p-8">
     <h3 class="font-bold text-emerald-900 mb-4 flex items-center gap-2">
         <span class="bg-emerald-100 p-1 rounded">🏦</span>
-        Assign House Bank
+        Assign House Bank <span class="text-rose-500">*</span>
     </h3>
 
-    <select name="house_bank"
+    <select name="house_bank" required
             class="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm
-                   focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                   focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm
+                   invalid:border-rose-500 invalid:text-rose-600">
         <option value="">Select...</option>
         {% for item in house_banks %}
             <option value="{{ item.code }}">
@@ -794,6 +796,8 @@
     </select>
 </div>
 {% endif %}
+
+
 
 
 
@@ -868,79 +872,98 @@
 </div>
 {% endif %}
 
-                        {# IT FORM #}
-                        {% if req.current_dept_flow == 'IT' %}
-<div class="bg-white rounded-2xl shadow-lg shadow-emerald-100 border border-emerald-200 overflow-hidden">
-
-    <!-- Header -->
-    <div class="bg-emerald-50 px-6 py-4 border-b border-emerald-200 flex justify-between items-center">
-        <h3 class="font-bold text-emerald-900 flex items-center gap-2">
-            🖥️ SAP Creation
-        </h3>
-
-        <!-- SAP Upload Format Download -->
-        <a href="{{ url_for('main.download_sap_report', req_id=req.id) }}"
-           class="inline-flex items-center gap-2 px-4 py-2
-                  bg-white border border-emerald-300 text-emerald-700
-                  text-xs font-bold rounded-lg shadow-sm
-                  hover:bg-emerald-50 hover:border-emerald-500 transition">
-
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
-            </svg>
-
-            Download SAP Upload Format
-        </a>
-    </div>
-
-    <!-- Body -->
-    <div class="p-8 space-y-6">
-
-        <div>
-            <label class="block text-lg font-bold text-gray-800 mb-2">
-                Final Step: Assign SAP Vendor Code
-                <span class="text-rose-500">*</span>
-            </label>
-            <p class="text-xs text-gray-500 font-medium">
-                Enter the SAP Vendor Code after successful creation in SAP system.
-            </p>
+                        {# IT FORM / COMPLETION BANNER #}
+{% if req.current_dept_flow == 'IT' %}
+    
+    {% if req.status == 'COMPLETED' %}
+        {# --- STATE: ONBOARDING COMPLETED (Success Banner) --- #}
+        <div class="bg-emerald-50 rounded-2xl shadow-sm border border-emerald-200 overflow-hidden p-8 text-center mb-6">
+            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 mb-4 animate-bounce">
+                <span class="text-3xl">🎉</span>
+            </div>
+            <h3 class="text-xl font-bold text-emerald-900 mb-2">Onboarding Complete</h3>
+            <p class="text-emerald-700 text-sm mb-6">The vendor has been successfully created in SAP.</p>
+            
+            <div class="inline-block bg-white px-8 py-4 rounded-xl border-2 border-emerald-100 shadow-sm">
+                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">SAP Vendor Code</div>
+                <div class="text-3xl font-mono font-bold text-emerald-600 tracking-wider select-all">
+                    {{ req.sap_id }}
+                </div>
+            </div>
+            
+            <p class="text-xs text-gray-400 mt-6 font-medium">No further actions are required.</p>
         </div>
 
-        <!-- Input + Action -->
-        <div class="flex gap-4 items-center bg-emerald-50 p-5 rounded-xl border border-emerald-200">
+    {% else %}
+        {# --- STATE: IT ACTION REQUIRED (Original Form Preserved) --- #}
+        <div class="bg-white rounded-2xl shadow-lg shadow-emerald-100 border border-emerald-200 overflow-hidden mb-6">
 
-            <span class="text-2xl bg-white p-3 rounded-xl shadow-sm border border-emerald-100">
-                🔑
-            </span>
+            <div class="bg-emerald-50 px-6 py-4 border-b border-emerald-200 flex justify-between items-center">
+                <h3 class="font-bold text-emerald-900 flex items-center gap-2">
+                    🖥️ SAP Creation
+                </h3>
 
-            <input type="text"
-                   name="sap_id"
-                   required
-                   placeholder="Enter generated SAP Vendor Code"
-                   class="flex-1 border border-gray-300 bg-white rounded-lg p-3
-                          text-lg font-mono tracking-wider
-                          focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                <a href="{{ url_for('main.download_sap_report', req_id=req.id) }}"
+                   class="inline-flex items-center gap-2 px-4 py-2
+                          bg-white border border-emerald-300 text-emerald-700
+                          text-xs font-bold rounded-lg shadow-sm
+                          hover:bg-emerald-50 hover:border-emerald-500 transition">
 
-            <button type="submit"
-                    name="action"
-                    value="approve"
-                    class="px-8 py-3 bg-emerald-600 text-white font-bold rounded-lg
-                           shadow-lg shadow-emerald-200
-                           hover:bg-emerald-700 hover:-translate-y-0.5 transition-all
-                           border border-emerald-700">
-                Complete Onboarding
-            </button>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+                    </svg>
+
+                    Download SAP Upload Format
+                </a>
+            </div>
+
+            <div class="p-8 space-y-6">
+
+                <div>
+                    <label class="block text-lg font-bold text-gray-800 mb-2">
+                        Final Step: Assign SAP Vendor Code
+                        <span class="text-rose-500">*</span>
+                    </label>
+                    <p class="text-xs text-gray-500 font-medium">
+                        Enter the SAP Vendor Code after successful creation in SAP system.
+                    </p>
+                </div>
+
+                <div class="flex gap-4 items-center bg-emerald-50 p-5 rounded-xl border border-emerald-200">
+
+                    <span class="text-2xl bg-white p-3 rounded-xl shadow-sm border border-emerald-100">
+                        🔑
+                    </span>
+
+                    <input type="text"
+                           name="sap_id"
+                           required
+                           placeholder="Enter generated SAP Vendor Code"
+                           class="flex-1 border border-gray-300 bg-white rounded-lg p-3
+                                  text-lg font-mono tracking-wider
+                                  focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+
+                    <button type="submit"
+                            name="action"
+                            value="approve"
+                            class="px-8 py-3 bg-emerald-600 text-white font-bold rounded-lg
+                                   shadow-lg shadow-emerald-200
+                                   hover:bg-emerald-700 hover:-translate-y-0.5 transition-all
+                                   border border-emerald-700">
+                        Complete Onboarding
+                    </button>
+                </div>
+
+                <div class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    ✔ SAP upload file must be processed before assigning vendor code<br>
+                    ✔ This action will <b>complete the onboarding</b> and notify the vendor
+                </div>
+
+            </div>
         </div>
+    {% endif %}
 
-        <!-- Helper Info -->
-        <div class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-4">
-            ✔ SAP upload file must be processed before assigning vendor code<br>
-            ✔ This action will <b>complete the onboarding</b> and notify the vendor
-        </div>
-
-    </div>
-</div>
 {% endif %}
 
 
@@ -1019,42 +1042,40 @@
                 </div>
             </div>
 
-            {% if is_my_turn %}
+            {# --- FLOATING ACTION BAR --- #}
+{# Only show if it's the user's turn AND the request is NOT completed #}
+{% if is_my_turn and req.status != 'COMPLETED' %}
 <div class="fixed bottom-6 right-6 z-50">
     <div class="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-gray-300 flex gap-3 items-center">
 
-        <!-- Raise Query -->
         <button type="button"
                 onclick="showQueryModal()"
-                class="px-5 py-2.5 bg-white border border-yellow-400 text-yellow-800 font-bold rounded-xl hover:bg-yellow-50">
+                class="px-5 py-2.5 bg-white border border-yellow-400 text-yellow-800 font-bold rounded-xl hover:bg-yellow-50 transition-colors">
             ❓ Raise Query
         </button>
 
-        <!-- Reject (ALWAYS VISIBLE ON TURN) -->
         <button type="button"
                 onclick="document.getElementById('rejectModal').classList.remove('hidden')"
-                class="px-5 py-2.5 bg-white border border-rose-300 text-rose-700 font-bold rounded-xl hover:bg-rose-50">
+                class="px-5 py-2.5 bg-white border border-rose-300 text-rose-700 font-bold rounded-xl hover:bg-rose-50 transition-colors">
             🚫 Reject
         </button>
 
-        <!-- Approve -->
-        {% if current_user.role != 'id_admin'
-      and req.current_dept_flow != 'IT'
-      and req.status != 'COMPLETED' %}
-
-<button type="submit"
-        name="action"
-        value="approve"
-        class="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 border border-emerald-700">
-    {% if req.finance_stage == 'TAX' %}
-        ✅ Approve Tax Data
-    {% else %}
-        Approve & Next
-    {% endif %}
-</button>
-
-{% endif %}
-
+        {# Note: We hide this in the IT step because IT has its own 'Complete' button in the main form #}
+        {% if current_user.role != 'id_admin' and req.current_dept_flow != 'IT' %}
+            <button type="submit"
+                    name="action"
+                    value="approve"
+                    class="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 hover:-translate-y-0.5 transition-all border border-emerald-700 flex items-center gap-2">
+                {% if req.finance_stage == 'TAX' %}
+                    <span>✅ Approve Tax Data</span>
+                {% else %}
+                    <span>Approve & Next</span>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                {% endif %}
+            </button>
+        {% endif %}
 
     </div>
 </div>
@@ -1146,7 +1167,8 @@
             <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="date" name="tax2_start_date[]" value="${data.start || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 font-mono text-xs shadow-sm"></td>
             <td class="px-3 py-2 border-b border-gray-200 border-r"><input type="date" name="tax2_end_date[]" value="${data.end || ''}" class="w-full border border-gray-300 bg-white rounded px-2 py-1 font-mono text-xs shadow-sm"></td>
             
-            <td class="px-3 py-2 border-b border-gray-200 border-r bg-gray-50">${createSelect('tax1_exemption_reason[]', EXEMPTIONS, data.reason)}</td>
+
+            <td class="px-3 py-2 border-b border-gray-200 border-r bg-gray-50">${createSelect('tax2_exemption_reason[]', EXEMPTIONS, data.reason)}</td>
             <td class="px-3 py-2 border-b border-gray-200 border-r">${createSelect('tax2_type[]', TAX_TYPES, data.type, `filterTaxCodes(this)`)}</td>
             <td class="px-3 py-2 border-b border-gray-200 border-r">
                 <select name="tax2_code[]" class="w-full border border-gray-300 bg-white rounded px-2 py-1 tax-code-select text-sm focus:ring-2 focus:ring-emerald-500 shadow-sm">

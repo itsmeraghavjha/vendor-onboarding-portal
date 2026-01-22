@@ -311,10 +311,65 @@ def review_request(req_id):
             
         elif req.finance_stage == 'TAX':
             log_action_name = "APPROVED_TAX"
-            # (Save Tax Details - Your existing logic)
-            for old_tax in req.tax_details: db.session.delete(old_tax)
-            # ... [Insert your Tax saving loop here from previous code] ...
+            
+            # 1. Clear old records to prevent duplicates
+            for old_tax in req.tax_details: 
+                db.session.delete(old_tax)
+            
+            # 2. SAVE TABLE 1: Withholding Tax (WHT)
+            # We grab all the lists from the form
+            t1_types = request.form.getlist('tax1_type[]')
+            t1_codes = request.form.getlist('tax1_code[]')
+            t1_recipients = request.form.getlist('tax1_recipient_type[]')
+            t1_reasons = request.form.getlist('tax1_exemption_reason[]')
+            t1_certs = request.form.getlist('tax1_cert_no[]')
+            t1_rates = request.form.getlist('tax1_rate[]')
+            t1_starts = request.form.getlist('tax1_start_date[]')
+            t1_ends = request.form.getlist('tax1_end_date[]')
 
+            # Zip them together to iterate row by row
+            for i in range(len(t1_codes)):
+                if not t1_codes[i]: continue # Skip empty rows
+                
+                db.session.add(VendorTaxDetail(
+                    vendor_request=req,
+                    tax_category='WHT',  # Force category for Table 1
+                    tax_code=t1_codes[i],
+                    rate=t1_rates[i],
+                    cert_no=t1_certs[i],
+                    start_date=t1_starts[i],
+                    end_date=t1_ends[i],
+                    recipient_type=t1_recipients[i],
+                    exemption_reason=t1_reasons[i]
+                ))
+
+            # 3. SAVE TABLE 2: 194Q & Section Details
+            # Grab lists for Table 2
+            t2_sections = request.form.getlist('tax2_section_code[]')
+            t2_certs = request.form.getlist('tax2_cert_no[]')
+            t2_rates = request.form.getlist('tax2_rate[]')
+            t2_thresh = request.form.getlist('tax2_threshold_amount[]')
+            t2_starts = request.form.getlist('tax2_start_date[]')
+            t2_ends = request.form.getlist('tax2_end_date[]')
+            t2_reasons = request.form.getlist('tax2_exemption_reason[]') # Matches the JS fix above
+            t2_types = request.form.getlist('tax2_type[]')
+            t2_codes = request.form.getlist('tax2_code[]')
+
+            for i in range(len(t2_codes)):
+                if not t2_codes[i]: continue # Skip empty rows
+
+                db.session.add(VendorTaxDetail(
+                    vendor_request=req,
+                    tax_category='194Q', # Force category for Table 2
+                    section_code=t2_sections[i],
+                    tax_code=t2_codes[i],
+                    rate=t2_rates[i],
+                    threshold=t2_thresh[i],
+                    cert_no=t2_certs[i],
+                    start_date=t2_starts[i],
+                    end_date=t2_ends[i],
+                    exemption_reason=t2_reasons[i]
+                ))
         # --- D. IT FLOW ---
         elif req.current_dept_flow == 'IT': 
             req.sap_id = request.form.get('sap_id')
@@ -379,6 +434,237 @@ def review_request(req_id):
                            acc_groups=acc_groups, pay_terms=pay_terms, purch_orgs=purch_orgs, incoterms=incoterms,
                            gl_list=gl_list, house_banks=house_banks, tax_types=tax_types, 
                            tax_code_map=json.dumps(tax_code_map), exemption_reasons=exemption_reasons)
+
+
+# @main_bp.route('/review/<int:req_id>', methods=['GET', 'POST'])
+# @login_required
+# def review_request(req_id):
+#     req = db.session.get(VendorRequest, req_id)
+#     if not req: return "Not Found", 404
+
+#     # --- 1. SETUP & PERMISSIONS ---
+#     pending_email, stage_name = get_next_approver_email(req)
+#     is_my_turn = False
+    
+#     if current_user.role == 'admin':
+#         is_my_turn = True
+#     elif pending_email and current_user.email:
+#         if pending_email.strip().lower() == current_user.email.strip().lower():
+#             is_my_turn = True
+    
+#     if req.status == 'PENDING_VENDOR' and current_user.role == 'initiator':
+#         is_my_turn = False
+
+#     # --- 2. FETCH MASTER DATA ---
+#     acc_groups = MasterData.query.filter_by(category='ACCOUNT_GROUP').all()
+#     pay_terms = MasterData.query.filter_by(category='PAYMENT_TERM').all()
+#     purch_orgs = MasterData.query.filter_by(category='PURCHASE_ORG').all()
+#     incoterms = MasterData.query.filter_by(category='INCOTERM').all()
+#     gl_list = MasterData.query.filter_by(category='GL_ACCOUNT').all()
+#     house_banks = MasterData.query.filter_by(category='HOUSE_BANK').all()
+#     tax_types = MasterData.query.filter_by(category='TAX_TYPE').all()
+#     exemption_reasons = MasterData.query.filter_by(category='EXEMPTION_REASON').all()
+    
+#     all_tax_codes = MasterData.query.filter_by(category='TDS_CODE').all()
+#     tax_code_map = {}
+#     for tc in all_tax_codes:
+#         p = tc.parent_code if tc.parent_code else 'General'
+#         if p not in tax_code_map: tax_code_map[p] = []
+#         tax_code_map[p].append({'code': tc.code, 'label': f"{tc.code} - {tc.label}"})
+
+#     # --- 3. HANDLE FORM SUBMISSION ---
+#     if request.method == 'POST':
+#         if not is_my_turn: return "Unauthorized", 403
+#         action = request.form.get('action')
+#         comments = request.form.get('comments', '')
+
+#         # =========================================================
+#         # ACTION: SEND BACK (QUERY)
+#         # =========================================================
+#         if action == 'send_back':
+#             if req.current_dept_flow != 'INITIATOR_REVIEW':
+#                 req.previous_dept_flow = req.current_dept_flow
+#                 req.previous_step_number = req.current_step_number
+#                 req.previous_finance_stage = req.finance_stage
+            
+#             req.status = 'PENDING_VENDOR' 
+#             req.current_dept_flow = 'INITIATOR_REVIEW'
+#             req.current_step_number = 1 
+#             req.finance_stage = None 
+            
+#             req.editable_sections = request.form.getlist('unlock_sections[]')
+#             unlock_sections = req.editable_sections
+#             flagged_labels = [SECTION_LABELS.get(s, s) for s in unlock_sections]
+
+#             req.last_query = comments
+#             log_audit(
+#                 req.id, current_user.id, 'QUERY_RAISED',
+#                 f"Sent Back from {stage_name}\nReason: {comments}\nFlagged: {', '.join(flagged_labels)}"
+#             )
+
+#             db.session.commit()
+            
+#             link = url_for('vendor.vendor_portal', token=req.token, _external=True)
+#             body_html = render_template('email/notification.html', req=req, subject="Action Required", body=f"<b>Reason:</b><br>{comments}<br><br><b>Sections requiring correction:</b><br><ul>" + "".join(f"<li>{s}</li>" for s in flagged_labels) + "</ul>", link=link, current_year=datetime.now().year)
+#             send_system_email(req.vendor_email, f"Query on {req.request_id}", body_html)
+            
+#             flash("Sent back to vendor successfully.", "warning")
+#             return redirect(url_for('main.dashboard'))
+
+#         # =========================================================
+#         # ACTION: REJECT
+#         # =========================================================
+#         if action == 'reject':
+#             req.status = 'REJECTED'
+#             log_audit(req.id, current_user.id, 'REJECTED', f"Reason: {comments}")
+#             db.session.commit()
+#             send_status_email(req, req.vendor_email, f"Application Rejected. Reason: {comments}")
+#             flash("Application rejected.", "error")
+#             return redirect(url_for('main.dashboard'))
+
+#         # =========================================================
+#         # ACTION: APPROVE (Main Logic with VALIDATION)
+#         # =========================================================
+#         log_action_name = "APPROVED"
+        
+#         # --- A. INITIATOR REVIEW (Validation Added) ---
+#         if req.current_dept_flow == 'INITIATOR_REVIEW':
+#             # 1. EXTRACT DATA
+#             acct_group = request.form.get('account_group')
+#             pay_terms = request.form.get('payment_terms')
+#             purch_org = request.form.get('purchase_org')
+#             incoterms = request.form.get('incoterms')
+
+#             # 2. VALIDATE REQUIRED FIELDS
+#             if not all([acct_group, pay_terms, purch_org, incoterms]):
+#                 flash("Error: All Commercial Terms (Account Group, Purchase Org, Payment Terms, Incoterms) are required.", "error")
+#                 return redirect(url_for('main.review_request', req_id=req_id))
+
+#             # 3. SAVE
+#             req.account_group = acct_group
+#             req.payment_terms = pay_terms
+#             req.purchase_org = purch_org
+#             req.incoterms = incoterms
+            
+#             log_action_name = "APPROVED_INITIATOR"
+            
+#             # [CRITICAL LOGIC] Restore Workflow if needed
+#             if req.previous_dept_flow:
+#                 restore_msg = (f"Workflow restored to Stage: {req.previous_dept_flow} (Step {req.previous_step_number}). Intermediate steps skipped based on prior approval.")
+#                 log_audit(req.id, current_user.id, "WORKFLOW_RESTORED", restore_msg)
+                
+#                 req.current_dept_flow = req.previous_dept_flow
+#                 req.current_step_number = req.previous_step_number
+#                 req.finance_stage = req.previous_finance_stage
+                
+#                 req.previous_dept_flow = None
+#                 req.previous_step_number = None
+#                 req.previous_finance_stage = None
+#             else:
+#                 req.current_dept_flow = 'DEPT'
+#                 req.current_step_number = 1
+
+#         # --- B. DEPARTMENT FLOW ---
+#         elif req.current_dept_flow == 'DEPT':
+#             cat_rule = CategoryRouting.query.filter_by(department=req.initiator_dept, category_name=req.vendor_type).first()
+#             if cat_rule:
+#                 role_label = f"Category_Approver_L{req.current_step_number}"
+#             else:
+#                 step = WorkflowStep.query.filter_by(department=req.initiator_dept, step_order=req.current_step_number).first()
+#                 role_label = step.role_label if step else f"STEP_{req.current_step_number}"
+            
+#             log_action_name = f"APPROVED_{role_label.replace(' ', '_').upper()}"
+
+#         # --- C. FINANCE FLOW (Validation Added) ---
+#         elif req.finance_stage == 'BILL_PASSING': 
+#             gl_account = request.form.get('gl_account')
+#             if not gl_account:
+#                 flash("Error: GL Account is required.", "error")
+#                 return redirect(url_for('main.review_request', req_id=req_id))
+            
+#             req.gl_account = gl_account
+#             log_action_name = "APPROVED_BILL_PASSING"
+            
+#         elif req.finance_stage == 'TREASURY': 
+#             house_bank = request.form.get('house_bank')
+#             if not house_bank:
+#                 flash("Error: House Bank is required.", "error")
+#                 return redirect(url_for('main.review_request', req_id=req_id))
+
+#             req.house_bank = house_bank
+#             log_action_name = "APPROVED_TREASURY"
+            
+#         elif req.finance_stage == 'TAX':
+#             log_action_name = "APPROVED_TAX"
+#             # Note: Tax Logic was truncated in source file. 
+#             # Ensure you have your Tax Saving Loop here.
+#             # for old_tax in req.tax_details: db.session.delete(old_tax)
+#             # ...
+
+#         # --- D. IT FLOW (Validation Added) ---
+#         elif req.current_dept_flow == 'IT': 
+#             sap_id_input = request.form.get('sap_id')
+#             if not sap_id_input or not sap_id_input.strip():
+#                 flash("Error: SAP Vendor Code is required to complete onboarding.", "error")
+#                 return redirect(url_for('main.review_request', req_id=req_id))
+
+#             req.sap_id = sap_id_input.strip()
+#             req.status = 'COMPLETED'
+#             log_action_name = "COMPLETED_BY_IT"
+
+#         # --- SAVE & LOG ---
+#         log_audit(req.id, current_user.id, log_action_name)
+#         db.session.commit()
+
+#         # =========================================================
+#         # ROUTING LOGIC (Advance to Next Step)
+#         # =========================================================
+#         if req.status != 'COMPLETED' and log_action_name != "APPROVED_INITIATOR":
+            
+#             if req.current_dept_flow == 'DEPT':
+#                 cat_rule = CategoryRouting.query.filter_by(department=req.initiator_dept, category_name=req.vendor_type).first()
+                
+#                 moved_to_next_step = False
+#                 if cat_rule:
+#                     if req.current_step_number == 1 and cat_rule.l2_head_email:
+#                         req.current_step_number = 2
+#                         moved_to_next_step = True
+#                 else:
+#                     next_step = WorkflowStep.query.filter_by(department=req.initiator_dept, step_order=req.current_step_number + 1).first()
+#                     if next_step:
+#                         req.current_step_number += 1
+#                         moved_to_next_step = True
+                
+#                 if not moved_to_next_step:
+#                     req.current_dept_flow = 'FINANCE'
+#                     req.finance_stage = 'BILL_PASSING'
+#                     req.current_step_number = 1
+
+#             elif req.current_dept_flow == 'FINANCE':
+#                 if req.finance_stage == 'BILL_PASSING': req.finance_stage = 'TREASURY'
+#                 elif req.finance_stage == 'TREASURY': req.finance_stage = 'TAX'
+#                 elif req.finance_stage == 'TAX': 
+#                     req.current_dept_flow = 'IT'
+#                     req.finance_stage = None
+
+#         db.session.commit()
+        
+#         # --- NOTIFICATIONS ---
+#         next_person, next_stage = get_next_approver_email(req)
+#         if req.status == 'COMPLETED': 
+#              body_html = render_template('email/notification.html', req=req, subject="Onboarding Complete", body=f"<b>Your Vendor Code: {req.sap_id}</b>", link=None, current_year=datetime.now().year)
+#              send_system_email(req.vendor_email, "Onboarding Complete", body_html)
+#         elif next_person: 
+#             send_status_email(req, next_person, next_stage)
+
+#         flash("Request approved successfully.", "success")
+#         return redirect(url_for('main.dashboard'))
+    
+#     # --- RENDER TEMPLATE ---
+#     return render_template('main/review.html', req=req, pending_email=pending_email, is_my_turn=is_my_turn, stage_name=stage_name,
+#                            acc_groups=acc_groups, pay_terms=pay_terms, purch_orgs=purch_orgs, incoterms=incoterms,
+#                            gl_list=gl_list, house_banks=house_banks, tax_types=tax_types, 
+#                            tax_code_map=json.dumps(tax_code_map), exemption_reasons=exemption_reasons)
 
 
 @main_bp.route('/secure-files/<path:filename>')

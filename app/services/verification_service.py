@@ -768,6 +768,10 @@ class VerificationService:
         if not filing_details: return "N/A"
         gstr3b = filing_details.get("gstr3b", [])
         if not gstr3b: return "0/6"
+        try:
+            gstr3b.sort(key=lambda x: x.get('date_of_filing', ''), reverse=True)
+        except:
+            pass
         recent = gstr3b[:6]
         filed = sum(1 for f in recent if f.get("status") == "Filed")
         return f"{filed}/6 Filed"
