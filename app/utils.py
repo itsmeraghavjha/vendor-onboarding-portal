@@ -265,6 +265,7 @@ from werkzeug.utils import secure_filename
 from flask import current_app
 from app.extensions import db, mail
 from app.models import AuditLog, MockEmail
+import hashlib
 
 # Import S3 Service
 # Wrap in try-except if you haven't created the file yet to prevent crash during dev
@@ -295,75 +296,63 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
 
-def save_file(file_storage, request_id):
+def save_file(file_storage, request_id, doc_type=None):
     """
-    Saves a file to S3 or Local Disk in a flat Request-ID folder.
-    
-    Structure: <request_id> / <timestamp>_<uuid>_<original_name>
+    Saves a file using Content-Based Naming (MD5).
+    - Prevents duplicates: Identical content = Identical filename.
+    - Preserves history: Changed content = New filename.
     """
     if not file_storage or file_storage.filename == '':
         return None
 
     filename = secure_filename(file_storage.filename)
-    
-    # 1. Extension Check
     if not allowed_file(filename):
         return None
 
-    # 2. Content Check (Magic Bytes) - Optional
-    if MAGIC_AVAILABLE:
-        try:
-            header = file_storage.read(2048)
-            file_storage.seek(0)  # Reset cursor
-            mime = magic.Magic(mime=True)
-            real_mime = mime.from_buffer(header)
-        except Exception as e:
-            print(f"Magic check failed: {e}")
-            file_storage.seek(0)
+    # 1. Generate MD5 Hash of content
+    file_content = file_storage.read()
+    file_storage.seek(0) # ⚠️ CRITICAL: Reset cursor so it can be saved!
+    file_hash = hashlib.md5(file_content).hexdigest()
 
-    # 3. Generate Versioned Filename
-    # We include the original filename so you can tell what it is just by looking
-    # Format: 1704892200_a1b2_pan_card.pdf
+    # 2. Construct Filename (PREFIX_HASH.ext)
     _, ext = os.path.splitext(filename)
-    timestamp = int(time.time())
-    unique_name = f"{timestamp}_{uuid.uuid4().hex[:4]}_{filename}"
+    
+    if doc_type:
+        # Example: PAN_a1b2c3d4.pdf
+        unique_name = f"{doc_type.upper()}_{file_hash}{ext}"
+    else:
+        # Fallback: TIMESTAMP_uuid_filename.pdf
+        timestamp = int(time.time())
+        unique_name = f"{timestamp}_{uuid.uuid4().hex[:4]}_{filename}"
 
-    # 4. Construct Logical Path (The key stored in DB)
-    # Simple: Just the Request ID and the File
+    # 3. Define Path
     object_path = f"{request_id}/{unique_name}"
 
     try:
-        # ---------------------------------------------------------
-        # STORAGE DECISION
-        # ---------------------------------------------------------
         if current_app.config.get('USE_S3', False):
-            # === S3 UPLOAD ===
-            if not S3Service:
-                print("❌ S3 Service missing.")
-                return None
+            # S3 Upload
+            if not S3Service: return None
             s3 = S3Service()
             return s3.upload_file(file_storage, object_path)
-            
         else:
-            # === LOCAL UPLOAD ===
-            # Path: basedir/uploads/REQ_101/file.pdf
+            # Local Upload
             base_folder = current_app.config['UPLOAD_FOLDER']
-            
-            # Create the Request ID folder
             req_folder_path = os.path.join(base_folder, str(request_id))
             if not os.path.exists(req_folder_path):
                 os.makedirs(req_folder_path)
-
+            
             full_file_path = os.path.join(req_folder_path, unique_name)
-            file_storage.save(full_file_path)
+            
+            # Optimization: If exact file exists, don't write again
+            if not os.path.exists(full_file_path):
+                file_storage.save(full_file_path)
             
             return object_path
 
     except Exception as e:
         print(f"❌ Storage Error: {e}")
         return None
-    
-    
+      
 # ---------------------------------------------------------
 # 2. EMAIL UTILITIES
 # ---------------------------------------------------------

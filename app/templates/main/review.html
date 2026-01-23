@@ -342,7 +342,6 @@
                                     {% if gst_api.trade_name and gst_api.trade_name != gst_api.legal_name %}
                                         {{ comparison_row('Trade Name', req.trade_name, gst_api.trade_name) }}
                                     {% endif %}
-                                    {{ comparison_row('Taxpayer Type', req.constitution, gst_api.taxpayer_type) }}
                                     {% set user_addr = [req.street, req.street_2, req.city, req.state, req.postal_code]|select("string")|join(", ") %}
                                     {{ comparison_row('Registered Address', user_addr, gst_api.address) }}
                                     </div>
@@ -541,11 +540,13 @@
                                     </div>
                                     {% endif %}
                                 {% endmacro %}
-                                
+                                {{ config_badge('Purchase Org', req.purchase_org) }}
                                 {{ config_badge('Account Group', req.account_group) }}
+                                {{ config_badge('Payment Terms', req.payment_terms) }}
+                                {{ config_badge('Incoterms ', req.incoterms) }}
                                 {{ config_badge('GL Account', req.gl_account) }}
                                 {{ config_badge('House Bank', req.house_bank) }}
-                                {{ config_badge('Pay Terms', req.payment_terms) }}
+                             
                             </div>
                         </div>
                         {% endif %}

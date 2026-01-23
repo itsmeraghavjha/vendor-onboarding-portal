@@ -127,8 +127,12 @@ def vendor_portal(token):
                 if is_editable(section) and field in request.files:
                     f = request.files[field]
                     if f and f.filename:
-                        # path = save_file(f, field.upper())
-                        path = save_file(f, req.request_id)
+                        # Extract type from field name (e.g. 'pan_file' -> 'PAN')
+                        doc_label = field.replace('_file', '').upper()
+                        
+                        # Pass doc_label to save_file
+                        path = save_file(f, req.request_id, doc_label)
+                        
                         if path: setattr(req, db_col, path)
 
             save_doc("pan_file", "pan_file_path", "pan")
@@ -356,7 +360,8 @@ def verify_details():
             if file_key in request.files:
                 f = request.files[file_key]
                 if f and f.filename:
-                    return save_file(f, req_id)
+                    # Pass the prefix (e.g., 'PAN', 'GST') to save_file
+                    return save_file(f, req_id, prefix)
             return None
 
         if "pan_file" in request.files: data["pan_file_path"] = save_temp("pan_file", "PAN")

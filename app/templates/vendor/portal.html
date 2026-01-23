@@ -131,17 +131,37 @@ fieldset[disabled]::after {
         }
 
         // 2. PAN SECTION
+        // 2. PAN SECTION
+        // 2. PAN SECTION
         else if (type === 'pan' && data.details && data.details.pan) {
             const p = data.details.pan;
             if (isSuccess) {
-                html = `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200"><span class="text-xl">✅</span><span class="font-bold text-green-800 text-sm">PAN Validated</span></div>
+                html = `<div class="flex items-center gap-2 mb-2 pb-2 border-b border-green-200">
+                            <span class="text-xl">✅</span>
+                            <span class="font-bold text-green-800 text-sm">PAN Validated</span>
+                        </div>
                         <div class="grid grid-cols-2 gap-3 text-xs">
-                            <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Name</span><span class="font-bold text-gray-800">${p.ocr_name || '-'}</span></div>
-                            <div><span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Status</span><span class="font-bold text-gray-800">${p.status_text || 'Valid'}</span></div>
+                            <div>
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Name</span>
+                                <span class="font-bold text-gray-800">${p.ocr_name || '-'}</span>
+                            </div>
+                            <div>
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">Status</span>
+                                <span class="font-bold text-gray-800">${p.status_text || 'Valid'}</span>
+                            </div>
+                            
+                            <div class="col-span-2 border-t border-green-100 pt-2 mt-1 flex justify-between items-center">
+                                <span class="block font-bold text-green-700 opacity-70 uppercase text-[10px]">
+    Aadhaar Linking
+</span>
+<span class="font-bold ${p.aadhaar_linking === 'LINKED' ? 'text-green-700' : 'text-red-600'}">
+    ${p.aadhaar_linking || 'NOT CHECKED'}
+</span>
+
+                            </div>
                         </div>`;
             } else { html = `<strong>❌ Failed:</strong> ${p.status_text || 'Failed'}`; }
         }
-
         // 3. MSME SECTION (With Persistent Dropdown Logic)
         // 3. MSME SECTION (Updated Error Handling)
         else if (type === 'msme') {
@@ -315,189 +335,7 @@ fieldset[disabled]::after {
     // ---------------------------------------------------------
     //  ALPINE COMPONENT
     // ---------------------------------------------------------
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('vendorForm', function() {
-            return {
-                step: {{ initial_step|default(1) }},
-                
-                // Models
-                gstReg: '{{ request.form.get("gst_reg") or req.gst_registered or "NO" }}',
-                msmeReg: '{{ request.form.get("msme_reg") or req.msme_registered or "NO" }}',
-                
-                // ✅ BOUND TO DROPDOWN WITH SERVER DATA
-                msmeType: '{{ form.msme_type.data or req.msme_type or "" }}', 
-
-                gstNo: '{{ form.gst_no.data or req.gst_number or "" }}',
-                msmeNo: '{{ form.msme_number.data or req.msme_number or "" }}',
-                panVal: '{{ form.pan_no.data or req.pan_number or "" }}',
-                ifscVal: '{{ form.ifsc.data or req.bank_ifsc or "" }}',
-                accNo: '{{ form.acc_no.data or req.bank_account_no or "" }}',
-                
-                // Static
-                bankName: '{{ form.bank_name.data or req.bank_name or "" }}',
-                accountHolder: '{{ form.holder_name.data or req.bank_account_holder_name or "" }}',
-                constitution: '{{ request.form.get("constitution") or req.constitution or "" }}',
-                
-                submitting: false,
-
-                // DbValues (to detect changes)
-                dbValues: {
-    pan: '{{ (req.pan_number or "") | upper }}',
-    gst: '{{ (req.gst_number or "") | upper }}',
-    msme: '{{ (req.msme_number or "") | upper }}',
-    msme_type: '{{ req.msme_type or "" }}',   // ✅ ADD THIS
-    bank_ifsc: '{{ (req.bank_ifsc or "") | upper }}',
-    bank_acc: '{{ (req.bank_account_no or "") }}'
-},
-
-
-                init() {
-                    this.$nextTick(() => {
-                        window._pageHydrated = true;
-                        
-                        // Safety: If verified but dropdown empty, unverify MSME
-                        if(window.verificationState.msme && !this.msmeType) {
-                             markUnverified('msme');
-                        }
-
-                        ['pan', 'gst', 'msme', 'bank'].forEach(t => this.checkVerifyBtn(t));
-                    });
-
-                    // Watchers to re-check button state
-                    this.$watch('panVal', () => this.checkVerifyBtn('pan'));
-                    this.$watch('gstNo', () => this.checkVerifyBtn('gst'));
-                    this.$watch('msmeNo', () => this.checkVerifyBtn('msme'));
-                    // Watch Dropdown
-                    this.$watch('msmeType', () => this.checkVerifyBtn('msme')); 
-                    this.$watch('accNo', () => this.checkVerifyBtn('bank'));
-                    this.$watch('ifscVal', () => this.checkVerifyBtn('bank'));
-                },
-
-                checkVerifyBtn(type) {
-                    const btn = document.getElementById('btn-verify-' + type);
-                    if (!btn) return;
-
-                    if (window.verificationState[type] === true) {
-                        btn.classList.add('verified');
-                        btn.innerHTML = '✓ VERIFIED';
-                        btn.disabled = true;
-                        return;
-                    }
-
-                    const hasFile = (inputName, savedPath) => {
-                        const input = document.querySelector(`input[name="${inputName}"]`);
-                        const hasNew = input && input.files.length > 0;
-                        const hasSaved = savedPath && savedPath.trim().length > 0;
-                        return hasNew || hasSaved;
-                    };
-
-                    let isValid = false;
-
-                    if (type === 'pan') {
-                        isValid = (this.panVal && this.panVal.length === 10) && 
-                                  hasFile('pan_file', '{{ req.pan_file_path or "" }}');
-                    } 
-                    else if (type === 'gst') {
-                        isValid = (this.gstNo && this.gstNo.length === 15) && 
-                                  hasFile('gst_file', '{{ req.gst_file_path or "" }}');
-                    } 
-                    else if (type === 'msme') {
-                        // Dropdown must have value
-                        const hasDropdown = this.msmeType && this.msmeType !== 'None' && this.msmeType !== '';
-                        isValid = (this.msmeNo && this.msmeNo.length > 5) && 
-                                  hasFile('msme_file', '{{ req.msme_file_path or "" }}') && 
-                                  hasDropdown;
-                    } 
-                    else if (type === 'bank') {
-                        isValid = (this.accNo && this.accNo.length > 5) && 
-                                  (this.ifscVal && this.ifscVal.length === 11) && 
-                                  hasFile('bank_file', '{{ req.bank_proof_file_path or "" }}');
-                    }
-
-                    if (isValid) {
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        btn.disabled = true;
-                        btn.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
-                    
-                    if (btn.innerHTML !== 'VERIFY' && !window.verificationState[type]) {
-                        btn.innerHTML = 'VERIFY';
-                        btn.classList.remove('verified');
-                    }
-                },
-
-                resetSection(type) {
-                    console.log("🔄 Resetting data for:", type);
-                    window.verificationState[type] = false;
-                    const res = document.getElementById('result-' + type);
-                    if(res) res.style.display = 'none';
-
-                    if (type === 'gst') {
-                        this.gstNo = ''; 
-                        const f = document.querySelector('input[name="gst_file"]');
-                        if(f) f.value = '';
-                    } 
-                    else if (type === 'msme') {
-                        this.msmeNo = '';
-                        this.msmeType = ''; // Clear Alpine Model
-                        const f = document.querySelector('input[name="msme_file"]');
-                        if(f) f.value = '';
-                    }
-                    this.checkVerifyBtn(type);
-                },
-
-                validateAndNext(currentStep) {
-                    if (currentStep === 2) {
-                        if (this.gstReg === 'YES' && !window.verificationState.gst) { alert('GST must be verified.'); return; }
-                        if (!window.verificationState.pan) { alert('PAN must be verified.'); return; }
-                        if (this.msmeReg === 'YES' && !window.verificationState.msme) { alert('MSME must be verified.'); return; }
-                    }
-                    if (currentStep === 3 && !window.verificationState.bank) {
-                         alert('Bank must be verified.'); return;
-                    }
-
-                    const container = document.getElementById('step_' + currentStep);
-                    const inputs = container.querySelectorAll('input, select, textarea');
-                    let valid = true;
-                    for (const input of inputs) {
-                        if (input.disabled) continue;
-                        if (!input.checkValidity()) {
-                            input.reportValidity();
-                            valid = false;
-                            break;
-                        }
-                    }
-                    if (valid) {
-                        this.step = currentStep + 1;
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                },
-
-                submitForm(e) {
-                    const form = e.target;
-                    // Final Gate Check
-                    if (!window.verificationState.pan) { alert('PAN must be verified.'); return; }
-                    if (this.gstReg === 'YES' && !window.verificationState.gst) { alert('GST must be verified.'); return; }
-                    if (this.msmeReg === 'YES' && !window.verificationState.msme) { alert('MSME must be verified.'); return; }
-                    if (!window.verificationState.bank) { alert('Bank must be verified.'); return; }
-
-                    if (!form.checkValidity()) { form.reportValidity(); return; }
-
-                    this.submitting = true;
-                    
-                    // Unlock fields
-                    form.querySelectorAll(':disabled').forEach(el => {
-                        el.disabled = false;
-                        el.removeAttribute('disabled');
-                    });
-
-                    setTimeout(() => form.submit(), 100);
-                }
-            };
-        });
-    });
+    
 </script>
 
 <script>
@@ -543,35 +381,51 @@ document.addEventListener('alpine:init', () => {
 
             // --- 2. INIT LOGIC ---
             init() {
-                this.$nextTick(() => {
-                    window._pageHydrated = true;
-                    ['pan', 'gst', 'msme', 'bank'].forEach(type => {
-                        this.checkVerifyBtn(type);
-                    });
-                });
+    this.$nextTick(() => {
+        window._pageHydrated = true;
+        ['pan', 'gst', 'msme', 'bank'].forEach(type => {
+            this.checkVerifyBtn(type);
+        });
+    });
 
-                // Watchers
-                this.$watch('panVal', (val) => {
-                    if (val.toUpperCase() !== this.dbValues.pan) markUnverified('pan');
-                    this.checkVerifyBtn('pan');
-                });
-                this.$watch('gstNo', (val) => {
-                    if (val.toUpperCase() !== this.dbValues.gst) markUnverified('gst');
-                    this.checkVerifyBtn('gst');
-                });
-                 this.$watch('msmeNo', (val) => {
-                    if (val.toUpperCase() !== this.dbValues.msme) markUnverified('msme');
-                    this.checkVerifyBtn('msme');
-                });
-                 this.$watch('ifscVal', (val) => {
-                    if (val.toUpperCase() !== this.dbValues.bank_ifsc) markUnverified('bank');
-                    this.checkVerifyBtn('bank');
-                });
-                 this.$watch('accNo', (val) => {
-                    if (val && val !== this.dbValues.bank_acc) markUnverified('bank');
-                    this.checkVerifyBtn('bank');
-                });
-            },
+    // --- WATCHERS ---
+    
+    // 1. PAN Watcher
+    this.$watch('panVal', (val) => {
+        if (val.toUpperCase() !== this.dbValues.pan) markUnverified('pan');
+        this.checkVerifyBtn('pan');
+    });
+
+    // 2. Aadhaar Watcher (THIS IS THE FIX)
+    this.$watch('aadhaarVal', (val) => {
+        // If they change Aadhaar, the old PAN verification is invalid
+        markUnverified('pan');
+        // Now check if we can enable the button (Alpine has the latest data now)
+        this.checkVerifyBtn('pan');
+    });
+
+    // 3. GST Watcher
+    this.$watch('gstNo', (val) => {
+        if (val.toUpperCase() !== this.dbValues.gst) markUnverified('gst');
+        this.checkVerifyBtn('gst');
+    });
+
+    // 4. MSME Watcher
+    this.$watch('msmeNo', (val) => {
+        if (val.toUpperCase() !== this.dbValues.msme) markUnverified('msme');
+        this.checkVerifyBtn('msme');
+    });
+
+    // 5. Bank Watchers
+    this.$watch('ifscVal', (val) => {
+        if (val.toUpperCase() !== this.dbValues.bank_ifsc) markUnverified('bank');
+        this.checkVerifyBtn('bank');
+    });
+    this.$watch('accNo', (val) => {
+        if (val && val !== this.dbValues.bank_acc) markUnverified('bank');
+        this.checkVerifyBtn('bank');
+    });
+},
 
             // --- 3. HELPER FUNCTIONS ---
             checkVerifyBtn(type) {
@@ -600,8 +454,17 @@ document.addEventListener('alpine:init', () => {
     if (type === 'pan') {
         const validText = this.panVal && this.panVal.length === 10;
         const validFile = hasFile('pan_file', '{{ req.pan_file_path or "" }}');
-        isValid = validText && validFile;
-    } 
+        
+        // 👇 NEW: Check for Individual PAN (4th char is 'P')
+        let validAadhaar = true;
+        if (this.panVal && this.panVal.length >= 4 && this.panVal[3].toUpperCase() === 'P') {
+             // If 'P', Aadhaar MUST be present and 12 digits
+             validAadhaar = this.aadhaarVal && this.aadhaarVal.length === 12;
+        }
+
+        // Only valid if Text + File + Aadhaar (if applicable) are correct
+        isValid = validText && validFile && validAadhaar;
+    }
     else if (type === 'gst') {
         const validText = this.gstNo && this.gstNo.length === 15;
         const validFile = hasFile('gst_file', '{{ req.gst_file_path or "" }}');
@@ -946,6 +809,7 @@ resetSection(type) {
             Next &rarr;
         </button>
     </div>
+    </div>
 </div>
 
             <div id="step_2" class="step-panel p-8" :class="{ 'active': step === 2 }">
@@ -1050,10 +914,11 @@ resetSection(type) {
                             Aadhaar Number <span class="text-red-500">*</span> 
                             <span class="text-[10px] font-normal text-gray-500">(Required for Individual PAN Verification)</span>
                         </label>
-                        <input type="text" name="aadhaar_no" x-model="aadhaarVal" class="std-input tracking-widest" 
-                               maxlength="12" placeholder="Enter 12 Digit Aadhaar" pattern="[0-9]{12}" 
-                               oninput="this.value = this.value.replace(/[^0-9]/g, ''); checkVerifyBtn('pan'); markUnverified('pan')"
-                               value="{{ form.aadhaar_no.data or req.aadhaar_number or '' }}">
+                        <input type="text" name="aadhaar_no" x-model="aadhaarVal" 
+       class="std-input tracking-widest" 
+       maxlength="12" placeholder="Enter 12 Digit Aadhaar" pattern="[0-9]{12}" 
+       oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+       value="{{ form.aadhaar_no.data or req.aadhaar_number or '' }}">
                      </div>
                 </div>
                 <div id="result-pan" class="md:col-span-2 result-box"></div>

@@ -396,18 +396,17 @@
 
 
 
-
-
-
 import uuid
 import base64
 import os
 import boto3
 import requests
 import logging
+import json
 from urllib.parse import urlparse
 from flask import current_app
 from flask_mail import Message
+from botocore.client import Config
 
 # Extensions & Models
 from app.extensions import celery, mail, db
@@ -420,51 +419,45 @@ from app.external.idfy import run_task, poll_task
 logger = logging.getLogger(__name__)
 
 # ====================================================
-# 1. HELPER: File Reader (Safe for S3 & Local)
+# 1. HELPER: File Reader (Robust)
 # ====================================================
 def file_to_base64(file_path):
-    if not file_path or not isinstance(file_path, str):
-        return None
-
+    if not file_path: return None
     use_s3 = current_app.config.get('USE_S3')
     
-    if use_s3:
-        try:
+    try:
+        if use_s3:
             key = file_path
-            if key.startswith("http"):
-                key = urlparse(key).path.lstrip("/")
-            elif key.startswith("s3://"):
-                key = key.split("/", 3)[-1]
+            if key.startswith("http"): key = urlparse(key).path.lstrip("/")
+            elif key.startswith("s3://"): key = key.split("/", 3)[-1]
 
+            region = current_app.config.get('AWS_REGION')
             s3 = boto3.client(
                 's3',
                 aws_access_key_id=current_app.config.get('AWS_ACCESS_KEY_ID'),
                 aws_secret_access_key=current_app.config.get('AWS_SECRET_ACCESS_KEY'),
-                region_name=current_app.config.get('AWS_REGION')
+                region_name=region,
+                endpoint_url=f'https://s3.{region}.amazonaws.com',
+                config=Config(signature_version='s3v4')
             )
             response = s3.get_object(Bucket=current_app.config.get('S3_BUCKET_NAME'), Key=key)
             return base64.b64encode(response['Body'].read()).decode("utf-8")
-        except Exception as e:
-            logger.error(f"❌ S3 Read Error: {e}")
-            return None
 
-    full_path = os.path.join(current_app.root_path, "static", "uploads", file_path)
-    if not os.path.exists(full_path):
-        if os.path.exists(file_path): 
-            full_path = file_path
-        else: 
-            return None
-        
-    try:
+        # Local Logic
+        full_path = os.path.join(current_app.root_path, "static", "uploads", file_path)
+        if not os.path.exists(full_path):
+            if os.path.exists(file_path): full_path = file_path
+            else: return None
+            
         with open(full_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
+
     except Exception as e:
-        logger.error(f"❌ Local Read Error: {e}")
+        logger.error(f"❌ Read Error: {e}")
         return None
 
-
 # ====================================================
-# 2. AUDIT LOG HELPER (Internal)
+# 2. AUDIT LOG HELPER
 # ====================================================
 def _internal_audit_log(req_id, vtype, status, input_payload, response):
     try:
@@ -476,14 +469,12 @@ def _internal_audit_log(req_id, vtype, status, input_payload, response):
             api_response=response
         )
         db.session.add(log_entry)
-        # Flush to generate ID, commit happens in main task
         db.session.flush()
     except Exception as e:
         logger.error(f"❌ Audit Log Error: {e}")
 
-
 # ====================================================
-# 3. VERIFICATION TASK (FINAL)
+# 3. VERIFICATION TASK (SUPER PAYLOAD FIX)
 # ====================================================
 @celery.task(bind=True, name="app.tasks.verify_document_async")
 def verify_document_async(self, vendor_req_id, doc_type, data):
@@ -501,117 +492,170 @@ def verify_document_async(self, vendor_req_id, doc_type, data):
             # =========================================================
             # A. PAN VERIFICATION
             # =========================================================
+            # =========================================================
+# A. PAN VERIFICATION + PAN–AADHAAR LINKING (FINAL, CORRECT)
+# =========================================================
             if doc_type == "PAN":
                 pan = data.get("pan_number", "").strip().upper()
                 pan_file_path = data.get("pan_file_path")
-                
-                # 1. OCR Extraction
-                if not pan_file_path: raise ValueError("PAN File Path missing")
-                b64_doc = file_to_base64(pan_file_path)
-                
-                ocr_headers = {
-                    "Content-Type": "application/json", 
-                    "api-key": app.config["IDFY_API_KEY"], 
-                    "account-id": app.config["IDFY_ACCOUNT_ID"]
-                }
-                ocr_payload = {
-                    "task_id": str(uuid.uuid4()), 
-                    "group_id": f"VR_{req.id}", 
-                    "data": {"document1": b64_doc}
-                }
-                
-                ocr_res = requests.post("https://eve.idfy.com/v3/tasks/async/extract/ind_pan", headers=ocr_headers, json=ocr_payload, timeout=30)
-                ocr_res.raise_for_status()
-                
-                ocr_data = poll_task(ocr_res.json()["request_id"])
-                ocr_out = ocr_data.get("result", {}).get("extraction_output", {})
-                
-                # 2. Verification
-                v_req_id = run_task("ind_pan", { 
-                    "task_id": str(uuid.uuid4()), 
-                    "group_id": f"VR_{req.id}", 
-                    "data": { 
-                        "id_number": pan, 
-                        "full_name": ocr_out.get("name_on_card"), 
-                        "dob": ocr_out.get("date_of_birth"),
-                        "get_contact_details": False 
-                    } 
-                })
-                
-                api_resp = poll_task(v_req_id)
-                src = api_resp.get("result", {}).get("source_output", {})
-                
-                is_valid = (api_resp.get("status") == "completed") and (src.get("status") == "id_found")
 
-                # DB UPDATE
+                # ---------- 1. OCR ----------
+                if not pan_file_path:
+                    return {"valid": False, "error": "PAN File Path missing"}
+
+                b64_doc = file_to_base64(pan_file_path)
+                if not b64_doc:
+                    return {"valid": False, "details": {"pan": {"status_text": "Failed to read PAN file"}}}
+
+                ocr_headers = {
+                    "Content-Type": "application/json",
+                    "api-key": app.config["IDFY_API_KEY"],
+                    "account-id": app.config["IDFY_ACCOUNT_ID"],
+                }
+
+                ocr_payload = {
+                    "task_id": str(uuid.uuid4()),
+                    "group_id": f"VR_{req.id}",
+                    "data": {"document1": b64_doc},
+                }
+
+                ocr_res = requests.post(
+                    "https://eve.idfy.com/v3/tasks/async/extract/ind_pan",
+                    headers=ocr_headers,
+                    json=ocr_payload,
+                    timeout=30,
+                )
+                ocr_res.raise_for_status()
+
+                ocr_data = poll_task(ocr_res.json()["request_id"])
+                if isinstance(ocr_data, list):
+                    ocr_data = ocr_data[0]
+
+                ocr_out = ocr_data.get("result", {}).get("extraction_output", {})
+
+                # ---------- 2. PAN VALIDITY (ind_pan) ----------
+                pan_task_id = run_task(
+                    "ind_pan",
+                    {
+                        "task_id": str(uuid.uuid4()),
+                        "group_id": f"VR_{req.id}",
+                        "data": {
+                            "id_number": pan,
+                            "full_name": ocr_out.get("name_on_card"),
+                            "dob": ocr_out.get("date_of_birth"),
+                            "get_contact_details": False,
+                        },
+                    },
+                )
+
+                api_resp = poll_task(pan_task_id)
+                if isinstance(api_resp, list):
+                    api_resp = api_resp[0]
+
+                src = api_resp.get("result", {}).get("source_output", {})
+
+                is_valid = (
+                    api_resp.get("status") == "completed"
+                    and src.get("status") == "id_found"
+                )
+
+                # ---------- 3. PAN–AADHAAR LINKING (ONLY SOURCE OF TRUTH) ----------
+                linking_status = "NOT CHECKED"
+
+                raw_aadhaar = str(data.get("aadhaar_number", ""))
+                aadhaar_clean = "".join(filter(str.isdigit, raw_aadhaar))
+
+                if is_valid and len(aadhaar_clean) == 12:
+                    link_task_id = run_task(
+                        "pan_aadhaar_link",
+                        {
+                            "task_id": str(uuid.uuid4()),
+                            "group_id": f"VR_{req.id}",
+                            "data": {
+                                "pan_number": pan,
+                                "aadhaar_number": aadhaar_clean,
+                            },
+                        },
+                    )
+
+                    link_resp = poll_task(link_task_id)
+                    if isinstance(link_resp, list):
+                        link_resp = link_resp[0]
+
+                    # 🔒 ABSOLUTE RULE:
+                    # LINKED ONLY IF status == completed
+                    if link_resp.get("status") == "completed":
+                        linking_status = "LINKED"
+                    else:
+                        linking_status = "NOT LINKED"
+
+                elif raw_aadhaar:
+                    linking_status = "INVALID AADHAAR FORMAT"
+
+                # ---------- 4. DB UPDATE ----------
                 if is_valid:
                     req.is_pan_verified = True
                     req.pan_number = pan
-                    if pan_file_path: req.pan_file_path = pan_file_path
-                    
-                    aadhaar_input = data.get("aadhaar_number", "").strip()
-                    if aadhaar_input: req.aadhaar_number = aadhaar_input
+                    if pan_file_path:
+                        req.pan_file_path = pan_file_path
 
-                # FRONTEND RESPONSE
-                seeding = src.get("aadhaar_seeding_status")
-                seeding_txt = "LINKED" if seeding is True else ("NOT LINKED" if seeding is False else "Unknown")
+                    if linking_status == "LINKED":
+                        req.aadhaar_number = aadhaar_clean
 
+                # ---------- 5. RESPONSE ----------
                 result = {
                     "valid": is_valid,
                     "details": {
                         "pan": {
                             "status_text": src.get("pan_status") or src.get("status"),
-                            "ocr_name": ocr_out.get("name_on_card") or "N/A", 
+                            "ocr_name": ocr_out.get("name_on_card") or "N/A",
                             "full_name": src.get("full_name") or src.get("name_match_score"),
-                            "aadhaar_seeding": seeding_txt
+                            "aadhaar_linking": linking_status,
                         }
-                    }
+                    },
                 }
-                _internal_audit_log(req.id, "PAN", "SUCCESS" if is_valid else "FAILED", data, api_resp)
+
+                _internal_audit_log(
+                    req.id,
+                    "PAN",
+                    "SUCCESS" if is_valid else "FAILED",
+                    data,
+                    api_resp,
+                )
 
             # =========================================================
-            # B. GST VERIFICATION (ALL FIELDS)
+            # B. GST VERIFICATION
             # =========================================================
             elif doc_type == "GST":
                 gst = data.get("gst_number", "").strip().upper()
                 gst_file_path = data.get("gst_file_path")
 
-                # 1. API CALL
                 t_id = run_task("ind_gst_certificate", {
-                    "task_id": str(uuid.uuid4()), 
-                    "group_id": f"VR_{req.id}",
+                    "task_id": str(uuid.uuid4()), "group_id": f"VR_{req.id}",
                     "data": { "gstin": gst, "filing_details": True }
                 })
                 api_resp = poll_task(t_id)
-                
-                # 2. GET FRESH DATA
+                if isinstance(api_resp, list): api_resp = api_resp[0]
                 src = api_resp.get("result", {}).get("source_output", {})
                 
                 is_valid = (api_resp.get("status") == "completed") and (src.get("gstin_status") == "Active")
                 
-                # 3. DB UPDATE
                 if is_valid:
                     req.is_gst_verified = True
                     req.gst_number = gst
                     req.gst_registered = "YES"
                     if gst_file_path: req.gst_file_path = gst_file_path
-                    
-                    # Try to save details if DB columns exist (Fail silently if they don't)
                     try:
                         req.gst_legal_name = src.get("legal_name")
                         req.gst_trade_name = src.get("trade_name")
-                    except:
-                        pass
-
-                # 4. FRONTEND RESPONSE (ALL FIELDS FROM API)
+                    except: pass
+                
                 filing_source = src.get("filing_details") or src.get("filing_status")
                 filing_txt = "N/A"
                 if filing_source:
                     gstr3b = filing_source.get("gstr3b", [])
-                    try:
-                        gstr3b.sort(key=lambda x: x.get('date_of_filing', ''), reverse=True)
-                    except:
-                        pass
+                    try: gstr3b.sort(key=lambda x: x.get('date_of_filing', ''), reverse=True)
+                    except: pass
                     recent = gstr3b[:6] 
                     filed_count = sum(1 for f in recent if f.get("status") == "Filed")
                     filing_txt = f"{filed_count}/{len(recent)} Filed"
@@ -620,17 +664,12 @@ def verify_document_async(self, vendor_req_id, doc_type, data):
                     "valid": is_valid,
                     "details": {
                         "gst": {
-                            "gstin_status": src.get("gstin_status"),
+                            "gstin_status": src.get("gstin_status") or "Inactive",
                             "legal_name": src.get("legal_name"),
                             "trade_name": src.get("trade_name"),
                             "registration_date": src.get("date_of_registration"),
-                            "taxpayer_type": src.get("taxpayer_type"),
-                            "constitution": src.get("constitution_of_business"),
-                            "nature_of_business": src.get("nature_of_business_activity"),
-                            "jurisdiction_state": src.get("state_jurisdiction"),
-                            "jurisdiction_center": src.get("center_jurisdiction"),
-                            "filing_status": filing_txt,
-                            "address": src.get("principal_place_of_business")
+                            "taxpayer_type": src.get("taxpayer_type"), 
+                            "filing_status": filing_txt
                         }
                     }
                 }
@@ -644,44 +683,27 @@ def verify_document_async(self, vendor_req_id, doc_type, data):
                 msme_file_path = data.get("msme_file_path")
                 
                 t_id = run_task("udyam_aadhaar", {
-                    "task_id": str(uuid.uuid4()), 
-                    "group_id": f"VR_{req.id}", 
-                    "data": { "uam_number": msme }
+                    "task_id": str(uuid.uuid4()), "group_id": f"VR_{req.id}", "data": { "uam_number": msme }
                 })
                 api_resp = poll_task(t_id)
+                if isinstance(api_resp, list): api_resp = api_resp[0]
                 src = api_resp.get("result", {}).get("source_output", {})
                 gen_details = src.get("general_details", {})
                 
                 is_valid = (api_resp.get("status") == "completed") and (src.get("status") == "id_found")
                 
-                # NORMALIZE TYPE
                 raw_type = gen_details.get("enterprise_type")
                 api_msme_type = None
-                if isinstance(raw_type, list) and len(raw_type) > 0:
-                    api_msme_type = raw_type[0].get("name")
-                elif isinstance(raw_type, dict):
-                    api_msme_type = raw_type.get("name")
-                elif isinstance(raw_type, str):
-                    api_msme_type = raw_type
+                if isinstance(raw_type, list) and len(raw_type) > 0: api_msme_type = raw_type[0].get("name")
+                elif isinstance(raw_type, dict): api_msme_type = raw_type.get("name")
+                elif isinstance(raw_type, str): api_msme_type = raw_type
 
                 if is_valid:
                     req.is_msme_verified = True
                     req.msme_number = msme
                     req.msme_registered = "YES"
                     if msme_file_path: req.msme_file_path = msme_file_path
-
-
-                    if data.get("msme_type"):
-                        req.msme_type = data["msme_type"]
-
-
-                    print("✅ MSME TYPE SAVED:", req.msme_type)
-
-                    
-                    # if api_msme_type:
-                    #     req.msme_type = str(api_msme_type).capitalize()
-                    # else:
-                    #     req.msme_type = data.get("msme_type", "Micro")
+                    if data.get("msme_type"): req.msme_type = data["msme_type"]
 
                 result = {
                     "valid": is_valid,
@@ -704,11 +726,11 @@ def verify_document_async(self, vendor_req_id, doc_type, data):
                 bank_proof_path = data.get("bank_proof_file_path")
 
                 t_id = run_task("validate_bank_account", {
-                    "task_id": str(uuid.uuid4()), 
-                    "group_id": f"VR_{req.id}", 
+                    "task_id": str(uuid.uuid4()), "group_id": f"VR_{req.id}", 
                     "data": { "bank_account_no": acc, "bank_ifsc_code": ifsc, "nf_verification": False }
                 })
                 api_resp = poll_task(t_id)
+                if isinstance(api_resp, list): api_resp = api_resp[0]
                 src = api_resp.get("result", {})
                 
                 raw_exists = src.get("account_exists")
@@ -746,10 +768,8 @@ def verify_document_async(self, vendor_req_id, doc_type, data):
 def send_async_email(self, subject, recipient, body, is_html=True):
     try:
         msg = Message(subject, recipients=[recipient])
-        if is_html:
-            msg.html = body
-        else:
-            msg.body = body
+        if is_html: msg.html = body
+        else: msg.body = body
         mail.send(msg)
         return f"Email sent to {recipient}"
     except Exception as e:

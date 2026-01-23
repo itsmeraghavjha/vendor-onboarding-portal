@@ -429,6 +429,7 @@ def review_request(req_id):
         flash("Request approved successfully.", "success")
         return redirect(url_for('main.dashboard'))
     
+    
     # --- RENDER TEMPLATE ---
     return render_template('main/review.html', req=req, pending_email=pending_email, is_my_turn=is_my_turn, stage_name=stage_name,
                            acc_groups=acc_groups, pay_terms=pay_terms, purch_orgs=purch_orgs, incoterms=incoterms,
